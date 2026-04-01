@@ -302,7 +302,7 @@ export default function HistoricalData() {
       </div>
 
       {/* Global Stats Bar */}
-      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
         {[
           { label: 'Total Trades', value: globalStats.total, color: 'text-nx-text-strong' },
           { label: 'Win Rate', value: `${globalStats.winRate}%`, color: globalStats.winRate >= 60 ? 'text-nx-green' : 'text-nx-orange' },

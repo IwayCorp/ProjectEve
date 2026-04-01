@@ -60,7 +60,7 @@ export default function AIAssistant() {
           <div
             key={cap.id}
             onClick={() => setSelectedCap(selectedCap?.id === cap.id ? null : cap)}
-            className={`nx-card p-3.5 cursor-pointer group transition-all duration-300 hover:border-nx-accent/20 text-center ${
+            className={`nx-card p-3.5 cursor-pointer group transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-nx-accent/20 hover:scale-[1.01] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] text-center ${
               selectedCap?.id === cap.id ? 'border-nx-accent/30 ring-1 ring-nx-accent/10' : ''
             }`}
           >

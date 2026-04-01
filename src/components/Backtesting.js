@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Area, Line, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { CHART_AXIS, CHART_YAXIS, CHART_GRID, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
 
 // Generate realistic backtest equity curve data
 function generateEquityCurve(months = 12) {
@@ -83,7 +84,7 @@ function StatBar({ stats }) {
   ]
 
   return (
-    <div className="grid grid-cols-4 md:grid-cols-8 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
       {items.map((item, i) => (
         <div key={i} className="p-3 text-center" style={{ borderRight: i < items.length - 1 ? '1px solid rgba(255, 255, 255, 0.04)' : 'none' }}>
           <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{item.label}</div>
@@ -166,13 +167,13 @@ export default function Backtesting() {
         <div className="h-[360px] p-4">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={equityCurve}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} interval={Math.floor(equityCurve.length / 12)} />
+              <CartesianGrid {...CHART_GRID} />
+              <XAxis dataKey="date" {...CHART_AXIS} interval={Math.floor(equityCurve.length / 12)} />
               <Tooltip content={<CustomTooltip />} />
 
               {chartView === 'equity' && (
                 <>
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} width={70} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
+                  <YAxis {...CHART_YAXIS} width={70} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                   <defs>
                     <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#5b8dee" stopOpacity={0.2} />
@@ -186,7 +187,7 @@ export default function Backtesting() {
 
               {chartView === 'drawdown' && (
                 <>
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} width={50} tickFormatter={v => `${v}%`} />
+                  <YAxis {...CHART_YAXIS} width={50} tickFormatter={v => `${v}%`} />
                   <defs>
                     <linearGradient id="ddFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#f87171" stopOpacity={0.01} />
@@ -200,7 +201,7 @@ export default function Backtesting() {
 
               {chartView === 'benchmark' && (
                 <>
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} width={70} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
+                  <YAxis {...CHART_YAXIS} width={70} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
                   <defs>
                     <linearGradient id="stratFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#5b8dee" stopOpacity={0.15} />
@@ -256,8 +257,8 @@ export default function Backtesting() {
                 {h.direction}
               </span>
               <span className="text-xs font-mono text-nx-text-muted">{h.qty.toLocaleString()}</span>
-              <span className="text-xs font-mono text-nx-text">{h.entry}</span>
-              <span className="text-xs font-mono text-nx-text">{h.exit}</span>
+              <span className="text-xs font-mono text-nx-text">{typeof h.entry === 'number' ? h.entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : h.entry}</span>
+              <span className="text-xs font-mono text-nx-text">{typeof h.exit === 'number' ? h.exit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : h.exit}</span>
               <span className={`text-xs font-bold font-mono text-right ${h.pnl >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>{h.pnl >= 0 ? '+' : ''}${h.pnl.toFixed(2)}</span>
               <span className={`text-xs font-bold font-mono text-right ${h.pnlPct >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>{h.pnlPct >= 0 ? '+' : ''}{h.pnlPct}%</span>
             </div>

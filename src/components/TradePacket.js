@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Area } from 'recharts'
 import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
 import { calcRR } from '@/lib/tradeIdeas'
+import { CHART_AXIS, CHART_YAXIS, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
 
 // Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
 function getDefaultTimeframe(tradeTimeframe) {
@@ -325,11 +326,10 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   <div className="nx-card p-4" style={{ height: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={prediction.path}>
-                        <XAxis dataKey="time" tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} interval={Math.floor(prediction.path.length / 8)} />
-                        <YAxis domain={['auto', 'auto']} tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={false} width={65} />
+                        <XAxis dataKey="time" {...CHART_AXIS} interval={Math.floor(prediction.path.length / 8)} />
+                        <YAxis domain={['auto', 'auto']} {...CHART_YAXIS} />
                         <Tooltip
-                          contentStyle={{ backgroundColor: 'rgba(15, 21, 32, 0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }}
-                          labelStyle={{ color: '#6b7280' }}
+                          {...CHART_TOOLTIP_STYLE}
                           formatter={(val) => [`$${val.toFixed(2)}`, 'Predicted']}
                         />
                         {/* Confidence bands */}

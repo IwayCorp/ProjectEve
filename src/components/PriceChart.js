@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { CHART_AXIS, CHART_YAXIS, CHART_GRID } from '@/lib/chartConfig'
 
 export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
   const [candles, setCandles] = useState([])
@@ -79,26 +80,30 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
 
       <div className="h-[340px] p-4">
         {loading ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
+          <div className="h-full flex flex-col gap-3 pt-2">
+            <div className="flex justify-between items-center">
+              <div className="h-3 w-20 nx-shimmer rounded" />
+              <div className="h-3 w-16 nx-shimmer rounded" />
+            </div>
+            <div className="flex-1 nx-shimmer rounded-lg" />
+            <div className="flex justify-between">
+              <div className="h-2 w-12 nx-shimmer rounded" />
+              <div className="h-2 w-12 nx-shimmer rounded" />
+              <div className="h-2 w-12 nx-shimmer rounded" />
+            </div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={candles}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid {...CHART_GRID} />
               <XAxis
                 dataKey={range === '1d' || range === '5d' ? 'time_label' : 'date'}
-                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+                {...CHART_AXIS}
                 interval="preserveStartEnd"
               />
               <YAxis
                 domain={['auto', 'auto']}
-                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }}
-                tickLine={false}
-                axisLine={false}
-                width={65}
+                {...CHART_YAXIS}
                 tickFormatter={v => v.toLocaleString()}
               />
               <Tooltip content={<CustomTooltip />} />

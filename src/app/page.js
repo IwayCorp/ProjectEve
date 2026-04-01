@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 import TickerBar from '@/components/TickerBar'
 import MarketOverview from '@/components/MarketOverview'
@@ -48,6 +48,14 @@ const TABS = [
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [chartSymbol, setChartSymbol] = useState({ symbol: '^GSPC', title: 'S&P 500' })
+  const tabRefs = useRef({})
+
+  const handleTabClick = useCallback((tabId) => {
+    setActiveTab(tabId)
+    requestAnimationFrame(() => {
+      tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    })
+  }, [])
 
   const allSymbols = useMemo(() => {
     const syms = getAllSymbols()
@@ -99,7 +107,11 @@ export default function Dashboard() {
                 {TABS.map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    ref={el => tabRefs.current[tab.id] = el}
+                    onClick={() => handleTabClick(tab.id)}
+                    aria-label={`${tab.label} tab`}
+                    aria-selected={activeTab === tab.id}
+                    role="tab"
                     className={`nx-tab whitespace-nowrap ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
                   >
                     {tab.label}
