@@ -45,15 +45,21 @@ export default function MarketOverview({ quotes }) {
       { label: 'S&P 500', sym: '^GSPC', type: 'index' },
       { label: 'Nasdaq', sym: '^IXIC', type: 'index' },
       { label: 'Dow Jones', sym: '^DJI', type: 'index' },
+      { label: 'Russell 2000', sym: '^RUT', type: 'index' },
       { label: 'VIX', sym: '^VIX', type: 'index' },
+      { label: 'Bitcoin', sym: 'BTC-USD', type: 'stock' },
     ]},
     { title: 'Bonds & Rates', items: [
+      { label: '3-Mo T-Bill', sym: '^IRX', type: 'yield' },
       { label: 'US 10Y Yield', sym: '^TNX', type: 'yield' },
       { label: 'US 30Y Yield', sym: '^TYX', type: 'yield' },
+      { label: 'TLT (20Y+ Bond)', sym: 'TLT', type: 'stock' },
     ]},
     { title: 'Commodities', items: [
       { label: 'Gold', sym: 'GC=F', type: 'stock' },
+      { label: 'Silver', sym: 'SI=F', type: 'stock' },
       { label: 'WTI Crude', sym: 'CL=F', type: 'stock' },
+      { label: 'Natural Gas', sym: 'NG=F', type: 'stock' },
     ]},
     { title: 'Forex', items: [
       { label: 'USD/JPY', sym: 'JPY=X', type: 'forex' },
@@ -70,7 +76,7 @@ export default function MarketOverview({ quotes }) {
           <h3 className="text-2xs font-semibold text-nx-text-hint uppercase tracking-[0.15em] mb-2.5 px-0.5">
             {group.title}
           </h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className={`grid grid-cols-2 gap-2.5 ${group.items.length > 4 ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
             {group.items.map(item => (
               <QuoteCard
                 key={item.sym}
