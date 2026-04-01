@@ -65,105 +65,120 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-nx-base">
-      <Header />
-      <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
+    <div className="min-h-screen bg-nx-base relative">
+      {/* Ambient background glow orbs */}
+      <div className="nx-ambient" />
 
-      {/* Tab navigation */}
-      <div className="border-b border-nx-border" style={{ background: 'rgba(10, 14, 23, 0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-        <div className="max-w-[1920px] mx-auto px-5">
-          <div className="flex items-center">
-            <div className="flex gap-0">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`nx-tab ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+      {/* Content layer */}
+      <div className="relative z-10">
+        <Header />
+        <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
 
-            {/* Live indicator */}
-            <div className="ml-auto flex items-center gap-2.5 text-2xs text-nx-text-muted">
-              <div className="relative">
-                <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
-                {!quotesLoading && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
+        {/* Tab navigation */}
+        <div style={{
+          background: 'linear-gradient(180deg, rgba(10, 14, 23, 0.7), rgba(10, 14, 23, 0.5))',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        }}>
+          <div className="max-w-[1920px] mx-auto px-5">
+            <div className="flex items-center">
+              <div className="flex gap-0">
+                {TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`nx-tab ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-              <span className="font-medium">{quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}</span>
+
+              {/* Live indicator */}
+              <div className="ml-auto flex items-center gap-2.5 text-2xs">
+                <div className="relative">
+                  <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
+                  {!quotesLoading && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
+                </div>
+                <span className="font-medium" style={{ color: '#94a3b8' }}>{quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <main className="max-w-[1920px] mx-auto p-4 space-y-4">
-        {activeTab === 'overview' && (
-          <>
-            <MarketOverview quotes={quotes} />
+        {/* Content */}
+        <main className="max-w-[1920px] mx-auto p-4 space-y-5">
+          {activeTab === 'overview' && (
+            <>
+              <MarketOverview quotes={quotes} />
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-              <div className="xl:col-span-2">
-                <div className="flex items-center gap-1 mb-2.5 flex-wrap p-0.5">
-                  {chartOptions.map(opt => (
-                    <button
-                      key={opt.symbol}
-                      onClick={() => setChartSymbol(opt)}
-                      className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
-                        chartSymbol.symbol === opt.symbol
-                          ? 'bg-nx-accent-muted text-nx-accent'
-                          : 'text-nx-text-muted hover:text-nx-text-strong hover:bg-nx-glass-hover'
-                      }`}
-                    >
-                      {opt.title}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <div className="xl:col-span-2">
+                  <div className="flex items-center gap-1 mb-3 flex-wrap p-0.5">
+                    {chartOptions.map(opt => (
+                      <button
+                        key={opt.symbol}
+                        onClick={() => setChartSymbol(opt)}
+                        className={`px-2.5 py-1.5 text-2xs rounded-lg font-semibold transition-all duration-200 ${
+                          chartSymbol.symbol === opt.symbol
+                            ? 'text-nx-accent border border-nx-accent/20'
+                            : 'hover:bg-nx-glass-hover'
+                        }`}
+                        style={chartSymbol.symbol === opt.symbol
+                          ? { background: 'rgba(91, 141, 238, 0.12)', boxShadow: '0 0 12px rgba(91, 141, 238, 0.08)' }
+                          : { color: '#94a3b8' }
+                        }
+                      >
+                        {opt.title}
+                      </button>
+                    ))}
+                  </div>
+                  <PriceChart symbol={chartSymbol.symbol} title={chartSymbol.title} />
                 </div>
-                <PriceChart symbol={chartSymbol.symbol} title={chartSymbol.title} />
+                <div>
+                  <SectorHeatmap quotes={quotes} />
+                </div>
               </div>
-              <div>
-                <SectorHeatmap quotes={quotes} />
-              </div>
-            </div>
 
+              <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
+              <RiskCalendar />
+              <ScenarioAnalysis />
+            </>
+          )}
+
+          {activeTab === 'trades' && (
+            <TradeIdeas quotes={quotes} />
+          )}
+
+          {activeTab === 'correlation' && (
             <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
-            <RiskCalendar />
-            <ScenarioAnalysis />
-          </>
-        )}
+          )}
 
-        {activeTab === 'trades' && (
-          <TradeIdeas quotes={quotes} />
-        )}
+          {activeTab === 'risk' && (
+            <>
+              <RiskCalendar />
+              <ScenarioAnalysis />
+            </>
+          )}
 
-        {activeTab === 'correlation' && (
-          <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
-        )}
+          {activeTab === 'history' && (
+            <HistoricalData />
+          )}
+        </main>
 
-        {activeTab === 'risk' && (
-          <>
-            <RiskCalendar />
-            <ScenarioAnalysis />
-          </>
-        )}
-
-        {activeTab === 'history' && (
-          <HistoricalData />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-nx-border py-4 mt-8">
-        <div className="max-w-[1920px] mx-auto px-5 flex items-center justify-between">
-          <p className="text-2xs text-nx-text-hint font-medium tracking-wide">
-            Noctis &middot; Quantitative Market Intelligence
-          </p>
-          <p className="text-2xs text-nx-text-hint">
-            For informational purposes only. Not financial advice.
-          </p>
-        </div>
-      </footer>
+        {/* Footer */}
+        <footer className="py-5 mt-8" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
+          <div className="max-w-[1920px] mx-auto px-5 flex items-center justify-between">
+            <p className="text-2xs font-medium tracking-wide" style={{ color: '#475569' }}>
+              Noctis &middot; Quantitative Market Intelligence
+            </p>
+            <p className="text-2xs" style={{ color: '#475569' }}>
+              For informational purposes only. Not financial advice.
+            </p>
+          </div>
+        </footer>
+      </div>
     </div>
   )
 }
