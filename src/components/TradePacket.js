@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Area } from 'recharts'
 import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
+import { calcRR } from '@/lib/tradeIdeas'
 
 // Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
 function getDefaultTimeframe(tradeTimeframe) {
@@ -89,12 +90,8 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
   ]
 
   const isLong = direction === 'long'
-  const rr = idea.stopLoss && idea.target && idea.entryHigh
-    ? (isLong
-      ? ((idea.target - idea.entryHigh) / (idea.entryHigh - idea.stopLoss))
-      : ((idea.entryLow - idea.target) / (idea.stopLoss - idea.entryLow))
-    ).toFixed(1)
-    : '--'
+  const avgEntry = idea.entryLow && idea.entryHigh ? (idea.entryLow + idea.entryHigh) / 2 : null
+  const rr = avgEntry ? calcRR(avgEntry, idea.target, idea.stopLoss, direction) : '--'
 
   const priceInZone = currentPrice >= idea.entryLow && currentPrice <= idea.entryHigh
   const alert = currentPrice

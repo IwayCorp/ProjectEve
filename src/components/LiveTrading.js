@@ -75,6 +75,8 @@ export default function LiveTrading() {
           <button
             key={v}
             onClick={() => setView(v)}
+            aria-label={`View ${v}`}
+            aria-pressed={view === v}
             className={`px-3 py-1.5 text-2xs rounded-lg font-semibold transition-all duration-200 capitalize ${
               view === v ? 'text-nx-accent border border-nx-accent/20' : 'text-nx-text-muted hover:text-nx-text-strong'
             }`}

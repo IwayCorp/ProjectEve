@@ -8,7 +8,8 @@ function generateEquityCurve(months = 12) {
   let equity = 100000
   let benchmark = 100000
   let peak = equity
-  const startDate = new Date(2025, 3, 1) // April 2025
+  const now = new Date()
+  const startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1)
 
   for (let i = 0; i < months * 21; i++) { // ~21 trading days per month
     const date = new Date(startDate.getTime() + i * 86400000 * 1.4) // skip weekends roughly
@@ -128,7 +129,7 @@ export default function Backtesting() {
             <div className="nx-accent-bar" />
             <h3>Backtesting Results</h3>
           </div>
-          <p className="text-xs text-nx-text-muted mt-1 ml-3">Strategy performance analysis over 12-month backtest period (Apr 2025 - Mar 2026).</p>
+          <p className="text-xs text-nx-text-muted mt-1 ml-3">Strategy performance analysis over rolling 12-month backtest period.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-2xs font-medium px-3 py-1.5 rounded-lg" style={{ background: 'rgba(52, 211, 153, 0.08)', border: '1px solid rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
@@ -146,6 +147,8 @@ export default function Backtesting() {
           <button
             key={view}
             onClick={() => setChartView(view)}
+            aria-label={`Show ${view} chart`}
+            aria-pressed={chartView === view}
             className={`px-3 py-1.5 text-2xs rounded-lg font-semibold transition-all duration-200 capitalize ${
               chartView === view
                 ? 'text-nx-accent border border-nx-accent/20'

@@ -279,7 +279,7 @@ export default function HistoricalData() {
             <h3>Performance Dashboard</h3>
           </div>
           <p className="text-xs text-nx-text-muted mt-1 ml-3">
-            {allTrades.length} trades across {sortedMonths.length} months — Jan 2026 to Mar 2026
+            {allTrades.length} trades across {sortedMonths.length} months
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -287,6 +287,8 @@ export default function HistoricalData() {
             <button
               key={f}
               onClick={() => setFilter(f)}
+              aria-label={`Filter by ${f}`}
+              aria-pressed={filter === f}
               className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 capitalize ${
                 filter === f
                   ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
@@ -344,9 +346,9 @@ export default function HistoricalData() {
           })}
         </div>
         <div className="flex justify-between mt-2 text-2xs text-nx-text-hint">
-          <span>Jan 2026</span>
+          <span>{equityCurve.length ? equityCurve[0].date : ''}</span>
           <span>Current: ${equityCurve.length ? equityCurve[equityCurve.length - 1].equity.toLocaleString() : '10,000'}</span>
-          <span>Mar 2026</span>
+          <span>{equityCurve.length ? equityCurve[equityCurve.length - 1].date : ''}</span>
         </div>
       </div>
 

@@ -133,6 +133,8 @@ export default function Optimization() {
               <button
                 key={m}
                 onClick={() => setSelectedMetric(m)}
+                aria-label={`Show ${m === 'sharpe' ? 'Sharpe ratio' : m === 'winRate' ? 'win rate' : 'net profit'} heatmap`}
+                aria-pressed={selectedMetric === m}
                 className={`px-2.5 py-1 text-2xs rounded-md font-semibold transition-all duration-200 ${
                   selectedMetric === m ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20' : 'text-nx-text-hint bg-nx-void/40 border border-nx-border'
                 }`}
