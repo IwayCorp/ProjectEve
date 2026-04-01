@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { useState, useEffect } from 'react'
+import { ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
   const [candles, setCandles] = useState([])
@@ -27,7 +27,6 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
           ...c,
           date: new Date(c.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           time_label: new Date(c.time * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          color: c.close >= c.open ? '#10b981' : '#ef4444',
         })))
         setLoading(false)
       })
@@ -38,31 +37,31 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
     if (!active || !payload?.length) return null
     const d = payload[0].payload
     return (
-      <div className="bg-eve-card border border-eve-border rounded-lg p-3 text-xs shadow-xl">
-        <div className="text-eve-muted mb-1">{d.date} {d.time_label}</div>
+      <div className="bg-tv-popup border border-tv-border rounded p-2.5 text-xs shadow-xl">
+        <div className="text-tv-text-muted mb-1.5">{d.date} {d.time_label}</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span className="text-eve-muted">Open</span><span className="text-white font-mono">{d.open?.toFixed(2)}</span>
-          <span className="text-eve-muted">High</span><span className="text-eve-green font-mono">{d.high?.toFixed(2)}</span>
-          <span className="text-eve-muted">Low</span><span className="text-eve-red font-mono">{d.low?.toFixed(2)}</span>
-          <span className="text-eve-muted">Close</span><span className="text-white font-bold font-mono">{d.close?.toFixed(2)}</span>
+          <span className="text-tv-text-muted">O</span><span className="text-tv-text-strong font-mono">{d.open?.toFixed(2)}</span>
+          <span className="text-tv-text-muted">H</span><span className="text-tv-green font-mono">{d.high?.toFixed(2)}</span>
+          <span className="text-tv-text-muted">L</span><span className="text-tv-red font-mono">{d.low?.toFixed(2)}</span>
+          <span className="text-tv-text-muted">C</span><span className="text-tv-text-strong font-bold font-mono">{d.close?.toFixed(2)}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-white">{title}</h3>
-        <div className="flex gap-1">
+    <div className="bg-tv-pane border border-tv-border rounded-md">
+      <div className="flex items-center justify-between p-3 border-b border-tv-border">
+        <h3 className="text-sm font-semibold text-tv-text-strong">{title}</h3>
+        <div className="flex gap-0.5">
           {ranges.map(r => (
             <button
               key={r.value}
               onClick={() => setRange(r.value)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`px-2 py-1 text-2xs rounded transition-colors ${
                 range === r.value
-                  ? 'bg-eve-accent text-white'
-                  : 'text-eve-muted hover:text-white hover:bg-eve-border'
+                  ? 'bg-tv-blue-muted text-tv-blue'
+                  : 'text-tv-text-muted hover:text-tv-text-strong hover:bg-white/5'
               }`}
             >
               {r.label}
@@ -71,50 +70,42 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
         </div>
       </div>
 
-      <div className="h-[300px]">
+      <div className="h-[320px] p-2">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-eve-accent border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-tv-blue border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={candles}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a2e39" />
               <XAxis
                 dataKey={range === '1d' || range === '5d' ? 'time_label' : 'date'}
-                tick={{ fontSize: 10, fill: '#6b7280' }}
+                tick={{ fontSize: 10, fill: '#787b86' }}
                 tickLine={false}
+                axisLine={{ stroke: '#2a2e39' }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 domain={['auto', 'auto']}
-                tick={{ fontSize: 10, fill: '#6b7280' }}
+                tick={{ fontSize: 10, fill: '#787b86' }}
                 tickLine={false}
                 axisLine={false}
+                width={65}
                 tickFormatter={v => v.toLocaleString()}
               />
               <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="close" fill="rgba(41, 98, 255, 0.06)" stroke="none" />
               <Line
                 type="monotone"
                 dataKey="close"
-                stroke="#3b82f6"
-                strokeWidth={2}
+                stroke="#2962FF"
+                strokeWidth={1.5}
                 dot={false}
-                activeDot={{ r: 4, fill: '#3b82f6' }}
+                activeDot={{ r: 3, fill: '#2962FF' }}
               />
-              <Bar
-                dataKey="volume"
-                fill="#1f2937"
-                opacity={0.3}
-                yAxisId="volume"
-              />
-              <YAxis
-                yAxisId="volume"
-                orientation="right"
-                tick={false}
-                axisLine={false}
-                domain={[0, d => d * 4]}
-              />
+              <Bar dataKey="volume" fill="rgba(41, 98, 255, 0.12)" yAxisId="volume" />
+              <YAxis yAxisId="volume" orientation="right" hide domain={[0, d => d * 5]} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

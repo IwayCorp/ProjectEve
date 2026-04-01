@@ -10,7 +10,7 @@ import TradeIdeas from '@/components/TradeIdeas'
 import RiskCalendar from '@/components/RiskCalendar'
 import ScenarioAnalysis from '@/components/ScenarioAnalysis'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
-import { getAllSymbols, SYMBOLS } from '@/lib/marketData'
+import { getAllSymbols } from '@/lib/marketData'
 
 const TICKER_SYMBOLS = {
   'SPX': '^GSPC',
@@ -21,13 +21,14 @@ const TICKER_SYMBOLS = {
   'Oil': 'CL=F',
   'USD/JPY': 'JPY=X',
   'DXY': 'DX-Y.NYB',
+  'BTC': 'BTC-USD',
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'trades', label: 'Trade Ideas' },
-  { id: 'correlation', label: 'Correlations' },
-  { id: 'risk', label: 'Risk Calendar' },
+  { id: 'overview', label: 'Overview', icon: '◐' },
+  { id: 'trades', label: 'Trade Ideas', icon: '◈' },
+  { id: 'correlation', label: 'Correlations', icon: '◉' },
+  { id: 'risk', label: 'Risk Calendar', icon: '◆' },
 ]
 
 export default function Dashboard() {
@@ -36,7 +37,10 @@ export default function Dashboard() {
 
   const allSymbols = useMemo(() => {
     const syms = getAllSymbols()
-    return Object.values(syms)
+    // Add forex pairs and crypto for trade idea quotes
+    const extra = ['EURUSD=X', 'GBPUSD=X', 'CHF=X', 'AUDUSD=X', 'MXN=X', 'EURGBP=X', 'NZDUSD=X', 'BTC-USD',
+      'LMT', 'JPM', 'UNH', 'BYND', 'DIS', 'NKE', 'COIN', 'ARKK', 'IWM', 'TLT', 'XLU', 'XLRE', 'FXI']
+    return [...new Set([...Object.values(syms), ...extra])]
   }, [])
 
   const { data: quotes, loading: quotesLoading } = useQuotes(allSymbols, 15000)
@@ -49,66 +53,71 @@ export default function Dashboard() {
     { symbol: '^VIX', title: 'VIX' },
     { symbol: 'GC=F', title: 'Gold' },
     { symbol: 'CL=F', title: 'WTI Crude' },
+    { symbol: 'BTC-USD', title: 'Bitcoin' },
     { symbol: 'MSFT', title: 'MSFT' },
     { symbol: 'AAPL', title: 'AAPL' },
+    { symbol: 'NVDA', title: 'NVDA' },
     { symbol: 'XOM', title: 'XOM' },
     { symbol: 'RTX', title: 'RTX' },
-    { symbol: 'CAT', title: 'CAT' },
-    { symbol: 'TSLA', title: 'TSLA' },
+    { symbol: 'JPY=X', title: 'USD/JPY' },
+    { symbol: 'EURUSD=X', title: 'EUR/USD' },
   ]
 
   return (
-    <div className="min-h-screen bg-eve-bg">
+    <div className="min-h-screen bg-tv-bg">
       <Header />
       <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
 
-      {/* Tab navigation */}
-      <div className="border-b border-eve-border bg-eve-card/50">
+      {/* Tab navigation — TradingView style */}
+      <div className="border-b border-tv-border bg-tv-toolbar">
         <div className="max-w-[1920px] mx-auto px-4">
-          <div className="flex gap-1">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === tab.id
-                    ? 'text-eve-accent'
-                    : 'text-eve-muted hover:text-white'
-                }`}
-              >
-                {tab.label}
-                {activeTab === tab.id && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-eve-accent" />
-                )}
-              </button>
-            ))}
+          <div className="flex items-center">
+            <div className="flex gap-0">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                    activeTab === tab.id
+                      ? 'text-tv-blue'
+                      : 'text-tv-text-muted hover:text-tv-text-strong'
+                  }`}
+                >
+                  <span className="text-xs">{tab.icon}</span>
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-tv-blue" />
+                  )}
+                </button>
+              ))}
+            </div>
 
-            {/* Last refresh indicator */}
-            <div className="ml-auto flex items-center gap-2 text-xs text-eve-muted">
-              <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-eve-orange animate-pulse' : 'bg-eve-green'}`} />
-              {quotesLoading ? 'Updating...' : 'Live (15s)'}
+            {/* Live indicator */}
+            <div className="ml-auto flex items-center gap-2 text-2xs text-tv-text-muted">
+              <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-tv-orange animate-pulse' : 'bg-tv-green'}`} />
+              {quotesLoading ? 'Refreshing...' : 'Live · 15s'}
             </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <main className="max-w-[1920px] mx-auto p-4 space-y-4">
+      <main className="max-w-[1920px] mx-auto p-3 space-y-3">
         {activeTab === 'overview' && (
           <>
             <MarketOverview quotes={quotes} />
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
               <div className="xl:col-span-2">
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <div className="flex items-center gap-1 mb-2 flex-wrap">
                   {chartOptions.map(opt => (
                     <button
                       key={opt.symbol}
                       onClick={() => setChartSymbol(opt)}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                      className={`px-2 py-1 text-2xs rounded transition-colors ${
                         chartSymbol.symbol === opt.symbol
-                          ? 'bg-eve-accent text-white'
-                          : 'text-eve-muted hover:text-white hover:bg-eve-border'
+                          ? 'bg-tv-blue-muted text-tv-blue'
+                          : 'text-tv-text-muted hover:text-tv-text-strong hover:bg-white/5'
                       }`}
                     >
                       {opt.title}
@@ -143,10 +152,10 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-eve-border py-4 mt-8">
+      <footer className="border-t border-tv-border py-3 mt-6">
         <div className="max-w-[1920px] mx-auto px-4 text-center">
-          <p className="text-xs text-eve-muted">
-            Project Eve | For informational purposes only. Not financial advice. All investments carry risk.
+          <p className="text-2xs text-tv-text-hint">
+            Project Eve · Quantitative Market Intelligence · For informational purposes only. Not financial advice.
           </p>
         </div>
       </footer>

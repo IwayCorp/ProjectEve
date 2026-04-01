@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Project Eve | Market Intelligence',
-  description: 'Real-time quantitative market analysis dashboard',
+  title: 'Project Eve | Quantitative Market Intelligence',
+  description: 'Real-time quantitative market analysis dashboard — TradingView-inspired',
 }
 
 export default function RootLayout({ children }) {

@@ -4,46 +4,79 @@
 
 @layer base {
   body {
-    @apply bg-eve-bg text-eve-text;
+    @apply bg-tv-bg text-tv-text;
+    font-size: 13px;
   }
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-eve-bg;
+    @apply bg-tv-bg;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-eve-border rounded-full;
+    @apply bg-tv-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-tv-border-light;
   }
 }
 
 @layer components {
-  .card {
-    @apply bg-eve-card border border-eve-border rounded-xl p-4;
+  .tv-card {
+    @apply bg-tv-pane border border-tv-border rounded-md;
+  }
+  .tv-btn {
+    @apply px-3 py-1.5 text-sm text-tv-text-muted rounded transition-all duration-150;
+  }
+  .tv-btn:hover {
+    @apply text-tv-text-strong bg-white/5;
+  }
+  .tv-btn-active {
+    @apply text-tv-blue bg-tv-blue-muted;
+  }
+  .tv-toolbar {
+    @apply flex items-center gap-1 px-2 py-1 bg-tv-toolbar border-b border-tv-border;
+  }
+  .tv-divider {
+    @apply w-px h-5 bg-tv-divider mx-1;
   }
   .badge-green {
-    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900/50 text-eve-green;
+    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-green-bg text-tv-green;
   }
   .badge-red {
-    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-red-900/50 text-eve-red;
+    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-red-bg text-tv-red;
   }
   .badge-orange {
-    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-amber-900/50 text-eve-orange;
+    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-orange-bg text-tv-orange;
   }
   .badge-blue {
-    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900/50 text-eve-accent;
+    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-blue-muted text-tv-blue;
+  }
+  .badge-purple {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-purple-bg text-tv-purple;
   }
   .glow-green {
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 15px rgba(38, 166, 154, 0.15);
   }
   .glow-red {
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+    box-shadow: 0 0 15px rgba(239, 83, 80, 0.15);
+  }
+  .glow-blue {
+    box-shadow: 0 0 15px rgba(41, 98, 255, 0.15);
   }
   .price-up {
-    @apply text-eve-green animate-ticker;
+    @apply text-tv-green animate-ticker;
   }
   .price-down {
-    @apply text-eve-red animate-ticker;
+    @apply text-tv-red animate-ticker;
   }
+
+  /* Strategy tag colors */
+  .strat-momentum { @apply bg-tv-blue-muted text-tv-blue; }
+  .strat-mean-reversion { @apply bg-tv-purple-bg text-tv-purple; }
+  .strat-breakout { @apply bg-tv-green-bg text-tv-green; }
+  .strat-carry { @apply bg-tv-orange-bg text-tv-orange; }
+  .strat-macro { @apply bg-tv-red-bg text-tv-red; }
+  .strat-relative-value { @apply bg-yellow-900/20 text-yellow-400; }
 }

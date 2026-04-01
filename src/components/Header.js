@@ -13,36 +13,36 @@ export default function Header() {
     const h = time.getUTCHours()
     const m = time.getUTCMinutes()
     const mins = h * 60 + m
-    // NYSE: 9:30 AM - 4:00 PM ET = 14:30 - 21:00 UTC
     return mins >= 14 * 60 + 30 && mins < 21 * 60
   }
 
   return (
-    <header className="border-b border-eve-border bg-eve-card/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-[1920px] mx-auto px-4 py-3 flex items-center justify-between">
+    <header className="border-b border-tv-border bg-tv-toolbar sticky top-0 z-50">
+      <div className="max-w-[1920px] mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-eve-accent to-eve-purple flex items-center justify-center">
+          <div className="w-7 h-7 rounded bg-tv-blue flex items-center justify-center">
             <span className="text-white font-bold text-sm">E</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Project Eve</h1>
-            <p className="text-xs text-eve-muted">Market Intelligence Dashboard</p>
+            <h1 className="text-md font-bold text-tv-text-strong tracking-tight">Project Eve</h1>
+            <p className="text-2xs text-tv-text-muted">Quantitative Market Intelligence</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${marketOpen() ? 'bg-eve-green animate-pulse' : 'bg-eve-red'}`} />
-            <span className="text-xs text-eve-muted">
-              {marketOpen() ? 'Markets Open' : 'Markets Closed'}
+            <div className={`w-1.5 h-1.5 rounded-full ${marketOpen() ? 'bg-tv-green animate-pulse' : 'bg-tv-red'}`} />
+            <span className="text-xs text-tv-text-muted">
+              {marketOpen() ? 'NYSE Open' : 'NYSE Closed'}
             </span>
           </div>
+          <div className="tv-divider" />
           <div className="text-right">
-            <div className="text-sm font-mono text-white">
+            <div className="text-sm font-mono text-tv-text-strong">
               {time.toLocaleTimeString('en-US', { hour12: true })}
             </div>
-            <div className="text-xs text-eve-muted">
-              {time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+            <div className="text-2xs text-tv-text-muted">
+              {time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </div>
           </div>
         </div>
