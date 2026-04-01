@@ -3,12 +3,31 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Area } from 'recharts'
 import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
 
+// Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
+function getDefaultTimeframe(tradeTimeframe) {
+  if (!tradeTimeframe) return '4d'
+  // Parse the first number from the timeframe string
+  const match = tradeTimeframe.match(/(\d+)/)
+  if (!match) return '4d'
+  const days = parseInt(match[1])
+  // For ranges like "5-14 days", use the midpoint
+  const rangeMatch = tradeTimeframe.match(/(\d+)\s*-\s*(\d+)/)
+  const midDays = rangeMatch ? Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2) : days
+  // Map to closest TIMEFRAMES id
+  if (midDays <= 1) return '1d'
+  if (midDays <= 3) return '4d'
+  if (midDays <= 6) return '1w'
+  if (midDays <= 12) return '2w'
+  if (midDays <= 21) return '2w'
+  return '1mo'
+}
+
 export default function TradePacket({ idea, direction, onClose, currentPrice }) {
   const [chartData, setChartData] = useState([])
   const [chartRange, setChartRange] = useState('3M')
   const [chartLoading, setChartLoading] = useState(true)
   const [activeSection, setActiveSection] = useState('overview')
-  const [selectedTimeframe, setSelectedTimeframe] = useState('4d')
+  const [selectedTimeframe, setSelectedTimeframe] = useState(() => getDefaultTimeframe(idea.timeframe))
   const dp = idea.dataPacket
 
   // Generate prediction based on selected timeframe
@@ -212,6 +231,11 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
               {/* Timeframe Selector */}
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <span className="text-xs text-nx-text-muted font-medium">Position Length:</span>
+                {idea.timeframe && (
+                  <span className="text-2xs px-2 py-1 rounded-md font-semibold bg-nx-accent-muted text-nx-accent border border-nx-accent/20">
+                    Rec: {idea.timeframe}
+                  </span>
+                )}
                 <div className="flex gap-1 p-0.5 rounded-lg bg-nx-void/40">
                   {TIMEFRAMES.map(tf => (
                     <button
@@ -231,8 +255,42 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
 
               {prediction && (
                 <div className="space-y-4">
+                  {/* Timeframe alignment indicator */}
+                  {prediction.timeframeAlignment && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-2xs font-medium ${
+                      prediction.timeframeAlignment === 'optimal'
+                        ? 'text-nx-green'
+                        : prediction.timeframeAlignment === 'acceptable'
+                        ? 'text-nx-orange'
+                        : 'text-nx-red'
+                    }`} style={{
+                      background: prediction.timeframeAlignment === 'optimal'
+                        ? 'rgba(52, 211, 153, 0.06)'
+                        : prediction.timeframeAlignment === 'acceptable'
+                        ? 'rgba(251, 191, 36, 0.06)'
+                        : 'rgba(248, 113, 113, 0.06)',
+                      border: `1px solid ${
+                        prediction.timeframeAlignment === 'optimal'
+                          ? 'rgba(52, 211, 153, 0.15)'
+                          : prediction.timeframeAlignment === 'acceptable'
+                          ? 'rgba(251, 191, 36, 0.15)'
+                          : 'rgba(248, 113, 113, 0.15)'
+                      }`,
+                    }}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        prediction.timeframeAlignment === 'optimal' ? 'bg-nx-green' : prediction.timeframeAlignment === 'acceptable' ? 'bg-nx-orange' : 'bg-nx-red'
+                      }`} />
+                      {prediction.timeframeAlignment === 'optimal'
+                        ? `Optimal timeframe for ${idea.strategy?.replace('-', ' ')} strategy — ${prediction.captureRate}% move capture`
+                        : prediction.timeframeAlignment === 'acceptable'
+                        ? `Acceptable timeframe — ${prediction.captureRate}% move capture. Recommended: ${idea.timeframe}`
+                        : `Misaligned timeframe — only ${prediction.captureRate}% move capture. Recommended: ${idea.timeframe}`
+                      }
+                    </div>
+                  )}
+
                   {/* Prediction Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
                     <div className="glass-solid p-3">
                       <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Confidence</div>
                       <div className={`text-lg font-bold font-mono mt-1 ${prediction.confidence >= 65 ? 'text-nx-green' : prediction.confidence >= 50 ? 'text-nx-orange' : 'text-nx-red'}`}>{prediction.confidence}%</div>
@@ -240,6 +298,10 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                     <div className="glass-solid p-3">
                       <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Expected Return</div>
                       <div className={`text-lg font-bold font-mono mt-1 ${prediction.expectedReturn > 0 ? 'text-nx-green' : 'text-nx-red'}`}>{prediction.expectedReturn > 0 ? '+' : ''}{prediction.expectedReturn}%</div>
+                    </div>
+                    <div className="glass-solid p-3">
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Move Capture</div>
+                      <div className={`text-lg font-bold font-mono mt-1 ${prediction.captureRate >= 80 ? 'text-nx-green' : prediction.captureRate >= 50 ? 'text-nx-orange' : 'text-nx-red'}`}>{prediction.captureRate}%</div>
                     </div>
                     <div className="glass-solid p-3">
                       <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Est. Entry</div>

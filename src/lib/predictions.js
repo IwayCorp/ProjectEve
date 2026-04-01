@@ -15,8 +15,19 @@ export const TIMEFRAMES = [
   { id: '1mo', label: '1 month', minutes: 43200 },
 ]
 
+// Optimal hold duration in minutes for each strategy type
+// Used to compute timeframe alignment — confidence peaks near the ideal hold
+const STRATEGY_OPTIMAL_MINUTES = {
+  'momentum': 10080,       // ~1 week — momentum decays, need to ride the wave
+  'mean-reversion': 7200,  // ~5 days — snap-back is fast, overstaying adds risk
+  'breakout': 14400,       // ~10 days — breakouts need confirmation + follow-through
+  'carry': 20160,          // ~2 weeks — carry accrues over time
+  'macro': 10080,          // ~1 week — event-driven, binary resolution
+  'relative-value': 20160, // ~2 weeks — convergence trades need patience
+}
+
 // Generate a prediction curve based on current price, target, and timeframe
-// Uses a probabilistic model with momentum/mean-reversion weights
+// Timeframe now directly affects confidence, expected return, and path shape
 export function generatePrediction(currentPrice, target, stopLoss, direction, timeframeMinutes, rsi, strategy) {
   if (!currentPrice || !target || !stopLoss) return null
 
@@ -24,49 +35,106 @@ export function generatePrediction(currentPrice, target, stopLoss, direction, ti
   const points = 50 // Data points in the prediction curve
   const totalReturn = isLong ? (target - currentPrice) / currentPrice : (currentPrice - target) / currentPrice
 
-  // Confidence based on R:R and RSI
+  // R:R ratio
   const rr = isLong
     ? (target - currentPrice) / (currentPrice - stopLoss)
     : (currentPrice - target) / (stopLoss - currentPrice)
 
-  let confidence = 0.5 // base
-  if (rr >= 3) confidence += 0.15
-  else if (rr >= 2) confidence += 0.10
-  if (rsi < 30 && isLong) confidence += 0.12
-  else if (rsi > 70 && !isLong) confidence += 0.12
+  // ── BASE CONFIDENCE from R:R and RSI ──
+  let confidence = 0.45
+  if (rr >= 3) confidence += 0.12
+  else if (rr >= 2) confidence += 0.08
+  else if (rr >= 1.5) confidence += 0.04
 
-  // Strategy-specific adjustments
-  if (strategy === 'momentum') confidence += 0.05
-  if (strategy === 'mean-reversion' && ((rsi < 25 && isLong) || (rsi > 75 && !isLong))) confidence += 0.08
+  if (rsi < 30 && isLong) confidence += 0.10
+  else if (rsi > 70 && !isLong) confidence += 0.10
+  else if (rsi < 40 && isLong) confidence += 0.04
+  else if (rsi > 60 && !isLong) confidence += 0.04
 
-  confidence = Math.min(0.85, Math.max(0.35, confidence))
+  // Strategy bonus
+  if (strategy === 'momentum') confidence += 0.04
+  if (strategy === 'mean-reversion' && ((rsi < 25 && isLong) || (rsi > 75 && !isLong))) confidence += 0.06
 
-  // Generate prediction path with noise
+  // ── TIMEFRAME ALIGNMENT ──
+  // Confidence is highest when the selected timeframe matches the strategy's optimal hold.
+  // Too short = not enough time for thesis to play out.
+  // Too long = decay, mean-reversion risk, new catalysts can override.
+  const optimalMinutes = STRATEGY_OPTIMAL_MINUTES[strategy] || 10080
+  const timeframeRatio = timeframeMinutes / optimalMinutes
+
+  let timeframeAdjust = 0
+  if (timeframeRatio >= 0.7 && timeframeRatio <= 1.5) {
+    // Sweet spot — near optimal
+    timeframeAdjust = 0.10
+  } else if (timeframeRatio >= 0.4 && timeframeRatio <= 2.5) {
+    // Acceptable range
+    timeframeAdjust = 0.04
+  } else if (timeframeRatio < 0.4) {
+    // Way too short — thesis can't play out
+    timeframeAdjust = -0.12
+  } else {
+    // Way too long — thesis decays
+    timeframeAdjust = -0.08
+  }
+  confidence += timeframeAdjust
+
+  confidence = Math.min(0.85, Math.max(0.20, confidence))
+
+  // ── EXPECTED RETURN scales with timeframe ──
+  // Shorter timeframe = less of the total move is captured (partial profit likely)
+  // Optimal timeframe = highest capture rate
+  // Longer timeframe = diminishing capture + reversion risk
+  let captureRate
+  if (timeframeRatio < 0.3) {
+    captureRate = 0.20 + timeframeRatio * 0.8 // 20-44% of move
+  } else if (timeframeRatio < 0.7) {
+    captureRate = 0.44 + (timeframeRatio - 0.3) * 1.2 // 44-92%
+  } else if (timeframeRatio <= 1.5) {
+    captureRate = 0.92 + (timeframeRatio - 0.7) * 0.1 // 92-100% (sweet spot)
+  } else if (timeframeRatio <= 2.5) {
+    captureRate = 1.0 - (timeframeRatio - 1.5) * 0.15 // 100-85% (slight decay)
+  } else {
+    captureRate = 0.85 - (timeframeRatio - 2.5) * 0.1 // 85%+ decaying further
+  }
+  captureRate = Math.min(1.0, Math.max(0.15, captureRate))
+
+  const adjustedReturn = totalReturn * captureRate
+  const expectedReturn = adjustedReturn * confidence
+
+  // ── PATH GENERATION ──
   const predictedPath = []
-  const volatility = Math.abs(totalReturn) * 0.15 // 15% of total move as daily noise
-  let cumulativeReturn = 0
+  // Volatility scales with sqrt(time) — longer timeframes have more noise amplitude
+  const dailyVol = Math.abs(totalReturn) * 0.12
+  const timeScaledVol = dailyVol * Math.sqrt(timeframeMinutes / 5760) // normalized to ~4 days
+  const volatility = Math.min(timeScaledVol, Math.abs(totalReturn) * 0.35)
 
-  // Estimate when entry zone is hit (in % of timeframe)
-  const entryPct = 0.15 + Math.random() * 0.20
+  // Deterministic seed for consistent results across re-renders
+  const seed = Math.round(currentPrice * 100 + rsi * 10 + timeframeMinutes)
+  let rng = seed
+
+  function nextRandom() {
+    rng = (rng * 9301 + 49297) % 233280
+    return rng / 233280
+  }
+
+  const entryPct = 0.12 + nextRandom() * 0.18
 
   for (let i = 0; i <= points; i++) {
     const t = i / points
     const timeLabel = getTimeLabel(t * timeframeMinutes, timeframeMinutes)
 
-    // S-curve progression (accelerating then decelerating)
+    // S-curve progression scaled by captureRate
     let trend
     if (t < entryPct) {
-      // Pre-entry: slight drift toward entry zone
-      trend = (t / entryPct) * 0.1 * totalReturn
+      trend = (t / entryPct) * 0.08 * adjustedReturn
     } else {
-      // Post-entry: move toward target
       const postEntryT = (t - entryPct) / (1 - entryPct)
-      trend = 0.1 * totalReturn + totalReturn * 0.9 * (1 - Math.exp(-3 * postEntryT)) * confidence
+      trend = 0.08 * adjustedReturn + adjustedReturn * 0.92 * (1 - Math.exp(-3 * postEntryT)) * confidence
     }
 
-    // Add controlled noise
-    const noise = (Math.random() - 0.5) * volatility * Math.sin(t * Math.PI)
-    cumulativeReturn = trend + noise
+    // Noise with deterministic RNG
+    const noise = (nextRandom() - 0.5) * volatility * Math.sin(t * Math.PI)
+    const cumulativeReturn = trend + noise
 
     const price = currentPrice * (1 + cumulativeReturn)
     const pctFromEntry = ((price - currentPrice) / currentPrice) * 100
@@ -80,22 +148,23 @@ export function generatePrediction(currentPrice, target, stopLoss, direction, ti
     })
   }
 
-  // Generate confidence bands (high/low)
+  // Confidence bands scale with timeframe — wider for longer holds
+  const bandScale = Math.sqrt(timeframeMinutes / 5760) * 0.8
   const upperBand = predictedPath.map((p, i) => ({
     ...p,
-    price: p.price * (1 + volatility * (i / points) * 1.5),
+    price: p.price * (1 + volatility * (i / points) * bandScale),
   }))
   const lowerBand = predictedPath.map((p, i) => ({
     ...p,
-    price: p.price * (1 - volatility * (i / points) * 1.5),
+    price: p.price * (1 - volatility * (i / points) * bandScale),
   }))
 
-  // Estimated entry date (when price reaches entry zone)
+  // Estimated entry date
   const entryTimeMinutes = entryPct * timeframeMinutes
   const estimatedEntryDate = new Date(Date.now() + entryTimeMinutes * 60000)
 
-  // Estimated target date
-  const targetHitPct = entryPct + (1 - entryPct) * (0.6 + Math.random() * 0.3) * (1 / confidence)
+  // Estimated target date — scales with confidence and timeframe
+  const targetHitPct = entryPct + (1 - entryPct) * (0.55 + nextRandom() * 0.3) * (1 / Math.max(0.4, confidence))
   const targetTimeMinutes = Math.min(timeframeMinutes, targetHitPct * timeframeMinutes)
   const estimatedTargetDate = new Date(Date.now() + targetTimeMinutes * 60000)
 
@@ -106,9 +175,11 @@ export function generatePrediction(currentPrice, target, stopLoss, direction, ti
     confidence: Math.round(confidence * 100),
     estimatedEntryDate,
     estimatedTargetDate,
-    expectedReturn: Math.round(totalReturn * confidence * 10000) / 100,
+    expectedReturn: Math.round(expectedReturn * 10000) / 100,
     riskReward: Math.round(rr * 10) / 10,
     timeframe: timeframeMinutes,
+    captureRate: Math.round(captureRate * 100),
+    timeframeAlignment: timeframeRatio >= 0.7 && timeframeRatio <= 1.5 ? 'optimal' : timeframeRatio >= 0.4 && timeframeRatio <= 2.5 ? 'acceptable' : 'misaligned',
   }
 }
 
