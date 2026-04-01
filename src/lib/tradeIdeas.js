@@ -65,7 +65,8 @@ export const LONG_IDEAS = [
     stopLoss: 365,
     rsi: 12.4,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Extreme oversold RSI readings historically mean-revert within 2 weeks. Holding through the initial recovery wave until the 20-day MA is retested.',
     thesis: 'Extreme RSI oversold at 12.4 — a reading this low has occurred only 3 times in the past decade, each time producing a 10-15% bounce within 2 weeks. Price is 35% off all-time highs while the business fundamentals remain robust with 15.5% earnings growth intact.',
     catalyst: 'Q3 earnings Apr 29, continued AI/Azure capex expansion, Copilot revenue acceleration',
     dataPacket: {
@@ -104,7 +105,8 @@ export const LONG_IDEAS = [
     stopLoss: 188,
     rsi: 32.1,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Momentum setups near oversold territory need time for institutional accumulation and WWDC catalyst proximity to build. Mid-term swing aligns with options expiry cycle.',
     thesis: 'RSI at 32 approaching oversold territory with WWDC catalyst 8 weeks out. Consumer sentiment divergence — University of Michigan survey pessimistic but actual retail sales data shows resilience. iPhone installed base of 1.2B creates a services revenue floor.',
     catalyst: 'WWDC June, iPhone 17 cycle leaks, India manufacturing expansion, Services revenue beat',
     dataPacket: {
@@ -143,7 +145,8 @@ export const LONG_IDEAS = [
     stopLoss: 132,
     rsi: 58.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'Event-driven with the Iran deadline on April 6 as the primary catalyst. Short hold captures the volatility premium around the binary event.',
     thesis: 'Defense supplemental tailwind of $45B approved by Congress in February is flowing into orders. Patriot/THAAD missile demand surging from Middle East tensions. Less binary than pure energy plays because defense spending is secular, not commodity-dependent.',
     catalyst: 'Iran deadline Apr 6, defense spending bill, NATO expansion orders, Q1 earnings April 22',
     dataPacket: {
@@ -182,7 +185,8 @@ export const LONG_IDEAS = [
     stopLoss: 128,
     rsi: 68.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Energy momentum trades move in multi-day waves tied to crude oil. Holding through the OPEC+ meeting and Iran deadline to capture the full geopolitical premium.',
     thesis: 'Energy rotation leader with record production of 5M boe/day. Oil above $85 supports cash flow, and the Hormuz Strait risk premium is not yet fully priced. Strong momentum — the stock is above all key moving averages and making higher highs.',
     catalyst: 'Iran Apr 6 deadline, OPEC+ meeting, Q1 earnings Apr 25',
     dataPacket: {
@@ -221,7 +225,8 @@ export const LONG_IDEAS = [
     stopLoss: 390,
     rsi: 55.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Breakouts from consolidation patterns need 2 weeks to confirm follow-through. Watching for volume confirmation and institutional accumulation above the breakout level.',
     thesis: 'AI data center buildout driving unprecedented demand for earth-moving equipment. Infrastructure spending from CHIPS Act and IRA flowing into construction. Industrials rotation beneficiary as the market shifts from growth to value.',
     catalyst: 'Infrastructure spending acceleration, AI data center construction boom, Q1 earnings Apr 24',
     dataPacket: {
@@ -260,7 +265,8 @@ export const LONG_IDEAS = [
     stopLoss: 780,
     rsi: 28.5,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-8 days',
+    holdReason: 'Deep oversold bounce plays in mega-cap tech typically resolve within a week. Targeting a snap-back to the 50-day MA before momentum fades.',
     thesis: 'RSI at 28.5 is deeply oversold for a stock with 85% revenue growth. The selloff is driven by valuation compression, not fundamental deterioration. Blackwell GPU ramp is ahead of schedule with $11B in Q1 orders already booked.',
     catalyst: 'GTC conference updates, Blackwell production ramp, data center capex announcements',
     dataPacket: {
@@ -299,7 +305,8 @@ export const LONG_IDEAS = [
     stopLoss: 2220,
     rsi: 62.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '10-21 days',
+    holdReason: 'Gold macro trades unfold over weeks as geopolitical tensions and central bank buying are slow-moving catalysts. Extended hold captures the full safe-haven rotation.',
     thesis: 'Central bank gold buying hit record 1,136 tonnes in 2025 — the third consecutive year above 1,000 tonnes. De-dollarization theme accelerating as BRICS+ settlement mechanisms bypass USD. Real yields declining from peak supports gold.',
     catalyst: 'Iran escalation risk, Fed rate decision Apr 30, central bank reserve data',
     dataPacket: {
@@ -338,7 +345,8 @@ export const LONG_IDEAS = [
     stopLoss: 78,
     rsi: 65.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'Crude oil macro trades around geopolitical events are fast-moving. Short hold to capture the Iran deadline spike before mean-reversion kicks in.',
     thesis: 'Iran escalation + OPEC+ discipline + depleted SPR = tightest oil market since 2022. Supply deficit of 1.2M bpd projected for Q2. Strait of Hormuz disruption risk is severely underpriced in options — 1M call skew is only +2.1%.',
     catalyst: 'Iran deadline Apr 6, OPEC+ meeting, US driving season demand',
     dataPacket: {
@@ -377,7 +385,8 @@ export const LONG_IDEAS = [
     stopLoss: 465,
     rsi: 61.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '10-14 days',
+    holdReason: 'Defense momentum is a secular trend with earnings on April 22 as the exit catalyst. Holding through the run-up into earnings for maximum premium capture.',
     thesis: 'F-35 production ramp to 156/year by 2027, up from 98 in 2025. Backlog at $165B. Stock is in a clean uptrend with price above all moving averages. Defense spending globally entering a super-cycle not seen since the Reagan era.',
     catalyst: 'NATO spending commitments, F-35 orders from Germany/Japan, Q1 earnings Apr 22',
     dataPacket: {
@@ -416,7 +425,8 @@ export const LONG_IDEAS = [
     stopLoss: 218,
     rsi: 52.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Financial sector breakouts tied to yield curve shifts play out over 1-2 weeks. Holding through confirmation of the breakout above key resistance levels.',
     thesis: 'The only mega-bank trading at a premium to book value (2.1x). Net interest income guidance raised to $90B+ for 2026. Credit quality stable despite market concerns. Building a base for breakout above $240 resistance.',
     catalyst: 'Q1 earnings Apr 11 (first major bank), commercial real estate stabilization data',
     dataPacket: {
@@ -455,7 +465,8 @@ export const LONG_IDEAS = [
     stopLoss: 445,
     rsi: 30.5,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Healthcare mean-reversion after a selloff requires time for institutional repositioning. The sector rotation catalyst is gradual, not event-driven.',
     thesis: 'Healthcare selloff overdone — UNH down 18% from highs on Medicare Advantage rate concerns, but the headwind is priced in. Medical cost ratio stabilizing. Optum Health revenue growing 14% with a $250B backlog. Dividend aristocrat with 15 consecutive years of increases.',
     catalyst: 'Q1 earnings Apr 15, CMS rate finalization, Optum deal pipeline',
     dataPacket: {
@@ -494,7 +505,8 @@ export const LONG_IDEAS = [
     stopLoss: 76000,
     rsi: 45.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-14 days',
+    holdReason: 'Crypto breakouts are volatile but can extend for weeks. Holding until the breakout momentum stalls at the next major resistance or shows exhaustion signals.',
     thesis: 'Bitcoin is consolidating above the $80K level after the halving supply shock. ETF inflows averaging $400M/day. The next leg up targets the $95-100K measured move from the current flag pattern. Institutional adoption accelerating with sovereign wealth fund allocations.',
     catalyst: 'ETF flow acceleration, halving supply effect, institutional adoption announcements',
     dataPacket: {
@@ -539,7 +551,8 @@ export const SHORT_IDEAS = [
     stopLoss: 45.0,
     rsi: 35.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Financial sector shorts need time for credit stress signals to materialize. Holding through the next batch of regional bank earnings for confirmation.',
     thesis: 'Yield curve inversion persisting at -45bps is compressing net interest margins across regional banks. XLF is in a clear downtrend, making lower lows and lower highs. Credit deterioration in consumer lending and CRE provides a fundamental catalyst for continuation.',
     catalyst: 'Bank earnings starting Apr 11, CRE loss revelations, consumer credit data',
     dataPacket: {
@@ -578,7 +591,8 @@ export const SHORT_IDEAS = [
     stopLoss: 268,
     rsi: 38.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'TSLA is high-beta and moves fast. Short momentum plays should be tight to avoid squeeze risk. Quick capture of the downside continuation.',
     thesis: 'Consumer discretionary weakness accelerating. Tesla delivery numbers declining sequentially while competition intensifies from BYD, Xiaomi, and legacy automakers. Political brand damage from Elon Musk\'s government involvement reducing demand. High beta amplifies any risk-off move.',
     catalyst: 'Q1 deliveries report (imminently), consumer sentiment data, EV competition news',
     dataPacket: {
@@ -617,7 +631,8 @@ export const SHORT_IDEAS = [
     stopLoss: 212,
     rsi: 40.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Small-cap underperformance is a macro trend that plays out over weeks as credit conditions tighten. Extended hold captures the full risk-off rotation.',
     thesis: 'Small caps are the most rate-sensitive equity cohort. With 40% of Russell 2000 debt floating-rate, every Fed hold at restrictive levels increases interest expense. Earnings recession underway — Russell 2000 earnings are projected to decline 3% in Q1.',
     catalyst: 'Fed rate decision Apr 30, regional bank earnings, high-yield credit spreads',
     dataPacket: {
@@ -656,7 +671,8 @@ export const SHORT_IDEAS = [
     stopLoss: 95,
     rsi: 42.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '3-5 days',
+    holdReason: 'Bond shorts around rate decisions are fast trades. Holding through the next economic data release for the yield spike, then covering before mean-reversion.',
     thesis: 'Long-end rates have room to rise further. The term premium is being repriced higher as fiscal deficits widen ($1.8T projected for FY2026). Japan\'s YCC exit is flooding the global bond market with supply. Short TLT captures this structural shift.',
     catalyst: 'Treasury refunding announcement, BoJ meeting Apr 28, CPI data Apr 10',
     dataPacket: {
@@ -695,7 +711,8 @@ export const SHORT_IDEAS = [
     stopLoss: 48,
     rsi: 36.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Speculative growth ETF shorts trend persistently in risk-off environments. Extended hold captures ongoing institutional de-risking and fund redemptions.',
     thesis: 'The poster child for speculative growth is in a persistent downtrend. ARKK is essentially a leveraged bet on declining rate expectations — and rates are staying higher for longer. Cathie Wood\'s top holdings (TSLA, COIN, ROKU) are all in downtrends with deteriorating fundamentals.',
     catalyst: 'Fed messaging, speculative tech earnings, risk sentiment shift',
     dataPacket: {
@@ -734,7 +751,8 @@ export const SHORT_IDEAS = [
     stopLoss: 75,
     rsi: 55.0,
     risk: 'LOW',
-    timeframe: '4-day',
+    timeframe: '10-21 days',
+    holdReason: 'Relative value shorts in utilities vs growth take time to converge. Patient hold as the sector rotation out of defensives unfolds gradually.',
     thesis: 'Utilities are bond proxies that suffer in rising rate environments. With the 10Y pushing toward 5%, the dividend yield on XLU (3.1%) is increasingly uncompetitive vs risk-free rates. Regulatory lag means utilities can\'t pass through costs fast enough.',
     catalyst: 'Bond yield trajectory, Fed messaging, state rate case decisions',
     dataPacket: {
@@ -773,7 +791,8 @@ export const SHORT_IDEAS = [
     stopLoss: 42,
     rsi: 33.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Real estate shorts tied to rising rates play out over weeks as REITs reprice to new yield levels. Holding through the next CPI print for confirmation.',
     thesis: 'Commercial real estate is in a secular downturn. Office vacancy at 20% nationally (highest ever), rising cap rates compressing valuations, and $680B in CRE debt maturing in 2026 at refinancing rates 300bps higher than origination. REITs are a direct play on this pain.',
     catalyst: 'Bank earnings CRE disclosures, CMBS delinquency data, property appraisal downgrades',
     dataPacket: {
@@ -812,7 +831,8 @@ export const SHORT_IDEAS = [
     stopLoss: 32,
     rsi: 42.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'China macro shorts move in waves tied to economic data releases. Holding through the next PMI and trade data for the full leg down.',
     thesis: 'China stimulus is underwhelming relative to market expectations. Property crisis deepening with tier-2 and tier-3 city prices still falling. Deflation persisting at -0.3% CPI. Capital outflows accelerating as foreign investors reduce China allocation.',
     catalyst: 'PMI data, property sales data, tariff escalation risk, PBOC policy',
     dataPacket: {
@@ -851,7 +871,8 @@ export const SHORT_IDEAS = [
     stopLoss: 7.5,
     rsi: 40.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '14-30 days',
+    holdReason: 'Micro-cap shorts with fundamental deterioration can be held longer as the cash burn story plays out. Low squeeze risk due to minimal institutional ownership.',
     thesis: 'Plant-based meat category in secular decline. Revenue falling 25% YoY with no path to profitability. Cash burn rate implies potential bankruptcy within 18 months without capital raise. The stock is a zero candidate.',
     catalyst: 'Q1 earnings, cash flow report, potential going concern warning',
     dataPacket: {
@@ -890,7 +911,8 @@ export const SHORT_IDEAS = [
     stopLoss: 106,
     rsi: 37.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Streaming profitability doubts take weeks to fully reprice. Holding through the next subscriber metric release for the fundamental catalyst.',
     thesis: 'Disney+ subscriber growth stalled. Linear TV revenue declining 8% annually. Theme parks showing softening demand with per-capita spending declining for the first time since 2020. The sum-of-parts valuation thesis has not materialized.',
     catalyst: 'Q2 earnings, streaming profitability update, ESPN standalone launch timeline',
     dataPacket: {
@@ -929,7 +951,8 @@ export const SHORT_IDEAS = [
     stopLoss: 80,
     rsi: 34.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'Consumer discretionary momentum shorts trend for 2+ weeks as inventory channel checks and guidance cuts filter through analyst models.',
     thesis: 'Nike is losing market share to On Running, Hoka, and New Balance across every category. DTC strategy has alienated wholesale partners. China recovery thesis has failed to materialize. Inventory levels still elevated at 18% above normalized levels.',
     catalyst: 'Q4 earnings June, wholesale partner order data, China Singles Day comparisons',
     dataPacket: {
@@ -968,7 +991,8 @@ export const SHORT_IDEAS = [
     stopLoss: 225,
     rsi: 38.0,
     risk: 'HIGH',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Crypto-adjacent shorts are tied to Bitcoin volatility cycles. Holding through the regulatory headline catalyst window.',
     thesis: 'Crypto trading volumes declining 30% from January peak. Fee compression from competitive pressure. Regulatory overhang from SEC. Revenue is almost entirely transaction-based — a bear market in crypto directly translates to revenue collapse.',
     catalyst: 'BTC price action, SEC regulatory decisions, Q1 earnings',
     dataPacket: {
@@ -1014,7 +1038,8 @@ export const FOREX_IDEAS = [
     stopLoss: 158.0,
     rsi: 68.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '7-21 days',
+    holdReason: 'Carry trades need time for the interest rate differential to accrete. Extended hold captures both the carry income and directional move from BoJ policy shifts.',
     thesis: 'BoJ policy normalization is the defining macro trade of 2026. Japan exiting negative rates and reducing YCC tolerance band is narrowing the US-Japan yield differential. The carry trade unwind (estimated $2T+ in yen-funded positions) creates massive yen buying pressure.',
     catalyst: 'BoJ meeting Apr 28, US-Japan yield spread compression, intervention risk above 155',
     dataPacket: {
@@ -1054,7 +1079,8 @@ export const FOREX_IDEAS = [
     stopLoss: 1.060,
     rsi: 42.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'FX mean-reversion from extreme RSI readings typically resolves within a week. Short hold captures the snap-back toward the 50-day MA.',
     thesis: 'EUR/USD is oversold relative to rate differentials. The ECB has paused cuts while the Fed is being pushed to cut by slowing US data. The narrowing ECB-Fed rate gap supports euro appreciation. European defense spending is a new source of capital inflow.',
     catalyst: 'ECB meeting, US employment data, European defense spending announcements',
     dataPacket: {
@@ -1094,7 +1120,8 @@ export const FOREX_IDEAS = [
     stopLoss: 1.270,
     rsi: 50.0,
     risk: 'LOW',
-    timeframe: '4-day',
+    timeframe: '7-14 days',
+    holdReason: 'GBP carry trades align with the BoE rate cycle. Holding through the next MPC meeting for the rate differential widening catalyst.',
     thesis: 'UK rates at 5.0% are the highest in the G7. BoE is the most hawkish major central bank due to persistent services inflation at 5.4%. The positive carry of 50bps vs USD makes long GBP/USD an income-generating position while waiting for appreciation.',
     catalyst: 'UK CPI data, BoE meeting, wage growth data',
     dataPacket: {
@@ -1134,7 +1161,8 @@ export const FOREX_IDEAS = [
     stopLoss: 0.910,
     rsi: 55.0,
     risk: 'LOW',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'Safe-haven FX trades around geopolitical events are fast. Short hold captures the CHF strength spike from risk-off flows.',
     thesis: 'Swiss franc is the ultimate safe haven currency. With Iran escalation risk, equity volatility rising, and geopolitical uncertainty at multi-year highs, CHF demand increases structurally. SNB has shifted from fighting franc strength to tolerating it.',
     catalyst: 'Iran deadline Apr 6, VIX spike, SNB policy shift, geopolitical escalation',
     dataPacket: {
@@ -1174,7 +1202,8 @@ export const FOREX_IDEAS = [
     stopLoss: 0.680,
     rsi: 40.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Commodity currency moves tied to China data releases play out over 1-2 weeks. Holding through the next round of PMI and trade data.',
     thesis: 'AUD is a proxy for China growth and commodity demand. With China PMI back in contraction and iron ore prices declining, the fundamental supports for AUD are weakening. RBA has turned dovish, removing the rate support pillar.',
     catalyst: 'China PMI, iron ore prices, RBA meeting, commodity demand data',
     dataPacket: {
@@ -1214,7 +1243,8 @@ export const FOREX_IDEAS = [
     stopLoss: 18.5,
     rsi: 52.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '14-30 days',
+    holdReason: 'EM carry trades with wide rate differentials benefit from extended holds to maximize carry income. The 11.25% Banxico rate supports the peso over time.',
     thesis: 'Mexico\'s Banxico maintains rates at 10.75% — a 550bps premium to the Fed. This enormous carry makes short USD/MXN one of the highest-yielding trades in FX. Nearshoring trend driving record FDI into Mexico supports MXN structurally.',
     catalyst: 'Banxico meeting, nearshoring FDI data, remittance flows, US-Mexico trade data',
     dataPacket: {
@@ -1254,7 +1284,8 @@ export const FOREX_IDEAS = [
     stopLoss: 0.872,
     rsi: 45.0,
     risk: 'LOW',
-    timeframe: '4-day',
+    timeframe: '5-10 days',
+    holdReason: 'Cross-rate momentum trades between developed market currencies have moderate pace. Holding for the ECB vs BoE policy divergence to fully manifest.',
     thesis: 'ECB dovish relative to BoE creates a persistent rate differential favoring GBP. UK economic data outperforming eurozone. The EUR/GBP cross is in a clear downtrend with the 50-day MA acting as resistance.',
     catalyst: 'ECB vs BoE rate decisions, UK vs EU PMI divergence, trade balance data',
     dataPacket: {
@@ -1294,7 +1325,8 @@ export const FOREX_IDEAS = [
     stopLoss: 0.618,
     rsi: 38.0,
     risk: 'MEDIUM',
-    timeframe: '4-day',
+    timeframe: '3-7 days',
+    holdReason: 'Small-economy FX mean-reversion is fast-acting. Short hold captures the bounce from oversold levels before the next RBNZ data cycle.',
     thesis: 'New Zealand\'s economy is in recession with 2 consecutive quarters of negative GDP growth. RBNZ has cut rates aggressively to 3.75% from 5.5%. The dairy sector (NZ\'s primary export) facing price declines. NZD is the weakest G10 currency.',
     catalyst: 'RBNZ meeting, dairy auction prices, GDP data, employment report',
     dataPacket: {

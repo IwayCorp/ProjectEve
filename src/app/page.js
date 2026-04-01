@@ -10,6 +10,12 @@ import TradeIdeas from '@/components/TradeIdeas'
 import RiskCalendar from '@/components/RiskCalendar'
 import ScenarioAnalysis from '@/components/ScenarioAnalysis'
 import HistoricalData from '@/components/HistoricalData'
+import CloudResearch from '@/components/CloudResearch'
+import Backtesting from '@/components/Backtesting'
+import AIAssistant from '@/components/AIAssistant'
+import Optimization from '@/components/Optimization'
+import LiveTrading from '@/components/LiveTrading'
+import MultiAssetPortfolio from '@/components/MultiAssetPortfolio'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -28,6 +34,12 @@ const TICKER_SYMBOLS = {
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'trades', label: 'Trade Ideas' },
+  { id: 'research', label: 'Research' },
+  { id: 'backtest', label: 'Backtesting' },
+  { id: 'ai', label: 'AI Assistant' },
+  { id: 'optimize', label: 'Optimization' },
+  { id: 'live', label: 'Live Trading' },
+  { id: 'portfolio', label: 'Portfolio' },
   { id: 'correlation', label: 'Correlations' },
   { id: 'risk', label: 'Risk Calendar' },
   { id: 'history', label: 'Performance' },
@@ -83,12 +95,12 @@ export default function Dashboard() {
         }}>
           <div className="max-w-[1920px] mx-auto px-5">
             <div className="flex items-center">
-              <div className="flex gap-0">
+              <div className="flex gap-0 overflow-x-auto scrollbar-hide">
                 {TABS.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`nx-tab ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
+                    className={`nx-tab whitespace-nowrap ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
                   >
                     {tab.label}
                   </button>
@@ -149,6 +161,30 @@ export default function Dashboard() {
 
           {activeTab === 'trades' && (
             <TradeIdeas quotes={quotes} />
+          )}
+
+          {activeTab === 'research' && (
+            <CloudResearch />
+          )}
+
+          {activeTab === 'backtest' && (
+            <Backtesting />
+          )}
+
+          {activeTab === 'ai' && (
+            <AIAssistant />
+          )}
+
+          {activeTab === 'optimize' && (
+            <Optimization />
+          )}
+
+          {activeTab === 'live' && (
+            <LiveTrading />
+          )}
+
+          {activeTab === 'portfolio' && (
+            <MultiAssetPortfolio />
           )}
 
           {activeTab === 'correlation' && (

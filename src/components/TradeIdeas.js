@@ -55,9 +55,9 @@ function TradeCard({ trade, quote, direction, onOpen }) {
       {/* Price bar */}
       <div className="bg-nx-void/60 rounded-lg p-2.5 mb-3 border border-nx-border/30">
         <div className="flex justify-between text-2xs mb-1.5">
-          <span className="text-nx-red font-medium">Stop {trade.stopLoss}</span>
-          <span className="text-nx-accent font-medium">Entry {trade.entryLow}\u2013{trade.entryHigh}</span>
-          <span className="text-nx-green font-medium">Target {trade.target}</span>
+          <span className="text-nx-red font-medium">Stop {formatPrice(trade.stopLoss, fmtType)}</span>
+          <span className="text-nx-accent font-medium">Entry {formatPrice(trade.entryLow, fmtType)}–{formatPrice(trade.entryHigh, fmtType)}</span>
+          <span className="text-nx-green font-medium">Target {formatPrice(trade.target, fmtType)}</span>
         </div>
         {price && (
           <div className="relative h-1.5 bg-nx-border/30 rounded-full overflow-hidden">
@@ -86,7 +86,10 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           <span className="text-2xs text-nx-text-muted">RSI</span>
           <span className={`text-sm font-bold font-mono ${trade.rsi < 30 ? 'text-nx-green' : trade.rsi > 70 ? 'text-nx-red' : 'text-nx-orange'}`}>{trade.rsi}</span>
         </div>
-        <div className="ml-auto text-2xs text-nx-text-hint">{trade.timeframe || '4-day'}</div>
+        <div className="ml-auto text-right shrink-0">
+          <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || '4-day'}</div>
+          {trade.holdReason && <div className="text-2xs text-nx-text-hint mt-0.5 max-w-[200px] line-clamp-1" title={trade.holdReason}>{trade.holdReason}</div>}
+        </div>
       </div>
 
       <p className="text-xs text-nx-text-muted leading-relaxed mb-2 line-clamp-2">{trade.thesis}</p>
