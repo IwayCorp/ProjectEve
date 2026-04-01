@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-eve-bg text-eve-text;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-eve-bg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-eve-border rounded-full;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-eve-card border border-eve-border rounded-xl p-4;
+  }
+  .badge-green {
+    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900/50 text-eve-green;
+  }
+  .badge-red {
+    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-red-900/50 text-eve-red;
+  }
+  .badge-orange {
+    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-amber-900/50 text-eve-orange;
+  }
+  .badge-blue {
+    @apply text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900/50 text-eve-accent;
+  }
+  .glow-green {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+  }
+  .glow-red {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+  }
+  .price-up {
+    @apply text-eve-green animate-ticker;
+  }
+  .price-down {
+    @apply text-eve-red animate-ticker;
+  }
+}
