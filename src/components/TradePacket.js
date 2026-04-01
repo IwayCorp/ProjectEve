@@ -188,7 +188,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 { label: 'R:R', value: `${rr}:1`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
                 { label: 'RSI', value: idea.rsi, color: idea.rsi < 30 ? 'text-nx-green' : idea.rsi > 70 ? 'text-nx-red' : 'text-nx-orange' },
                 { label: 'Risk', value: idea.risk, color: idea.risk === 'LOW' ? 'text-nx-green' : idea.risk === 'HIGH' ? 'text-nx-red' : 'text-nx-orange' },
-                { label: 'Timeframe', value: idea.timeframe || '4-day', color: 'text-nx-text' },
+                { label: 'Timeframe', value: idea.timeframe || 'Variable', color: 'text-nx-accent' },
               ].map((m, i) => (
                 <div key={i} className="glass-solid p-3">
                   <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{m.label}</div>
@@ -286,6 +286,17 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                         ? `Acceptable timeframe — ${prediction.captureRate}% move capture. Recommended: ${idea.timeframe}`
                         : `Misaligned timeframe — only ${prediction.captureRate}% move capture. Recommended: ${idea.timeframe}`
                       }
+                    </div>
+                  )}
+
+                  {/* Hold Reason */}
+                  {idea.holdReason && (
+                    <div className="px-3 py-2 rounded-lg text-2xs text-nx-text-muted" style={{
+                      background: 'rgba(91, 141, 238, 0.04)',
+                      border: '1px solid rgba(91, 141, 238, 0.08)',
+                    }}>
+                      <span className="text-nx-accent font-semibold uppercase tracking-wider mr-1.5">Hold Thesis:</span>
+                      {idea.holdReason}
                     </div>
                   )}
 

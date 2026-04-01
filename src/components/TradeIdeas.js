@@ -87,7 +87,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           <span className={`text-sm font-bold font-mono ${trade.rsi < 30 ? 'text-nx-green' : trade.rsi > 70 ? 'text-nx-red' : 'text-nx-orange'}`}>{trade.rsi}</span>
         </div>
         <div className="ml-auto text-right shrink-0">
-          <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || '4-day'}</div>
+          <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || 'Variable'}</div>
           {trade.holdReason && <div className="text-2xs text-nx-text-hint mt-0.5 max-w-[200px] line-clamp-1" title={trade.holdReason}>{trade.holdReason}</div>}
         </div>
       </div>

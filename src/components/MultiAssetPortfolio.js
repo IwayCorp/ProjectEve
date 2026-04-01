@@ -163,7 +163,7 @@ export default function MultiAssetPortfolio() {
             } ${!asset.active ? 'opacity-50' : ''}`}
             style={{
               borderColor: selectedAsset?.id === asset.id ? asset.borderColor : undefined,
-              '--ring-color': asset.borderColor,
+              boxShadow: selectedAsset?.id === asset.id ? `0 0 0 1px ${asset.borderColor}, 0 0 20px ${asset.borderColor}15` : undefined,
             }}
           >
             <div className="flex items-start justify-between mb-3">
