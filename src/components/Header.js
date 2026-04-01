@@ -24,10 +24,8 @@ export default function Header() {
         {/* Brand */}
         <div className="flex items-center gap-3.5">
           <div className="relative">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5b8dee, #a78bfa)' }}>
-              <span className="text-white font-bold text-sm tracking-tight">N</span>
-            </div>
-            <div className="absolute -inset-0.5 rounded-lg opacity-30 blur-sm" style={{ background: 'linear-gradient(135deg, #5b8dee, #a78bfa)' }} />
+            <img src="/logo.svg" alt="Noctis" className="w-9 h-9 rounded-lg" />
+            <div className="absolute -inset-1 rounded-lg opacity-20 blur-md" style={{ background: 'linear-gradient(135deg, #5b8dee, #a78bfa)' }} />
           </div>
           <div>
             <h1 className="text-md font-bold text-nx-text-strong tracking-tight">
