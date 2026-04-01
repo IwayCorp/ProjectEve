@@ -1,9 +1,9 @@
 'use client'
 
 function getColor(val) {
-  if (val == null) return '#2a2e39'
-  if (val > 0) return val > 0.5 ? '#089981' : '#26a69a'
-  return val < -0.5 ? '#f23645' : '#ef5350'
+  if (val == null) return 'rgba(255, 255, 255, 0.03)'
+  if (val > 0) return val > 0.5 ? '#34d399' : 'rgba(52, 211, 153, 0.7)'
+  return val < -0.5 ? '#f87171' : 'rgba(248, 113, 113, 0.7)'
 }
 
 function getAnomaly(val) {
@@ -17,54 +17,54 @@ function getAnomaly(val) {
 export default function CorrelationHeatmap({ correlations, loading }) {
   if (loading) {
     return (
-      <div className="bg-tv-pane border border-tv-border rounded-md p-4">
-        <h3 className="text-sm font-semibold text-tv-text-strong mb-4">Correlation Matrix (90-Day)</h3>
+      <div className="nx-card p-4">
+        <h3 className="text-sm font-semibold text-nx-text-strong mb-4">Correlation Matrix (90-Day)</h3>
         <div className="flex items-center justify-center h-64">
-          <div className="w-5 h-5 border-2 border-tv-blue border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-tv-pane border border-tv-border rounded-md">
-      <div className="flex items-center justify-between p-3 border-b border-tv-border">
-        <h3 className="text-sm font-semibold text-tv-text-strong">Bond-Currency-Equity Correlation (90-Day)</h3>
-        <div className="flex gap-3 text-2xs text-tv-text-muted">
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded bg-tv-green" /> Positive
+    <div className="nx-card">
+      <div className="flex items-center justify-between p-3.5 border-b border-nx-border">
+        <h3 className="text-sm font-semibold text-nx-text-strong">Bond-Currency-Equity Correlation (90-Day)</h3>
+        <div className="flex gap-4 text-2xs text-nx-text-muted">
+          <span className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-nx-green/70" /> Positive
           </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded bg-tv-red" /> Negative
+          <span className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-nx-red/70" /> Negative
           </span>
         </div>
       </div>
 
-      <div className="p-3 space-y-1">
+      <div className="p-3 space-y-0.5">
         {correlations.map((pair, i) => {
           const anomaly = getAnomaly(pair.correlation)
           return (
-            <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-white/[0.02] transition-colors">
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-nx-glass-hover transition-colors">
               <div className="w-44 shrink-0">
-                <span className="text-xs text-tv-text">{pair.label}</span>
+                <span className="text-xs text-nx-text font-medium">{pair.label}</span>
               </div>
 
-              <div className="flex-1 h-6 bg-tv-bg rounded overflow-hidden relative">
+              <div className="flex-1 h-6 bg-nx-void/50 rounded-md overflow-hidden relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-1/2 flex justify-end">
                     {pair.correlation < 0 && (
                       <div
-                        className="h-4 rounded-l transition-all duration-500"
-                        style={{ width: `${Math.abs(pair.correlation) * 100}%`, backgroundColor: getColor(pair.correlation) }}
+                        className="h-4 rounded-l transition-all duration-700 ease-out"
+                        style={{ width: `${Math.abs(pair.correlation) * 100}%`, backgroundColor: getColor(pair.correlation), opacity: 0.8 }}
                       />
                     )}
                   </div>
-                  <div className="w-px h-full bg-tv-border" />
+                  <div className="w-px h-full bg-nx-border" />
                   <div className="w-1/2">
                     {pair.correlation > 0 && (
                       <div
-                        className="h-4 rounded-r transition-all duration-500"
-                        style={{ width: `${Math.abs(pair.correlation) * 100}%`, backgroundColor: getColor(pair.correlation) }}
+                        className="h-4 rounded-r transition-all duration-700 ease-out"
+                        style={{ width: `${Math.abs(pair.correlation) * 100}%`, backgroundColor: getColor(pair.correlation), opacity: 0.8 }}
                       />
                     )}
                   </div>
@@ -72,7 +72,7 @@ export default function CorrelationHeatmap({ correlations, loading }) {
               </div>
 
               <div className="w-12 text-right">
-                <span className="text-sm font-bold font-mono text-tv-text-strong">
+                <span className="text-sm font-bold font-mono tabular-nums text-nx-text-strong">
                   {pair.correlation != null ? pair.correlation.toFixed(2) : '--'}
                 </span>
               </div>

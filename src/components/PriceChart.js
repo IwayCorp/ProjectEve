@@ -37,31 +37,31 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
     if (!active || !payload?.length) return null
     const d = payload[0].payload
     return (
-      <div className="bg-tv-popup border border-tv-border rounded p-2.5 text-xs shadow-xl">
-        <div className="text-tv-text-muted mb-1.5">{d.date} {d.time_label}</div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <span className="text-tv-text-muted">O</span><span className="text-tv-text-strong font-mono">{d.open?.toFixed(2)}</span>
-          <span className="text-tv-text-muted">H</span><span className="text-tv-green font-mono">{d.high?.toFixed(2)}</span>
-          <span className="text-tv-text-muted">L</span><span className="text-tv-red font-mono">{d.low?.toFixed(2)}</span>
-          <span className="text-tv-text-muted">C</span><span className="text-tv-text-strong font-bold font-mono">{d.close?.toFixed(2)}</span>
+      <div className="glass p-3 text-xs shadow-glass-lg" style={{ minWidth: 140 }}>
+        <div className="text-nx-text-muted mb-2 font-medium">{d.date} {d.time_label}</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          <span className="text-nx-text-muted">O</span><span className="text-nx-text-strong font-mono tabular-nums">{d.open?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">H</span><span className="text-nx-green font-mono tabular-nums">{d.high?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">L</span><span className="text-nx-red font-mono tabular-nums">{d.low?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">C</span><span className="text-nx-text-strong font-bold font-mono tabular-nums">{d.close?.toFixed(2)}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-tv-pane border border-tv-border rounded-md">
-      <div className="flex items-center justify-between p-3 border-b border-tv-border">
-        <h3 className="text-sm font-semibold text-tv-text-strong">{title}</h3>
-        <div className="flex gap-0.5">
+    <div className="nx-card">
+      <div className="flex items-center justify-between p-3.5 border-b border-nx-border">
+        <h3 className="text-sm font-semibold text-nx-text-strong">{title}</h3>
+        <div className="flex gap-0.5 p-0.5 rounded-lg bg-nx-void/50">
           {ranges.map(r => (
             <button
               key={r.value}
               onClick={() => setRange(r.value)}
-              className={`px-2 py-1 text-2xs rounded transition-colors ${
+              className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
                 range === r.value
-                  ? 'bg-tv-blue-muted text-tv-blue'
-                  : 'text-tv-text-muted hover:text-tv-text-strong hover:bg-white/5'
+                  ? 'bg-nx-accent-muted text-nx-accent shadow-sm'
+                  : 'text-nx-text-muted hover:text-nx-text-strong'
               }`}
             >
               {r.label}
@@ -70,41 +70,41 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
         </div>
       </div>
 
-      <div className="h-[320px] p-2">
+      <div className="h-[320px] p-3">
         {loading ? (
           <div className="h-full flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-tv-blue border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={candles}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2e39" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
               <XAxis
                 dataKey={range === '1d' || range === '5d' ? 'time_label' : 'date'}
-                tick={{ fontSize: 10, fill: '#787b86' }}
+                tick={{ fontSize: 10, fill: '#6b7280' }}
                 tickLine={false}
-                axisLine={{ stroke: '#2a2e39' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 domain={['auto', 'auto']}
-                tick={{ fontSize: 10, fill: '#787b86' }}
+                tick={{ fontSize: 10, fill: '#6b7280' }}
                 tickLine={false}
                 axisLine={false}
                 width={65}
                 tickFormatter={v => v.toLocaleString()}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="close" fill="rgba(41, 98, 255, 0.06)" stroke="none" />
+              <Area type="monotone" dataKey="close" fill="rgba(91, 141, 238, 0.06)" stroke="none" />
               <Line
                 type="monotone"
                 dataKey="close"
-                stroke="#2962FF"
+                stroke="#5b8dee"
                 strokeWidth={1.5}
                 dot={false}
-                activeDot={{ r: 3, fill: '#2962FF' }}
+                activeDot={{ r: 3, fill: '#5b8dee', stroke: 'rgba(91, 141, 238, 0.3)', strokeWidth: 4 }}
               />
-              <Bar dataKey="volume" fill="rgba(41, 98, 255, 0.12)" yAxisId="volume" />
+              <Bar dataKey="volume" fill="rgba(91, 141, 238, 0.08)" yAxisId="volume" />
               <YAxis yAxisId="volume" orientation="right" hide domain={[0, d => d * 5]} />
             </ComposedChart>
           </ResponsiveContainer>

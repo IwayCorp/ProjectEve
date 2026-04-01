@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Project Eve | Quantitative Market Intelligence',
-  description: 'Real-time quantitative market analysis dashboard — TradingView-inspired',
+  title: 'Noctis | Quantitative Market Intelligence',
+  description: 'Real-time quantitative analysis and trade intelligence platform',
 }
 
 export default function RootLayout({ children }) {

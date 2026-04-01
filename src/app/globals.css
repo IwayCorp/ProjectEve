@@ -2,81 +2,181 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
-    @apply bg-tv-bg text-tv-text;
+    @apply bg-nx-base text-nx-text;
     font-size: 13px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  ::selection {
+    background: rgba(91, 141, 238, 0.25);
+    color: #edf0f7;
   }
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-tv-bg;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-tv-border rounded-full;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-tv-border-light;
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 
 @layer components {
-  .tv-card {
-    @apply bg-tv-pane border border-tv-border rounded-md;
+  /* ── Glass Panel ── */
+  .glass {
+    @apply bg-nx-glass-bg border border-nx-glass-border rounded-xl shadow-glass;
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
   }
-  .tv-btn {
-    @apply px-3 py-1.5 text-sm text-tv-text-muted rounded transition-all duration-150;
+  .glass-subtle {
+    @apply bg-nx-glass-bg/40 border border-nx-glass-border/50 rounded-xl;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  .tv-btn:hover {
-    @apply text-tv-text-strong bg-white/5;
-  }
-  .tv-btn-active {
-    @apply text-tv-blue bg-tv-blue-muted;
-  }
-  .tv-toolbar {
-    @apply flex items-center gap-1 px-2 py-1 bg-tv-toolbar border-b border-tv-border;
-  }
-  .tv-divider {
-    @apply w-px h-5 bg-tv-divider mx-1;
-  }
-  .badge-green {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-green-bg text-tv-green;
-  }
-  .badge-red {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-red-bg text-tv-red;
-  }
-  .badge-orange {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-orange-bg text-tv-orange;
-  }
-  .badge-blue {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-blue-muted text-tv-blue;
-  }
-  .badge-purple {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded bg-tv-purple-bg text-tv-purple;
-  }
-  .glow-green {
-    box-shadow: 0 0 15px rgba(38, 166, 154, 0.15);
-  }
-  .glow-red {
-    box-shadow: 0 0 15px rgba(239, 83, 80, 0.15);
-  }
-  .glow-blue {
-    box-shadow: 0 0 15px rgba(41, 98, 255, 0.15);
-  }
-  .price-up {
-    @apply text-tv-green animate-ticker;
-  }
-  .price-down {
-    @apply text-tv-red animate-ticker;
+  .glass-solid {
+    @apply bg-nx-surface border border-nx-border rounded-xl shadow-inner-glow;
   }
 
-  /* Strategy tag colors */
-  .strat-momentum { @apply bg-tv-blue-muted text-tv-blue; }
-  .strat-mean-reversion { @apply bg-tv-purple-bg text-tv-purple; }
-  .strat-breakout { @apply bg-tv-green-bg text-tv-green; }
-  .strat-carry { @apply bg-tv-orange-bg text-tv-orange; }
-  .strat-macro { @apply bg-tv-red-bg text-tv-red; }
-  .strat-relative-value { @apply bg-yellow-900/20 text-yellow-400; }
+  /* ── Cards ── */
+  .nx-card {
+    @apply bg-nx-surface/80 border border-nx-border rounded-xl shadow-glass transition-all duration-300;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .nx-card:hover {
+    @apply border-nx-border-hover shadow-glass-lg;
+  }
+
+  /* ── Buttons ── */
+  .nx-btn {
+    @apply px-3 py-1.5 text-sm text-nx-text-muted rounded-lg transition-all duration-200;
+  }
+  .nx-btn:hover {
+    @apply text-nx-text-strong bg-nx-glass-hover;
+  }
+  .nx-btn-active {
+    @apply text-nx-accent bg-nx-accent-muted border border-nx-accent/20;
+  }
+
+  /* ── Tab Pills ── */
+  .nx-tab {
+    @apply px-3.5 py-2 text-sm font-medium transition-all duration-200 relative;
+    @apply text-nx-text-muted hover:text-nx-text-strong;
+  }
+  .nx-tab-active {
+    @apply text-nx-accent;
+  }
+  .nx-tab-active::after {
+    content: '';
+    @apply absolute bottom-0 left-2 right-2 h-[2px] bg-nx-accent rounded-full;
+    box-shadow: 0 0 8px rgba(91, 141, 238, 0.4);
+  }
+
+  /* ── Toolbar ── */
+  .nx-toolbar {
+    @apply flex items-center gap-1 px-2 py-1;
+    @apply bg-nx-surface/60 border-b border-nx-border;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* ── Dividers ── */
+  .nx-divider {
+    @apply w-px h-5 bg-nx-border mx-1.5;
+  }
+
+  /* ── Badges ── */
+  .badge-green {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-green-muted text-nx-green border border-nx-green/20;
+  }
+  .badge-red {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-red-muted text-nx-red border border-nx-red/20;
+  }
+  .badge-orange {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-orange-muted text-nx-orange border border-nx-orange/20;
+  }
+  .badge-blue {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-accent-muted text-nx-accent border border-nx-accent/20;
+  }
+  .badge-purple {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/20;
+  }
+  .badge-cyan {
+    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
+    @apply bg-nx-cyan-muted text-nx-cyan border border-nx-cyan/20;
+  }
+
+  /* ── Glow Effects ── */
+  .glow-green {
+    box-shadow: 0 0 24px rgba(52, 211, 153, 0.08), inset 0 1px 0 rgba(52, 211, 153, 0.05);
+  }
+  .glow-red {
+    box-shadow: 0 0 24px rgba(248, 113, 113, 0.08), inset 0 1px 0 rgba(248, 113, 113, 0.05);
+  }
+  .glow-blue {
+    box-shadow: 0 0 24px rgba(91, 141, 238, 0.08), inset 0 1px 0 rgba(91, 141, 238, 0.05);
+  }
+
+  /* ── Price Animation ── */
+  .price-up {
+    @apply text-nx-green animate-ticker;
+  }
+  .price-down {
+    @apply text-nx-red animate-ticker;
+  }
+
+  /* ── Strategy Tags ── */
+  .strat-momentum { @apply bg-nx-accent-muted text-nx-accent border border-nx-accent/15; }
+  .strat-mean-reversion { @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/15; }
+  .strat-breakout { @apply bg-nx-green-muted text-nx-green border border-nx-green/15; }
+  .strat-carry { @apply bg-nx-orange-muted text-nx-orange border border-nx-orange/15; }
+  .strat-macro { @apply bg-nx-cyan-muted text-nx-cyan border border-nx-cyan/15; }
+  .strat-relative-value { @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/15; }
+
+  /* ── Section Dividers ── */
+  .nx-section-divider {
+    @apply flex items-center gap-3 mb-5;
+  }
+  .nx-section-divider::before,
+  .nx-section-divider::after {
+    content: '';
+    @apply h-px flex-1;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  }
+  .nx-section-title {
+    @apply text-xs font-semibold text-nx-text-hint uppercase tracking-[0.15em];
+  }
+
+  /* ── Gradient Accents ── */
+  .gradient-accent {
+    background: linear-gradient(135deg, rgba(91, 141, 238, 0.15), rgba(167, 139, 250, 0.08));
+  }
+  .gradient-surface {
+    background: linear-gradient(180deg, rgba(15, 21, 32, 0.8), rgba(10, 14, 23, 0.95));
+  }
+
+  /* ── Loading shimmer ── */
+  .nx-shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded;
+  }
 }

@@ -1,13 +1,24 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Area } from 'recharts'
+import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
 
 export default function TradePacket({ idea, direction, onClose, currentPrice }) {
   const [chartData, setChartData] = useState([])
-  const [chartRange, setChartRange] = useState('3mo')
+  const [chartRange, setChartRange] = useState('3M')
   const [chartLoading, setChartLoading] = useState(true)
   const [activeSection, setActiveSection] = useState('overview')
+  const [selectedTimeframe, setSelectedTimeframe] = useState('4d')
   const dp = idea.dataPacket
+
+  // Generate prediction based on selected timeframe
+  const prediction = useMemo(() => {
+    const tf = TIMEFRAMES.find(t => t.id === selectedTimeframe)
+    if (!tf || !currentPrice) return null
+    return generatePrediction(currentPrice, idea.target, idea.stopLoss, direction, tf.minutes, idea.rsi, idea.strategy)
+  }, [currentPrice, idea.target, idea.stopLoss, direction, selectedTimeframe, idea.rsi, idea.strategy])
+  const scrollRef = useRef(null)
+  const sectionRefs = useRef({})
 
   const rangeMap = {
     '1M': { range: '1mo', interval: '1d' },
@@ -16,7 +27,6 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
     '1Y': { range: '1y', interval: '1wk' },
   }
 
-  // Determine the Yahoo symbol for this idea
   const yahooSymbol = idea.ticker === 'BTC-USD' ? 'BTC-USD'
     : idea.ticker === 'USDJPY' ? 'JPY=X'
     : idea.ticker === 'EURUSD' ? 'EURUSD=X'
@@ -50,6 +60,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
 
   const sections = [
     { id: 'overview', label: 'Overview' },
+    { id: 'prediction', label: 'Prediction' },
     { id: 'chart', label: 'Chart' },
     { id: 'bonds', label: 'Bond Correlation' },
     { id: 'macro', label: 'Global Macro' },
@@ -73,42 +84,71 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
       : (currentPrice <= idea.target ? 'TARGET_HIT' : currentPrice >= idea.stopLoss ? 'STOP_HIT' : null))
     : null
 
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop + 160
+      let current = 'overview'
+      for (const s of sections) {
+        const el = sectionRefs.current[s.id]
+        if (el && el.offsetTop <= scrollTop) {
+          current = s.id
+        }
+      }
+      setActiveSection(current)
+    }
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToSection = (id) => {
+    const el = sectionRefs.current[id]
+    if (el && scrollRef.current) {
+      const offset = el.offsetTop - 140
+      scrollRef.current.scrollTo({ top: offset, behavior: 'smooth' })
+    }
+  }
+
+  const setSectionRef = (id) => (el) => { sectionRefs.current[id] = el }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-4 pb-4 overflow-y-auto" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative w-full max-w-5xl mx-4 bg-tv-bg border border-tv-border rounded-lg shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-tv-pane border-b border-tv-border rounded-t-lg">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <span className={`text-2xl font-bold ${isLong ? 'text-tv-green' : 'text-tv-red'}`}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-nx-void/80 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-5xl mx-4 mt-4 mb-4 rounded-2xl shadow-glass-lg animate-slide-up flex flex-col border border-nx-border"
+        style={{ maxHeight: 'calc(100vh - 32px)', background: 'rgba(10, 14, 23, 0.95)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+        onClick={e => e.stopPropagation()}
+      >
+
+        {/* Sticky Header + Nav */}
+        <div className="sticky top-0 z-10 rounded-t-2xl shrink-0 border-b border-nx-border" style={{ background: 'rgba(15, 21, 32, 0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+          <div className="flex items-center justify-between p-5 pb-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`text-2xl font-bold ${isLong ? 'text-nx-green' : 'text-nx-red'}`}>
                 {idea.ticker}
               </span>
-              <span className="text-tv-text-muted text-md">{idea.name}</span>
-              <span className={`px-2 py-0.5 rounded text-2xs font-bold uppercase ${isLong ? 'bg-tv-green-bg text-tv-green' : 'bg-tv-red-bg text-tv-red'}`}>
+              <span className="text-nx-text-muted text-md">{idea.name}</span>
+              <span className={`px-2.5 py-0.5 rounded-md text-2xs font-bold uppercase ${isLong ? 'bg-nx-green-muted text-nx-green border border-nx-green/15' : 'bg-nx-red-muted text-nx-red border border-nx-red/15'}`}>
                 {isLong ? 'LONG' : 'SHORT'}
               </span>
-              <span className={`px-2 py-0.5 rounded text-2xs font-semibold ${idea.strategy ? `strat-${idea.strategy}` : 'badge-blue'}`}>
+              <span className={`px-2.5 py-0.5 rounded-md text-2xs font-semibold ${idea.strategy ? `strat-${idea.strategy}` : 'badge-blue'}`}>
                 {idea.strategy?.replace('-', ' ').toUpperCase() || 'STRATEGY'}
               </span>
-              {priceInZone && <span className="badge-blue animate-pulse">IN ZONE</span>}
-              {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse">TARGET HIT</span>}
-              {alert === 'STOP_HIT' && <span className="badge-red animate-pulse">STOP HIT</span>}
+              {priceInZone && <span className="badge-blue animate-pulse-gentle">IN ZONE</span>}
+              {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse-gentle">TARGET HIT</span>}
+              {alert === 'STOP_HIT' && <span className="badge-red animate-pulse-gentle">STOP HIT</span>}
             </div>
-            <button onClick={onClose} className="text-tv-text-muted hover:text-white text-xl px-2">✕</button>
+            <button onClick={onClose} className="text-nx-text-muted hover:text-nx-text-strong text-xl px-2 transition-colors rounded-lg hover:bg-nx-glass-hover w-8 h-8 flex items-center justify-center">&times;</button>
           </div>
 
-          {/* Section tabs */}
-          <div className="flex gap-0 px-4 overflow-x-auto">
+          {/* Navigation bar */}
+          <div className="flex gap-0 px-5 overflow-x-auto">
             {sections.map(s => (
               <button
                 key={s.id}
-                onClick={() => setActiveSection(s.id)}
-                className={`px-3 py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
-                  activeSection === s.id
-                    ? 'text-tv-blue border-tv-blue'
-                    : 'text-tv-text-muted border-transparent hover:text-tv-text-strong'
-                }`}
+                onClick={() => scrollToSection(s.id)}
+                className={`nx-tab whitespace-nowrap ${activeSection === s.id ? 'nx-tab-active' : ''}`}
               >
                 {s.label}
               </button>
@@ -116,181 +156,287 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* Key metrics bar — always visible */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {[
-              { label: 'Entry Zone', value: `${idea.entryLow} – ${idea.entryHigh}`, color: 'text-tv-blue' },
-              { label: 'Target', value: idea.target, color: 'text-tv-green' },
-              { label: 'Stop Loss', value: idea.stopLoss, color: 'text-tv-red' },
-              { label: 'R:R', value: `${rr}:1`, color: parseFloat(rr) >= 2 ? 'text-tv-green' : 'text-tv-orange' },
-              { label: 'RSI', value: idea.rsi, color: idea.rsi < 30 ? 'text-tv-green' : idea.rsi > 70 ? 'text-tv-red' : 'text-tv-orange' },
-              { label: 'Risk', value: idea.risk, color: idea.risk === 'LOW' ? 'text-tv-green' : idea.risk === 'HIGH' ? 'text-tv-red' : 'text-tv-orange' },
-              { label: 'Timeframe', value: idea.timeframe || '4-day', color: 'text-tv-text' },
-            ].map((m, i) => (
-              <div key={i} className="bg-tv-pane rounded p-3 border border-tv-border">
-                <div className="text-2xs text-tv-text-muted uppercase tracking-wider">{m.label}</div>
-                <div className={`text-md font-semibold mt-1 ${m.color}`}>{m.value}</div>
-              </div>
-            ))}
-          </div>
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1" ref={scrollRef}>
+          <div className="p-6 space-y-8">
 
-          {/* OVERVIEW */}
-          {activeSection === 'overview' && (
-            <div className="space-y-5 animate-fade-in">
-              <div>
-                <h3 className="text-md font-semibold text-tv-text-strong mb-2">Thesis</h3>
-                <p className="text-sm text-tv-text leading-relaxed">{idea.thesis}</p>
+            {/* Key metrics bar */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+              {[
+                { label: 'Entry Zone', value: `${idea.entryLow} \u2013 ${idea.entryHigh}`, color: 'text-nx-accent' },
+                { label: 'Target', value: idea.target, color: 'text-nx-green' },
+                { label: 'Stop Loss', value: idea.stopLoss, color: 'text-nx-red' },
+                { label: 'R:R', value: `${rr}:1`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+                { label: 'RSI', value: idea.rsi, color: idea.rsi < 30 ? 'text-nx-green' : idea.rsi > 70 ? 'text-nx-red' : 'text-nx-orange' },
+                { label: 'Risk', value: idea.risk, color: idea.risk === 'LOW' ? 'text-nx-green' : idea.risk === 'HIGH' ? 'text-nx-red' : 'text-nx-orange' },
+                { label: 'Timeframe', value: idea.timeframe || '4-day', color: 'text-nx-text' },
+              ].map((m, i) => (
+                <div key={i} className="glass-solid p-3">
+                  <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{m.label}</div>
+                  <div className={`text-md font-semibold mt-1 font-mono tabular-nums ${m.color}`}>{m.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* OVERVIEW */}
+            <div ref={setSectionRef('overview')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Overview</span>
               </div>
-              <div>
-                <h3 className="text-md font-semibold text-tv-text-strong mb-2">Catalyst</h3>
-                <p className="text-sm text-tv-text leading-relaxed">{idea.catalyst}</p>
-              </div>
-              <div>
-                <h3 className="text-md font-semibold text-tv-text-strong mb-2">Historical Context</h3>
-                <p className="text-sm text-tv-text leading-relaxed">{dp.historicalContext}</p>
-              </div>
-              <div>
-                <h3 className="text-md font-semibold text-tv-text-strong mb-2">Sector Context</h3>
-                <p className="text-sm text-tv-text leading-relaxed">{dp.sectorContext}</p>
+              <div className="space-y-5">
+                <div>
+                  <h4 className="text-md font-semibold text-nx-text-strong mb-2">Thesis</h4>
+                  <p className="text-sm text-nx-text leading-relaxed">{idea.thesis}</p>
+                </div>
+                <div>
+                  <h4 className="text-md font-semibold text-nx-text-strong mb-2">Catalyst</h4>
+                  <p className="text-sm text-nx-text leading-relaxed">{idea.catalyst}</p>
+                </div>
+                <div>
+                  <h4 className="text-md font-semibold text-nx-text-strong mb-2">Historical Context</h4>
+                  <p className="text-sm text-nx-text leading-relaxed">{dp.historicalContext}</p>
+                </div>
+                <div>
+                  <h4 className="text-md font-semibold text-nx-text-strong mb-2">Sector Context</h4>
+                  <p className="text-sm text-nx-text leading-relaxed">{dp.sectorContext}</p>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* CHART */}
-          {activeSection === 'chart' && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex items-center gap-2">
-                {Object.keys(rangeMap).map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setChartRange(r)}
-                    className={`tv-btn text-xs ${chartRange === r ? 'tv-btn-active' : ''}`}
-                  >
-                    {r}
-                  </button>
-                ))}
+            {/* PREDICTION */}
+            <div ref={setSectionRef('prediction')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Price Prediction</span>
               </div>
-              <div className="bg-tv-pane border border-tv-border rounded-md p-4" style={{ height: 400 }}>
-                {chartLoading ? (
-                  <div className="flex items-center justify-center h-full text-tv-text-muted">Loading chart data...</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData}>
-                      <XAxis dataKey="date" tick={{ fill: '#787b86', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#2a2e39' }} interval="preserveStartEnd" />
-                      <YAxis domain={['auto', 'auto']} tick={{ fill: '#787b86', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#2a2e39' }} width={65} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1e222d', border: '1px solid #2a2e39', borderRadius: 4, fontSize: 11 }}
-                        labelStyle={{ color: '#787b86' }}
-                      />
-                      <Area type="monotone" dataKey="close" fill="rgba(41, 98, 255, 0.08)" stroke="none" />
-                      <Line type="monotone" dataKey="close" stroke="#2962FF" strokeWidth={2} dot={false} />
-                      {idea.entryHigh && <ReferenceLine y={idea.entryHigh} stroke="#2962FF" strokeDasharray="4 4" label={{ value: `Entry High ${idea.entryHigh}`, fill: '#2962FF', fontSize: 10, position: 'right' }} />}
-                      {idea.entryLow && <ReferenceLine y={idea.entryLow} stroke="#2962FF" strokeDasharray="4 4" label={{ value: `Entry Low ${idea.entryLow}`, fill: '#2962FF', fontSize: 10, position: 'right' }} />}
-                      {idea.target && <ReferenceLine y={idea.target} stroke="#26a69a" strokeDasharray="4 4" label={{ value: `Target ${idea.target}`, fill: '#26a69a', fontSize: 10, position: 'right' }} />}
-                      {idea.stopLoss && <ReferenceLine y={idea.stopLoss} stroke="#ef5350" strokeDasharray="4 4" label={{ value: `Stop ${idea.stopLoss}`, fill: '#ef5350', fontSize: 10, position: 'right' }} />}
-                      <Bar dataKey="volume" fill="rgba(41, 98, 255, 0.15)" yAxisId="volume" />
-                      <YAxis yAxisId="volume" orientation="right" hide domain={[0, d => d * 5]} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                )}
+
+              {/* Timeframe Selector */}
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <span className="text-xs text-nx-text-muted font-medium">Position Length:</span>
+                <div className="flex gap-1 p-0.5 rounded-lg bg-nx-void/40">
+                  {TIMEFRAMES.map(tf => (
+                    <button
+                      key={tf.id}
+                      onClick={() => setSelectedTimeframe(tf.id)}
+                      className={`px-2.5 py-1.5 text-2xs rounded-md font-medium transition-all duration-200 ${
+                        selectedTimeframe === tf.id
+                          ? 'bg-nx-accent-muted text-nx-accent shadow-sm'
+                          : 'text-nx-text-muted hover:text-nx-text-strong'
+                      }`}
+                    >
+                      {tf.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {prediction && (
+                <div className="space-y-4">
+                  {/* Prediction Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    <div className="glass-solid p-3">
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Confidence</div>
+                      <div className={`text-lg font-bold font-mono mt-1 ${prediction.confidence >= 65 ? 'text-nx-green' : prediction.confidence >= 50 ? 'text-nx-orange' : 'text-nx-red'}`}>{prediction.confidence}%</div>
+                    </div>
+                    <div className="glass-solid p-3">
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Expected Return</div>
+                      <div className={`text-lg font-bold font-mono mt-1 ${prediction.expectedReturn > 0 ? 'text-nx-green' : 'text-nx-red'}`}>{prediction.expectedReturn > 0 ? '+' : ''}{prediction.expectedReturn}%</div>
+                    </div>
+                    <div className="glass-solid p-3">
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Est. Entry</div>
+                      <div className="text-sm font-mono mt-1 text-nx-accent">{prediction.estimatedEntryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div className="glass-solid p-3">
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Est. Target</div>
+                      <div className="text-sm font-mono mt-1 text-nx-green">{prediction.estimatedTargetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                  </div>
+
+                  {/* Prediction Chart */}
+                  <div className="nx-card p-4" style={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={prediction.path}>
+                        <XAxis dataKey="time" tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} interval={Math.floor(prediction.path.length / 8)} />
+                        <YAxis domain={['auto', 'auto']} tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={false} width={65} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'rgba(15, 21, 32, 0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11 }}
+                          labelStyle={{ color: '#6b7280' }}
+                          formatter={(val) => [`$${val.toFixed(2)}`, 'Predicted']}
+                        />
+                        {/* Confidence bands */}
+                        <Area type="monotone" dataKey="price" data={prediction.upperBand} fill="rgba(91, 141, 238, 0.04)" stroke="none" />
+                        <Area type="monotone" dataKey="price" data={prediction.lowerBand} fill="rgba(91, 141, 238, 0.04)" stroke="none" />
+                        {/* Main prediction line */}
+                        <Area type="monotone" dataKey="predicted" fill="rgba(91, 141, 238, 0.08)" stroke="none" />
+                        <Line type="monotone" dataKey="predicted" stroke="#5b8dee" strokeWidth={2} dot={false} strokeDasharray="6 3" />
+                        {/* Target & Stop lines */}
+                        {idea.target && <ReferenceLine y={idea.target} stroke="#34d399" strokeDasharray="4 4" label={{ value: `Target $${idea.target}`, fill: '#34d399', fontSize: 10, position: 'right' }} />}
+                        {idea.stopLoss && <ReferenceLine y={idea.stopLoss} stroke="#f87171" strokeDasharray="4 4" label={{ value: `Stop $${idea.stopLoss}`, fill: '#f87171', fontSize: 10, position: 'right' }} />}
+                        {currentPrice && <ReferenceLine y={currentPrice} stroke="rgba(255,255,255,0.3)" strokeDasharray="2 4" label={{ value: `Now $${currentPrice.toFixed(2)}`, fill: '#6b7280', fontSize: 10, position: 'left' }} />}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-2xs text-nx-text-hint">
+                    <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-nx-accent inline-block" style={{ borderTop: '2px dashed #5b8dee' }} /> Predicted Path</span>
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-nx-accent/10 inline-block" /> Confidence Band</span>
+                    <span className="ml-auto">Model uses RSI, R:R, strategy type, and historical volatility</span>
+                  </div>
+                </div>
+              )}
+
+              {!prediction && (
+                <div className="text-center py-8 text-nx-text-muted">No live price data available for prediction generation.</div>
+              )}
+            </div>
+
+            {/* CHART */}
+            <div ref={setSectionRef('chart')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Price Chart</span>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-nx-void/40 w-fit">
+                  {Object.keys(rangeMap).map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setChartRange(r)}
+                      className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all duration-200 ${chartRange === r ? 'bg-nx-accent-muted text-nx-accent' : 'text-nx-text-muted hover:text-nx-text-strong'}`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <div className="nx-card p-4" style={{ height: 400 }}>
+                  {chartLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="w-5 h-5 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={chartData}>
+                        <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} interval="preserveStartEnd" />
+                        <YAxis domain={['auto', 'auto']} tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} width={65} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'rgba(15, 21, 32, 0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11, backdropFilter: 'blur(12px)' }}
+                          labelStyle={{ color: '#6b7280' }}
+                        />
+                        <Area type="monotone" dataKey="close" fill="rgba(91, 141, 238, 0.06)" stroke="none" />
+                        <Line type="monotone" dataKey="close" stroke="#5b8dee" strokeWidth={2} dot={false} />
+                        {idea.entryHigh && <ReferenceLine y={idea.entryHigh} stroke="#5b8dee" strokeDasharray="4 4" label={{ value: `Entry ${idea.entryHigh}`, fill: '#5b8dee', fontSize: 10, position: 'right' }} />}
+                        {idea.entryLow && <ReferenceLine y={idea.entryLow} stroke="#5b8dee" strokeDasharray="4 4" label={{ value: `Entry ${idea.entryLow}`, fill: '#5b8dee', fontSize: 10, position: 'right' }} />}
+                        {idea.target && <ReferenceLine y={idea.target} stroke="#34d399" strokeDasharray="4 4" label={{ value: `Target ${idea.target}`, fill: '#34d399', fontSize: 10, position: 'right' }} />}
+                        {idea.stopLoss && <ReferenceLine y={idea.stopLoss} stroke="#f87171" strokeDasharray="4 4" label={{ value: `Stop ${idea.stopLoss}`, fill: '#f87171', fontSize: 10, position: 'right' }} />}
+                        <Bar dataKey="volume" fill="rgba(91, 141, 238, 0.1)" yAxisId="volume" />
+                        <YAxis yAxisId="volume" orientation="right" hide domain={[0, d => d * 5]} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* BOND CORRELATION */}
-          {activeSection === 'bonds' && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-md font-semibold text-tv-text-strong">Bond & Rate Correlation Analysis</h3>
-              <p className="text-sm text-tv-text leading-relaxed">{dp.bondCorrelation}</p>
+            {/* BOND CORRELATION */}
+            <div ref={setSectionRef('bonds')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Bond & Rate Correlation</span>
+              </div>
+              <div className="glass-solid p-5">
+                <p className="text-sm text-nx-text leading-relaxed">{dp.bondCorrelation}</p>
+              </div>
             </div>
-          )}
 
-          {/* GLOBAL MACRO */}
-          {activeSection === 'macro' && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-md font-semibold text-tv-text-strong">Global Macro & Government Correlation</h3>
-              <p className="text-sm text-tv-text leading-relaxed">{dp.globalMacro}</p>
+            {/* GLOBAL MACRO */}
+            <div ref={setSectionRef('macro')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Global Macro & Government</span>
+              </div>
+              <div className="glass-solid p-5">
+                <p className="text-sm text-nx-text leading-relaxed">{dp.globalMacro}</p>
+              </div>
             </div>
-          )}
 
-          {/* NEWS & CATALYSTS */}
-          {activeSection === 'news' && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-md font-semibold text-tv-text-strong">Key News & Catalysts</h3>
+            {/* NEWS & CATALYSTS */}
+            <div ref={setSectionRef('news')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">News & Catalysts</span>
+              </div>
               <div className="space-y-2">
                 {dp.newsDrivers.map((news, i) => (
-                  <div key={i} className="flex gap-3 items-start bg-tv-pane border border-tv-border rounded p-3">
-                    <span className="text-tv-blue font-bold text-sm mt-0.5">{i + 1}</span>
-                    <p className="text-sm text-tv-text leading-relaxed">{news}</p>
+                  <div key={i} className="flex gap-3 items-start glass-solid p-3.5">
+                    <span className="text-nx-accent font-bold text-sm mt-0.5 shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
+                    <p className="text-sm text-nx-text leading-relaxed">{news}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* TECHNICALS */}
-          {activeSection === 'technicals' && dp.technicalLevels && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-md font-semibold text-tv-text-strong">Technical Levels</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-tv-pane border border-tv-border rounded p-4">
-                  <div className="text-xs text-tv-text-muted uppercase mb-3">Support Levels</div>
-                  {dp.technicalLevels.support.map((s, i) => (
-                    <div key={i} className="flex justify-between py-1.5 border-b border-tv-border last:border-0">
-                      <span className="text-xs text-tv-text-muted">S{i + 1}</span>
-                      <span className="text-sm font-medium text-tv-red">{s}</span>
-                    </div>
-                  ))}
+            {/* TECHNICALS */}
+            {dp.technicalLevels && (
+              <div ref={setSectionRef('technicals')}>
+                <div className="nx-section-divider">
+                  <span className="nx-section-title">Technical Levels</span>
                 </div>
-                <div className="bg-tv-pane border border-tv-border rounded p-4">
-                  <div className="text-xs text-tv-text-muted uppercase mb-3">Resistance Levels</div>
-                  {dp.technicalLevels.resistance.map((r, i) => (
-                    <div key={i} className="flex justify-between py-1.5 border-b border-tv-border last:border-0">
-                      <span className="text-xs text-tv-text-muted">R{i + 1}</span>
-                      <span className="text-sm font-medium text-tv-green">{r}</span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="glass-solid p-4">
+                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Support Levels</div>
+                      {dp.technicalLevels.support.map((s, i) => (
+                        <div key={i} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
+                          <span className="text-xs text-nx-text-muted">S{i + 1}</span>
+                          <span className="text-sm font-medium text-nx-red font-mono tabular-nums">{s}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="bg-tv-pane border border-tv-border rounded p-4">
-                  <div className="text-xs text-tv-text-muted uppercase mb-3">Moving Averages</div>
-                  {Object.entries(dp.technicalLevels.movingAverages).map(([key, val]) => (
-                    <div key={key} className="flex justify-between py-1.5 border-b border-tv-border last:border-0">
-                      <span className="text-xs text-tv-text-muted">{key.toUpperCase()}</span>
-                      <span className="text-sm font-medium text-tv-text">{val}</span>
+                    <div className="glass-solid p-4">
+                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Resistance Levels</div>
+                      {dp.technicalLevels.resistance.map((r, i) => (
+                        <div key={i} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
+                          <span className="text-xs text-nx-text-muted">R{i + 1}</span>
+                          <span className="text-sm font-medium text-nx-green font-mono tabular-nums">{r}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                    <div className="glass-solid p-4">
+                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Moving Averages</div>
+                      {Object.entries(dp.technicalLevels.movingAverages).map(([key, val]) => (
+                        <div key={key} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
+                          <span className="text-xs text-nx-text-muted">{key.toUpperCase()}</span>
+                          <span className="text-sm font-medium text-nx-text font-mono tabular-nums">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="glass-solid p-4">
+                    <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Pivot Points</div>
+                    <div className="grid grid-cols-4 gap-4">
+                      {Object.entries(dp.technicalLevels.pivotPoints).map(([key, val]) => (
+                        <div key={key} className="text-center">
+                          <div className="text-xs text-nx-text-muted uppercase">{key}</div>
+                          <div className={`text-md font-semibold font-mono tabular-nums ${key.startsWith('r') ? 'text-nx-green' : 'text-nx-red'}`}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="bg-tv-pane border border-tv-border rounded p-4">
-                <div className="text-xs text-tv-text-muted uppercase mb-3">Pivot Points</div>
-                <div className="grid grid-cols-4 gap-4">
-                  {Object.entries(dp.technicalLevels.pivotPoints).map(([key, val]) => (
-                    <div key={key} className="text-center">
-                      <div className="text-xs text-tv-text-muted">{key.toUpperCase()}</div>
-                      <div className={`text-md font-semibold ${key.startsWith('r') ? 'text-tv-green' : 'text-tv-red'}`}>{val}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* RISKS */}
-          {activeSection === 'risks' && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-md font-semibold text-tv-text-strong">Risk Factors</h3>
-              <div className="space-y-2">
+            {/* RISK FACTORS */}
+            <div ref={setSectionRef('risks')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Risk Factors</span>
+              </div>
+              <div className="space-y-2 mb-8">
                 {dp.riskFactors.map((risk, i) => (
-                  <div key={i} className="flex gap-3 items-start bg-tv-red-bg border border-tv-border rounded p-3">
-                    <span className="text-tv-red font-bold text-sm mt-0.5">⚠</span>
-                    <p className="text-sm text-tv-text leading-relaxed">{risk}</p>
+                  <div key={i} className="flex gap-3 items-start p-3.5 rounded-xl bg-nx-red-muted/50 border border-nx-red/10">
+                    <span className="text-nx-red font-bold text-sm mt-0.5 shrink-0">!</span>
+                    <p className="text-sm text-nx-text leading-relaxed">{risk}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+
+          </div>
         </div>
       </div>
     </div>

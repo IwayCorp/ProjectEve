@@ -9,6 +9,7 @@ import CorrelationHeatmap from '@/components/CorrelationHeatmap'
 import TradeIdeas from '@/components/TradeIdeas'
 import RiskCalendar from '@/components/RiskCalendar'
 import ScenarioAnalysis from '@/components/ScenarioAnalysis'
+import HistoricalData from '@/components/HistoricalData'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -25,10 +26,11 @@ const TICKER_SYMBOLS = {
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: '◐' },
-  { id: 'trades', label: 'Trade Ideas', icon: '◈' },
-  { id: 'correlation', label: 'Correlations', icon: '◉' },
-  { id: 'risk', label: 'Risk Calendar', icon: '◆' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'trades', label: 'Trade Ideas' },
+  { id: 'correlation', label: 'Correlations' },
+  { id: 'risk', label: 'Risk Calendar' },
+  { id: 'history', label: 'Performance' },
 ]
 
 export default function Dashboard() {
@@ -37,7 +39,6 @@ export default function Dashboard() {
 
   const allSymbols = useMemo(() => {
     const syms = getAllSymbols()
-    // Add forex pairs and crypto for trade idea quotes
     const extra = ['EURUSD=X', 'GBPUSD=X', 'CHF=X', 'AUDUSD=X', 'MXN=X', 'EURGBP=X', 'NZDUSD=X', 'BTC-USD',
       'LMT', 'JPM', 'UNH', 'BYND', 'DIS', 'NKE', 'COIN', 'ARKK', 'IWM', 'TLT', 'XLU', 'XLRE', 'FXI']
     return [...new Set([...Object.values(syms), ...extra])]
@@ -64,60 +65,55 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-tv-bg">
+    <div className="min-h-screen bg-nx-base">
       <Header />
       <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
 
-      {/* Tab navigation — TradingView style */}
-      <div className="border-b border-tv-border bg-tv-toolbar">
-        <div className="max-w-[1920px] mx-auto px-4">
+      {/* Tab navigation */}
+      <div className="border-b border-nx-border" style={{ background: 'rgba(10, 14, 23, 0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div className="max-w-[1920px] mx-auto px-5">
           <div className="flex items-center">
             <div className="flex gap-0">
               {TABS.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
-                    activeTab === tab.id
-                      ? 'text-tv-blue'
-                      : 'text-tv-text-muted hover:text-tv-text-strong'
-                  }`}
+                  className={`nx-tab ${activeTab === tab.id ? 'nx-tab-active' : ''}`}
                 >
-                  <span className="text-xs">{tab.icon}</span>
                   {tab.label}
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-tv-blue" />
-                  )}
                 </button>
               ))}
             </div>
 
             {/* Live indicator */}
-            <div className="ml-auto flex items-center gap-2 text-2xs text-tv-text-muted">
-              <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-tv-orange animate-pulse' : 'bg-tv-green'}`} />
-              {quotesLoading ? 'Refreshing...' : 'Live · 15s'}
+            <div className="ml-auto flex items-center gap-2.5 text-2xs text-nx-text-muted">
+              <div className="relative">
+                <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
+                {!quotesLoading && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
+              </div>
+              <span className="font-medium">{quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <main className="max-w-[1920px] mx-auto p-3 space-y-3">
+      <main className="max-w-[1920px] mx-auto p-4 space-y-4">
         {activeTab === 'overview' && (
           <>
             <MarketOverview quotes={quotes} />
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
               <div className="xl:col-span-2">
-                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                <div className="flex items-center gap-1 mb-2.5 flex-wrap p-0.5">
                   {chartOptions.map(opt => (
                     <button
                       key={opt.symbol}
                       onClick={() => setChartSymbol(opt)}
-                      className={`px-2 py-1 text-2xs rounded transition-colors ${
+                      className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
                         chartSymbol.symbol === opt.symbol
-                          ? 'bg-tv-blue-muted text-tv-blue'
-                          : 'text-tv-text-muted hover:text-tv-text-strong hover:bg-white/5'
+                          ? 'bg-nx-accent-muted text-nx-accent'
+                          : 'text-nx-text-muted hover:text-nx-text-strong hover:bg-nx-glass-hover'
                       }`}
                     >
                       {opt.title}
@@ -131,6 +127,8 @@ export default function Dashboard() {
               </div>
             </div>
 
+            <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
+            <RiskCalendar />
             <ScenarioAnalysis />
           </>
         )}
@@ -149,13 +147,20 @@ export default function Dashboard() {
             <ScenarioAnalysis />
           </>
         )}
+
+        {activeTab === 'history' && (
+          <HistoricalData />
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-tv-border py-3 mt-6">
-        <div className="max-w-[1920px] mx-auto px-4 text-center">
-          <p className="text-2xs text-tv-text-hint">
-            Project Eve · Quantitative Market Intelligence · For informational purposes only. Not financial advice.
+      <footer className="border-t border-nx-border py-4 mt-8">
+        <div className="max-w-[1920px] mx-auto px-5 flex items-center justify-between">
+          <p className="text-2xs text-nx-text-hint font-medium tracking-wide">
+            Noctis &middot; Quantitative Market Intelligence
+          </p>
+          <p className="text-2xs text-nx-text-hint">
+            For informational purposes only. Not financial advice.
           </p>
         </div>
       </footer>

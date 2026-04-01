@@ -1,5 +1,5 @@
 // ============================================================================
-// PROJECT EVE — TRADE IDEAS ENGINE
+// NOCTIS — TRADE IDEAS ENGINE
 // Full research-backed trade setups with deep analysis packets
 // ============================================================================
 
