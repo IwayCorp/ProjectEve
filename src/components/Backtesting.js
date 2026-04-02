@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Area, Line, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { CHART_AXIS, CHART_YAXIS, CHART_GRID, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
+import DemoBanner from '@/components/DemoBanner'
 
 // Generate realistic backtest equity curve data
 function generateEquityCurve(months = 12) {
@@ -123,6 +124,11 @@ export default function Backtesting() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="simulated"
+        message="All equity curves, P&L figures, and trade history shown here are procedurally generated. No real backtest engine has been run against historical market data."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

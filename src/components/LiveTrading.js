@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import DemoBanner from '@/components/DemoBanner'
 
 // Base positions — currentPrice/P&L will be computed from live quotes
 const BASE_POSITIONS = [
@@ -47,6 +48,11 @@ export default function LiveTrading({ quotes = {} }) {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="partial"
+        message="Current prices and P&L calculations use live market data. However, positions, orders, and execution history are hardcoded examples — no broker is connected."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

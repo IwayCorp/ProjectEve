@@ -16,6 +16,7 @@ import AIAssistant from '@/components/AIAssistant'
 import Optimization from '@/components/Optimization'
 import LiveTrading from '@/components/LiveTrading'
 import MultiAssetPortfolio from '@/components/MultiAssetPortfolio'
+import LivePerformance from '@/components/LivePerformance'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -42,7 +43,8 @@ const TABS = [
   { id: 'portfolio', label: 'Portfolio' },
   { id: 'correlation', label: 'Correlations' },
   { id: 'risk', label: 'Risk Calendar' },
-  { id: 'history', label: 'Performance' },
+  { id: 'history', label: 'Simulated Results' },
+  { id: 'performance', label: 'Performance' },
 ]
 
 export default function Dashboard() {
@@ -207,13 +209,17 @@ export default function Dashboard() {
 
           {activeTab === 'risk' && (
             <>
-              <RiskCalendar />
-              <ScenarioAnalysis />
+              <RiskCalendar showBanner />
+              <ScenarioAnalysis showBanner />
             </>
           )}
 
           {activeTab === 'history' && (
             <HistoricalData />
+          )}
+
+          {activeTab === 'performance' && (
+            <LivePerformance />
           )}
         </main>
 

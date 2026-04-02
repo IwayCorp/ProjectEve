@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import DemoBanner from '@/components/DemoBanner'
 
 const AI_CAPABILITIES = [
   { id: 'strategy', icon: '🧠', name: 'Strategy Builder', desc: 'Describe a trading idea in plain English and let AI generate a quantitative strategy with entry/exit rules, position sizing, and risk management.' },
@@ -58,6 +59,11 @@ export default function AIAssistant() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="demo"
+        message="The AI assistant is a UI preview. Chat responses are placeholder text — no LLM or analysis engine is connected. Insights shown are static examples."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

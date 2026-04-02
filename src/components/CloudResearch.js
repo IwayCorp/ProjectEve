@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import DemoBanner from '@/components/DemoBanner'
 
 const RESEARCH_TEMPLATES = [
   { id: 'momentum', name: 'Momentum Scanner', desc: 'Scan for high-momentum setups across equities, futures, and forex using RSI, MACD, and volume confirmation.', icon: '⚡', language: 'Python', difficulty: 'Intermediate', runtime: '~2min' },
@@ -42,6 +43,11 @@ export default function CloudResearch() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="demo"
+        message="Research templates and run history are static placeholders. No cloud compute or data pipeline is connected — algorithms cannot be executed yet."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

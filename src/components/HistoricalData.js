@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { generateHistoricalTrades, computeStats, groupTradesByMonth, groupTradesByDate } from '@/lib/predictions'
 import { STRATEGIES } from '@/lib/tradeIdeas'
+import DemoBanner from '@/components/DemoBanner'
 
 function OutcomeBadge({ outcome }) {
   const map = {
@@ -234,19 +235,10 @@ export default function HistoricalData() {
 
   return (
     <div className="space-y-5">
-      {/* Backtest Disclaimer */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{
-        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.06), rgba(248, 113, 113, 0.04))',
-        border: '1px solid rgba(251, 191, 36, 0.12)',
-      }}>
-        <span className="text-lg">&#9888;</span>
-        <div>
-          <span className="text-xs font-bold text-nx-orange">BACKTESTED RESULTS</span>
-          <span className="text-2xs text-nx-text-muted ml-2">
-            These are simulated signals from the Noctis strategy engine applied to historical market data. They are <strong className="text-nx-text">not</strong> real executed trades and do not represent actual P&amp;L. Past backtest performance does not guarantee future results.
-          </span>
-        </div>
-      </div>
+      <DemoBanner
+        type="simulated"
+        message="All trade signals, P&L figures, and equity curves on this page are fabricated for UI demonstration. These are not real executed trades and do not represent actual performance. No backtest engine has been run against historical data."
+      />
 
       {/* Performance Dashboard Header */}
       <div className="flex items-center justify-between">

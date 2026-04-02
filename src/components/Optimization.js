@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import DemoBanner from '@/components/DemoBanner'
 
 // Generate heatmap data for parameter optimization
 function generateHeatmapData() {
@@ -70,6 +71,11 @@ export default function Optimization() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="simulated"
+        message="All optimization results, heatmaps, and walk-forward validation metrics shown here are procedurally generated for UI demonstration. No actual parameter sweep or backtest has been run."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

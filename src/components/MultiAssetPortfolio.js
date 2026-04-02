@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import DemoBanner from '@/components/DemoBanner'
 
 const ASSET_CLASSES = [
   {
@@ -133,6 +134,11 @@ export default function MultiAssetPortfolio() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner
+        type="demo"
+        message="Asset class definitions and portfolio allocations are static placeholders. No real portfolio or brokerage account is connected."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
