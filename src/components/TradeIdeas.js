@@ -1,9 +1,17 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { LONG_IDEAS, SHORT_IDEAS, FOREX_IDEAS, STRATEGIES, calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
+import { useState, useEffect, useCallback } from 'react'
+import { calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { formatPrice } from '@/lib/marketData'
 import TradePacket from './TradePacket'
-import DemoBanner from '@/components/DemoBanner'
+
+const STRATEGIES = {
+  'momentum': { icon: '⚡', name: 'Momentum' },
+  'mean-reversion': { icon: '↩', name: 'Mean Reversion' },
+  'breakout': { icon: '🔺', name: 'Breakout' },
+  'carry': { icon: '💰', name: 'Carry' },
+  'macro': { icon: '🌍', name: 'Macro' },
+  'relative-value': { icon: '⚖', name: 'Relative Value' },
+}
 
 const URGENCY_CONFIG = {
   closing: { label: 'CLOSING', color: '#f87171', bg: 'rgba(248, 113, 113, 0.10)', border: 'rgba(248, 113, 113, 0.25)', pulse: true },
@@ -19,7 +27,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
   const rr = calcRR(midEntry, trade.target, trade.stopLoss, direction)
   const isUp = quote?.regularMarketChangePercent >= 0
   const alert = price ? checkAlerts(price, trade.target, trade.stopLoss, direction) : null
-  const fmtType = trade.asset === 'forex' ? 'forex' : trade.asset === 'commodity' ? 'stock' : 'stock'
+  const fmtType = trade.asset === 'forex' ? 'forex' : 'stock'
 
   const urgency = getTradeUrgency(trade)
   const uc = URGENCY_CONFIG[urgency] || URGENCY_CONFIG.active
@@ -134,6 +142,12 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           <span className="text-2xs text-nx-text-muted">RSI</span>
           <span className={`text-sm font-bold font-mono ${trade.rsi < 30 ? 'text-nx-green' : trade.rsi > 70 ? 'text-nx-red' : 'text-nx-orange'}`}>{trade.rsi}</span>
         </div>
+        {trade.confidence && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Conf</span>
+            <span className={`text-sm font-bold font-mono ${trade.confidence >= 65 ? 'text-nx-green' : 'text-nx-orange'}`}>{trade.confidence}%</span>
+          </div>
+        )}
         <div className="ml-auto text-right shrink-0">
           <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || 'Variable'}</div>
         </div>
@@ -153,21 +167,48 @@ export default function TradeIdeas({ quotes }) {
   const [selectedStrategy, setSelectedStrategy] = useState('all')
   const [openPacket, setOpenPacket] = useState(null)
   const [showExpired, setShowExpired] = useState(false)
-  const [, setTick] = useState(0) // force re-render every 60s for countdown updates
+  const [, setTick] = useState(0)
 
+  // Signal engine state
+  const [signals, setSignals] = useState({ long: [], short: [], forex: [] })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [lastGenerated, setLastGenerated] = useState(null)
+
+  // Countdown ticker
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 60000)
     return () => clearInterval(interval)
   }, [])
 
-  const allStrategies = ['all', ...Object.keys(STRATEGIES)]
-  const ideasMap = {
-    long: LONG_IDEAS,
-    short: SHORT_IDEAS,
-    forex: FOREX_IDEAS,
-  }
+  // Fetch signals from real signal engine
+  const fetchSignals = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/signals?category=all')
+      if (!res.ok) throw new Error(`Signal engine error: ${res.status}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
 
-  const ideas = ideasMap[tab] || []
+      setSignals({
+        long: (data.signals?.long || []).filter(s => s != null),
+        short: (data.signals?.short || []).filter(s => s != null),
+        forex: (data.signals?.forex || []).filter(s => s != null),
+      })
+      setLastGenerated(data.generatedAt || new Date().toISOString())
+    } catch (err) {
+      console.error('Signal fetch error:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchSignals() }, [fetchSignals])
+
+  const allStrategies = ['all', ...Object.keys(STRATEGIES)]
+  const ideas = signals[tab] || []
   const stratFiltered = selectedStrategy === 'all' ? ideas : ideas.filter(i => i.strategy === selectedStrategy)
 
   // Sort by urgency: closing > urgent > active > expired
@@ -183,19 +224,14 @@ export default function TradeIdeas({ quotes }) {
 
   const getDirection = (idea) => {
     if (tab === 'forex') return idea.direction || 'long'
-    return tab
+    if (tab === 'short') return idea.direction || 'short'
+    return idea.direction || 'long'
   }
 
   const getQuote = (idea) => {
     const tickerMap = {
-      'USDJPY': 'JPY=X',
-      'EURUSD': 'EURUSD=X',
-      'GBPUSD': 'GBPUSD=X',
-      'USDCHF': 'CHF=X',
-      'AUDUSD': 'AUDUSD=X',
-      'USDMXN': 'MXN=X',
-      'EURGBP': 'EURGBP=X',
-      'NZDUSD': 'NZDUSD=X',
+      'USDJPY': 'JPY=X', 'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'USDCHF': 'CHF=X',
+      'AUDUSD': 'AUDUSD=X', 'USDMXN': 'MXN=X', 'EURGBP': 'EURGBP=X', 'NZDUSD': 'NZDUSD=X',
     }
     const sym = tickerMap[idea.ticker] || idea.ticker
     return quotes[sym]
@@ -203,18 +239,48 @@ export default function TradeIdeas({ quotes }) {
 
   return (
     <div className="space-y-5">
-      <DemoBanner
-        type="simulated"
-        message="Trade ideas, entry zones, targets, and analysis are pre-written examples for UI demonstration. Prices update live but the setups themselves are static — not generated by a real signal engine."
-      />
+      {/* Live signal engine header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: loading ? 'rgba(91, 141, 238, 0.08)' : error ? 'rgba(248, 113, 113, 0.08)' : 'rgba(52, 211, 153, 0.08)', border: `1px solid ${loading ? 'rgba(91, 141, 238, 0.15)' : error ? 'rgba(248, 113, 113, 0.15)' : 'rgba(52, 211, 153, 0.15)'}` }}>
+            {loading ? (
+              <div className="w-1.5 h-1.5 border border-nx-accent border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <div className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-nx-red' : 'bg-nx-green'} animate-pulse`} />
+            )}
+            <span className={`text-2xs font-semibold ${loading ? 'text-nx-accent' : error ? 'text-nx-red' : 'text-nx-green'}`}>
+              {loading ? 'Generating Signals...' : error ? 'Signal Error' : 'Live Signal Engine'}
+            </span>
+          </div>
+          {lastGenerated && !loading && (
+            <span className="text-2xs text-nx-text-hint">
+              Generated {new Date(lastGenerated).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={fetchSignals}
+          disabled={loading}
+          className="px-3 py-1.5 rounded-lg text-2xs font-semibold transition-all duration-200 disabled:opacity-50"
+          style={{ background: 'rgba(91, 141, 238, 0.12)', border: '1px solid rgba(91, 141, 238, 0.2)', color: '#5b8dee' }}
+        >
+          {loading ? 'Running...' : 'Regenerate Signals'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="px-4 py-3 rounded-xl text-xs text-nx-red" style={{ background: 'rgba(248, 113, 113, 0.06)', border: '1px solid rgba(248, 113, 113, 0.12)' }}>
+          Signal Engine Error: {error}. Retrying may help.
+        </div>
+      )}
 
       {/* Tab row */}
       <div className="flex items-center gap-2.5 mb-4 flex-wrap">
         <h3 className="text-md font-bold text-nx-text-strong mr-2">Trade Ideas</h3>
         {[
-          { id: 'long', label: `LONG (${LONG_IDEAS.length})`, color: 'green' },
-          { id: 'short', label: `SHORT (${SHORT_IDEAS.length})`, color: 'red' },
-          { id: 'forex', label: `FOREX (${FOREX_IDEAS.length})`, color: 'blue' },
+          { id: 'long', label: `LONG (${signals.long.length})`, color: 'green' },
+          { id: 'short', label: `SHORT (${signals.short.length})`, color: 'red' },
+          { id: 'forex', label: `FOREX (${signals.forex.length})`, color: 'blue' },
         ].map(t => (
           <button
             key={t.id}
@@ -266,20 +332,31 @@ export default function TradeIdeas({ quotes }) {
         )}
       </div>
 
-      {/* Cards grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-        {filtered.map(idea => (
-          <TradeCard
-            key={idea.id}
-            trade={idea}
-            quote={getQuote(idea)}
-            direction={getDirection(idea)}
-            onOpen={(idea, dir) => setOpenPacket({ idea, direction: dir })}
-          />
-        ))}
-      </div>
+      {/* Loading state */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="w-8 h-8 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
+          <div className="text-sm text-nx-text-muted">Running signal engine across {tab === 'forex' ? '8 forex pairs' : tab === 'long' ? '12 long candidates' : '12 short candidates'}...</div>
+          <div className="text-xs text-nx-text-hint">Analyzing RSI, MACD, Bollinger Bands, Support/Resistance</div>
+        </div>
+      )}
 
-      {filtered.length === 0 && (
+      {/* Cards grid */}
+      {!loading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map(idea => (
+            <TradeCard
+              key={idea.id}
+              trade={idea}
+              quote={getQuote(idea)}
+              direction={getDirection(idea)}
+              onOpen={(idea, dir) => setOpenPacket({ idea, direction: dir })}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && !error && (
         <div className="text-center py-16 text-nx-text-muted">
           No trade ideas match the selected strategy filter.
         </div>
