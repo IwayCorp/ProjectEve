@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 const RESEARCH_TEMPLATES = [
   { id: 'momentum', name: 'Momentum Scanner', desc: 'Scan for high-momentum setups across equities, futures, and forex using RSI, MACD, and volume confirmation.', icon: '⚡', language: 'Python', difficulty: 'Intermediate', runtime: '~2min' },
@@ -22,6 +22,19 @@ const RECENT_RUNS = [
 export default function CloudResearch() {
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchRef = useRef(null)
+
+  const handleKeyDown = useCallback((e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   const filtered = searchQuery
     ? RESEARCH_TEMPLATES.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.desc.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -52,6 +65,7 @@ export default function CloudResearch() {
       {/* Search */}
       <div className="relative">
         <input
+          ref={searchRef}
           type="text"
           placeholder="Search research templates..."
           value={searchQuery}
@@ -67,6 +81,9 @@ export default function CloudResearch() {
           <div
             key={template.id}
             onClick={() => setSelectedTemplate(selectedTemplate?.id === template.id ? null : template)}
+            role="button"
+            aria-label={`${template.name} — ${template.difficulty}, ${template.runtime}`}
+            aria-pressed={selectedTemplate?.id === template.id}
             className={`nx-card p-4 cursor-pointer group transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-nx-accent/20 hover:scale-[1.01] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] ${
               selectedTemplate?.id === template.id ? 'border-nx-accent/30 ring-1 ring-nx-accent/10' : ''
             }`}

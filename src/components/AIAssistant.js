@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 const AI_CAPABILITIES = [
   { id: 'strategy', icon: '🧠', name: 'Strategy Builder', desc: 'Describe a trading idea in plain English and let AI generate a quantitative strategy with entry/exit rules, position sizing, and risk management.' },
@@ -25,16 +25,35 @@ const AI_INSIGHTS = [
   { type: 'warning', title: 'Liquidity Alert', desc: 'BYND average daily volume has dropped 40% in the past week. Position sizing should be reduced to avoid slippage impact.', time: '3 hr ago' },
 ]
 
+const MAX_CHAT_HISTORY = 50
+
 export default function AIAssistant() {
   const [prompt, setPrompt] = useState('')
   const [selectedCap, setSelectedCap] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const chatEndRef = useRef(null)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatHistory])
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!prompt.trim()) return
-    setChatHistory(prev => [...prev, { role: 'user', content: prompt }, { role: 'ai', content: 'Processing your request... AI analysis would appear here with actionable insights based on your portfolio data, market conditions, and strategy parameters.' }])
+    if (!prompt.trim() || isProcessing) return
+    setIsProcessing(true)
+    setChatHistory(prev => [...prev, { role: 'user', content: prompt }].slice(-MAX_CHAT_HISTORY))
+    const userPrompt = prompt
     setPrompt('')
+
+    // Simulate AI processing delay
+    setTimeout(() => {
+      setChatHistory(prev => [...prev, {
+        role: 'ai',
+        content: `Processing your request... AI analysis would appear here with actionable insights based on your portfolio data, market conditions, and strategy parameters.`
+      }].slice(-MAX_CHAT_HISTORY))
+      setIsProcessing(false)
+    }, 1200)
   }
 
   return (
@@ -60,6 +79,9 @@ export default function AIAssistant() {
           <div
             key={cap.id}
             onClick={() => setSelectedCap(selectedCap?.id === cap.id ? null : cap)}
+            aria-label={`${cap.name}: ${cap.desc.slice(0, 60)}...`}
+            aria-pressed={selectedCap?.id === cap.id}
+            role="button"
             className={`nx-card p-3.5 cursor-pointer group transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-nx-accent/20 hover:scale-[1.01] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] text-center ${
               selectedCap?.id === cap.id ? 'border-nx-accent/30 ring-1 ring-nx-accent/10' : ''
             }`}
@@ -90,7 +112,7 @@ export default function AIAssistant() {
             </div>
 
             {/* Chat Messages */}
-            <div className="p-4 space-y-3" style={{ minHeight: 280, maxHeight: 340, overflowY: 'auto' }}>
+            <div className="p-4 space-y-3" style={{ minHeight: 280, maxHeight: 340, overflowY: 'auto' }} role="log" aria-live="polite" aria-label="Chat messages">
               {chatHistory.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-3xl mb-3">🧠</div>
@@ -109,17 +131,32 @@ export default function AIAssistant() {
                   </div>
                 </div>
               ) : (
-                chatHistory.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-xl px-4 py-3 text-xs leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-nx-accent/15 text-nx-text-strong border border-nx-accent/20'
-                        : 'bg-nx-void/60 text-nx-text border border-nx-border'
-                    }`}>
-                      {msg.content}
+                <>
+                  {chatHistory.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-xl px-4 py-3 text-xs leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-nx-accent/15 text-nx-text-strong border border-nx-accent/20'
+                          : 'bg-nx-void/60 text-nx-text border border-nx-border'
+                      }`}>
+                        {msg.content}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {isProcessing && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[85%] rounded-xl px-4 py-3 text-xs bg-nx-void/60 border border-nx-border flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-nx-accent animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <div className="w-1.5 h-1.5 rounded-full bg-nx-accent animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <div className="w-1.5 h-1.5 rounded-full bg-nx-accent animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <span className="text-nx-text-muted">Analyzing...</span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </>
               )}
             </div>
 
@@ -133,12 +170,17 @@ export default function AIAssistant() {
                   placeholder="Ask AI about strategies, risk, or market analysis..."
                   className="flex-1 px-4 py-2.5 text-sm rounded-xl bg-nx-void/60 border border-nx-border text-nx-text-strong placeholder:text-nx-text-hint focus:outline-none focus:border-nx-accent/30 transition-colors"
                 />
-                <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200" style={{
-                  background: 'linear-gradient(135deg, rgba(91, 141, 238, 0.2), rgba(167, 139, 250, 0.2))',
-                  border: '1px solid rgba(91, 141, 238, 0.3)',
-                  color: '#5b8dee',
-                }}>
-                  Send
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${isProcessing ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(91, 141, 238, 0.2), rgba(167, 139, 250, 0.2))',
+                    border: '1px solid rgba(91, 141, 238, 0.3)',
+                    color: '#5b8dee',
+                  }}
+                >
+                  {isProcessing ? 'Analyzing...' : 'Send'}
                 </button>
               </div>
             </form>

@@ -59,15 +59,14 @@ export default function Optimization() {
   const [selectedMetric, setSelectedMetric] = useState('sharpe')
   const { data: heatData, rsiValues, holdValues } = useMemo(() => generateHeatmapData(), [])
 
-  const allValues = heatData.map(d => d[selectedMetric === 'sharpe' ? 'sharpe' : selectedMetric === 'winRate' ? 'winRate' : 'profit'])
+  const metricKey = selectedMetric
+  const allValues = heatData.map(d => d[metricKey])
   const minVal = Math.min(...allValues)
   const maxVal = Math.max(...allValues)
 
-  const bestCell = heatData.reduce((best, d) => {
-    const val = d[selectedMetric === 'sharpe' ? 'sharpe' : selectedMetric === 'winRate' ? 'winRate' : 'profit']
-    const bestVal = best[selectedMetric === 'sharpe' ? 'sharpe' : selectedMetric === 'winRate' ? 'winRate' : 'profit']
-    return val > bestVal ? d : best
-  }, heatData[0])
+  const bestCell = heatData.reduce((best, d) =>
+    d[metricKey] > best[metricKey] ? d : best
+  , heatData[0])
 
   return (
     <div className="space-y-5">
@@ -163,7 +162,7 @@ export default function Optimization() {
                   <td className="text-2xs font-mono text-nx-text-muted p-2">{rsi}</td>
                   {holdValues.map(hold => {
                     const cell = heatData.find(d => d.rsi === rsi && d.hold === hold)
-                    const val = cell[selectedMetric === 'sharpe' ? 'sharpe' : selectedMetric === 'winRate' ? 'winRate' : 'profit']
+                    const val = cell[metricKey]
                     const isBest = cell === bestCell
                     return (
                       <td key={hold} className="p-1">

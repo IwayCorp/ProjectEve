@@ -1,16 +1,22 @@
 'use client'
+import { useMemo } from 'react'
 import { RISK_EVENTS } from '@/lib/tradeIdeas'
 
 function VolBadge({ level }) {
   const cls = level === 'EXTREME' ? 'badge-red' : level === 'HIGH' ? 'badge-orange' : 'badge-blue'
-  return <span className={cls}>{level}</span>
+  return <span className={cls} aria-label={`${level} volatility risk`}>{level}</span>
 }
 
 export default function RiskCalendar() {
+  const monthYear = useMemo(() =>
+    new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    []
+  )
+
   return (
     <div className="nx-card">
       <div className="p-3.5 border-b border-nx-border">
-        <h3 className="text-sm font-semibold text-nx-text-strong">Risk Event Calendar &mdash; {new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
+        <h3 className="text-sm font-semibold text-nx-text-strong">Risk Event Calendar &mdash; {monthYear}</h3>
       </div>
       <div className="p-3 space-y-0.5">
         {RISK_EVENTS.map((event, i) => (

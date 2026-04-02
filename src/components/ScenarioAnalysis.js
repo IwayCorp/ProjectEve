@@ -14,9 +14,9 @@ export default function ScenarioAnalysis() {
             { bg: 'bg-nx-orange-muted/50', border: 'border-nx-orange/15', text: 'text-nx-orange', glow: 'rgba(251, 191, 36, 0.06)' },
             { bg: 'bg-nx-red-muted/50', border: 'border-nx-red/15', text: 'text-nx-red', glow: 'rgba(248, 113, 113, 0.06)' },
           ]
-          const s = styles[i]
+          const s = styles[i % styles.length]
           return (
-            <div key={i} className={`rounded-xl p-4 border ${s.bg} ${s.border}`} style={{ boxShadow: `0 0 30px ${s.glow}` }}>
+            <div key={i} className={`rounded-xl p-4 border ${s.bg} ${s.border}`} style={{ boxShadow: `0 0 30px ${s.glow}` }} aria-label={`${scenario.name} scenario, ${scenario.probability}% probability`}>
               <div className="flex items-center justify-between mb-3">
                 <span className={`text-sm font-bold ${s.text}`}>{scenario.name}</span>
                 <span className="text-xs font-bold text-nx-text-strong bg-nx-border/40 px-2.5 py-0.5 rounded-md font-mono">
