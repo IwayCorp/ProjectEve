@@ -1,60 +1,65 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         nx: {
-          // Core surfaces — deep charcoal with blue undertone
-          void: '#06080d',
-          base: '#0a0e17',
-          surface: '#0f1520',
-          elevated: '#141c2b',
-          glass: '#182034',
+          // Core surfaces — CSS variable driven
+          void: 'rgb(var(--nx-void) / <alpha-value>)',
+          base: 'rgb(var(--nx-base) / <alpha-value>)',
+          surface: 'rgb(var(--nx-surface) / <alpha-value>)',
+          elevated: 'rgb(var(--nx-elevated) / <alpha-value>)',
+          glass: 'rgb(var(--nx-glass-solid) / <alpha-value>)',
 
-          // Borders — whisper-thin luminous edges
-          border: 'rgba(255, 255, 255, 0.06)',
-          'border-hover': 'rgba(255, 255, 255, 0.12)',
-          'border-active': 'rgba(255, 255, 255, 0.18)',
-          'border-glow': 'rgba(120, 160, 255, 0.15)',
+          // Borders — full values (already include opacity)
+          border: 'var(--nx-border)',
+          'border-hover': 'var(--nx-border-hover)',
+          'border-active': 'var(--nx-border-active)',
+          'border-glow': 'var(--nx-border-glow)',
 
-          // Accent — icy refined blue
-          accent: '#5b8dee',
-          'accent-bright': '#7aa3ff',
-          'accent-dim': '#3d6fd4',
-          'accent-muted': 'rgba(91, 141, 238, 0.12)',
-          'accent-glow': 'rgba(91, 141, 238, 0.20)',
+          // Accent — icy blue
+          accent: 'rgb(var(--nx-accent) / <alpha-value>)',
+          'accent-bright': 'rgb(var(--nx-accent-bright) / <alpha-value>)',
+          'accent-dim': 'rgb(var(--nx-accent-dim) / <alpha-value>)',
+          'accent-muted': 'var(--nx-accent-muted)',
+          'accent-glow': 'var(--nx-accent-glow)',
 
-          // Semantic — softer, more refined
-          green: '#34d399',
-          'green-bright': '#6ee7b7',
-          'green-muted': 'rgba(52, 211, 153, 0.10)',
-          'green-glow': 'rgba(52, 211, 153, 0.18)',
+          // Semantic — green
+          green: 'rgb(var(--nx-green) / <alpha-value>)',
+          'green-bright': 'rgb(var(--nx-green-bright) / <alpha-value>)',
+          'green-muted': 'var(--nx-green-muted)',
+          'green-glow': 'var(--nx-green-glow)',
 
-          red: '#f87171',
-          'red-bright': '#fca5a5',
-          'red-muted': 'rgba(248, 113, 113, 0.10)',
-          'red-glow': 'rgba(248, 113, 113, 0.18)',
+          // Semantic — red
+          red: 'rgb(var(--nx-red) / <alpha-value>)',
+          'red-bright': 'rgb(var(--nx-red-bright) / <alpha-value>)',
+          'red-muted': 'var(--nx-red-muted)',
+          'red-glow': 'var(--nx-red-glow)',
 
-          orange: '#fbbf24',
-          'orange-muted': 'rgba(251, 191, 36, 0.10)',
+          // Semantic — orange
+          orange: 'rgb(var(--nx-orange) / <alpha-value>)',
+          'orange-muted': 'var(--nx-orange-muted)',
 
-          purple: '#a78bfa',
-          'purple-muted': 'rgba(167, 139, 250, 0.10)',
+          // Semantic — purple
+          purple: 'rgb(var(--nx-purple) / <alpha-value>)',
+          'purple-muted': 'var(--nx-purple-muted)',
 
-          cyan: '#22d3ee',
-          'cyan-muted': 'rgba(34, 211, 238, 0.10)',
+          // Semantic — cyan
+          cyan: 'rgb(var(--nx-cyan) / <alpha-value>)',
+          'cyan-muted': 'var(--nx-cyan-muted)',
 
-          // Text — platinum hierarchy
-          text: '#c8cdd8',
-          'text-strong': '#edf0f7',
-          'text-muted': '#6b7280',
-          'text-hint': '#3b4252',
+          // Text hierarchy
+          text: 'rgb(var(--nx-text) / <alpha-value>)',
+          'text-strong': 'rgb(var(--nx-text-strong) / <alpha-value>)',
+          'text-muted': 'rgb(var(--nx-text-muted) / <alpha-value>)',
+          'text-hint': 'rgb(var(--nx-text-hint) / <alpha-value>)',
 
           // Glass surface colors
-          'glass-bg': 'rgba(15, 21, 32, 0.65)',
-          'glass-border': 'rgba(255, 255, 255, 0.08)',
-          'glass-hover': 'rgba(255, 255, 255, 0.04)',
+          'glass-bg': 'var(--nx-glass-bg)',
+          'glass-border': 'var(--nx-glass-border)',
+          'glass-hover': 'var(--nx-glass-hover)',
         },
       },
       fontFamily: {
@@ -81,10 +86,10 @@ module.exports = {
       boxShadow: {
         'glass': '0 4px 30px rgba(0, 0, 0, 0.3)',
         'glass-lg': '0 8px 40px rgba(0, 0, 0, 0.4)',
-        'glow-accent': '0 0 20px rgba(91, 141, 238, 0.15)',
-        'glow-green': '0 0 20px rgba(52, 211, 153, 0.12)',
-        'glow-red': '0 0 20px rgba(248, 113, 113, 0.12)',
-        'inner-glow': 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+        'glow-accent': '0 0 20px rgba(var(--nx-accent) / 0.15)',
+        'glow-green': '0 0 20px rgba(var(--nx-green) / 0.12)',
+        'glow-red': '0 0 20px rgba(var(--nx-red) / 0.12)',
+        'inner-glow': 'inset 0 1px 0 var(--inner-glow)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -117,8 +122,8 @@ module.exports = {
           '100%': { backgroundPosition: '200% 0' },
         },
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(91, 141, 238, 0.1)' },
-          '100%': { boxShadow: '0 0 20px rgba(91, 141, 238, 0.2)' },
+          '0%': { boxShadow: '0 0 5px rgba(var(--nx-accent) / 0.1)' },
+          '100%': { boxShadow: '0 0 20px rgba(var(--nx-accent) / 0.2)' },
         },
       },
     },

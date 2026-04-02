@@ -4,19 +4,226 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+/* ══════════════════════════════════════════════
+   THEME VARIABLES — Light (default) / Dark
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* Surfaces */
+  --nx-void: 241 245 249;
+  --nx-base: 255 255 255;
+  --nx-surface: 248 250 252;
+  --nx-elevated: 241 245 249;
+  --nx-glass-solid: 226 232 240;
+
+  /* Borders */
+  --nx-border: rgba(0, 0, 0, 0.08);
+  --nx-border-hover: rgba(0, 0, 0, 0.14);
+  --nx-border-active: rgba(0, 0, 0, 0.22);
+  --nx-border-glow: rgba(59, 130, 246, 0.18);
+
+  /* Accent — icy blue */
+  --nx-accent: 59 130 246;
+  --nx-accent-bright: 37 99 235;
+  --nx-accent-dim: 96 165 250;
+  --nx-accent-muted: rgba(59, 130, 246, 0.08);
+  --nx-accent-glow: rgba(59, 130, 246, 0.12);
+
+  /* Green */
+  --nx-green: 22 163 74;
+  --nx-green-bright: 21 128 61;
+  --nx-green-muted: rgba(22, 163, 74, 0.08);
+  --nx-green-glow: rgba(22, 163, 74, 0.12);
+
+  /* Red */
+  --nx-red: 220 38 38;
+  --nx-red-bright: 185 28 28;
+  --nx-red-muted: rgba(220, 38, 38, 0.08);
+  --nx-red-glow: rgba(220, 38, 38, 0.12);
+
+  /* Orange */
+  --nx-orange: 217 119 6;
+  --nx-orange-muted: rgba(217, 119, 6, 0.08);
+
+  /* Purple */
+  --nx-purple: 124 58 237;
+  --nx-purple-muted: rgba(124, 58, 237, 0.08);
+
+  /* Cyan */
+  --nx-cyan: 8 145 178;
+  --nx-cyan-muted: rgba(8, 145, 178, 0.08);
+
+  /* Text */
+  --nx-text: 51 65 85;
+  --nx-text-strong: 15 23 42;
+  --nx-text-muted: 100 116 139;
+  --nx-text-hint: 203 213 225;
+
+  /* Glass */
+  --nx-glass-bg: rgba(255, 255, 255, 0.72);
+  --nx-glass-border: rgba(0, 0, 0, 0.06);
+  --nx-glass-hover: rgba(0, 0, 0, 0.03);
+
+  /* Component vars */
+  --header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
+  --header-border: rgba(0, 0, 0, 0.06);
+  --header-shadow: 0 1px 12px rgba(0, 0, 0, 0.06);
+  --header-text: #334155;
+  --header-text-dim: #64748b;
+  --header-text-bright: #0f172a;
+
+  --ticker-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.8), rgba(241, 245, 249, 0.6));
+  --ticker-border: rgba(0, 0, 0, 0.05);
+
+  --tab-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.8), rgba(241, 245, 249, 0.6));
+  --tab-border: rgba(0, 0, 0, 0.05);
+
+  --card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.95));
+  --card-border: rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.08);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-hover: rgba(0, 0, 0, 0.2);
+  --selection-bg: rgba(59, 130, 246, 0.2);
+  --selection-color: #0f172a;
+
+  --inner-glow: rgba(0, 0, 0, 0.02);
+  --shimmer-a: rgba(0, 0, 0, 0.02);
+  --shimmer-b: rgba(0, 0, 0, 0.05);
+  --ambient-a: rgba(59, 130, 246, 0.03);
+  --ambient-b: rgba(124, 58, 237, 0.02);
+
+  --section-header-color: #64748b;
+  --section-line: rgba(59, 130, 246, 0.12);
+  --section-bar-start: #3b82f6;
+  --section-bar-end: #7c3aed;
+
+  --divider-color: rgba(0, 0, 0, 0.06);
+  --stat-row-bg: rgba(59, 130, 246, 0.03);
+  --stat-row-border: rgba(59, 130, 246, 0.2);
+
+  /* Theme transition */
+  --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dark {
+  /* Surfaces */
+  --nx-void: 6 8 13;
+  --nx-base: 10 14 23;
+  --nx-surface: 15 21 32;
+  --nx-elevated: 20 28 43;
+  --nx-glass-solid: 24 32 52;
+
+  /* Borders */
+  --nx-border: rgba(255, 255, 255, 0.06);
+  --nx-border-hover: rgba(255, 255, 255, 0.12);
+  --nx-border-active: rgba(255, 255, 255, 0.18);
+  --nx-border-glow: rgba(120, 160, 255, 0.15);
+
+  /* Accent */
+  --nx-accent: 91 141 238;
+  --nx-accent-bright: 122 163 255;
+  --nx-accent-dim: 61 111 212;
+  --nx-accent-muted: rgba(91, 141, 238, 0.12);
+  --nx-accent-glow: rgba(91, 141, 238, 0.20);
+
+  /* Green */
+  --nx-green: 52 211 153;
+  --nx-green-bright: 110 231 183;
+  --nx-green-muted: rgba(52, 211, 153, 0.10);
+  --nx-green-glow: rgba(52, 211, 153, 0.18);
+
+  /* Red */
+  --nx-red: 248 113 113;
+  --nx-red-bright: 252 165 165;
+  --nx-red-muted: rgba(248, 113, 113, 0.10);
+  --nx-red-glow: rgba(248, 113, 113, 0.18);
+
+  /* Orange */
+  --nx-orange: 251 191 36;
+  --nx-orange-muted: rgba(251, 191, 36, 0.10);
+
+  /* Purple */
+  --nx-purple: 167 139 250;
+  --nx-purple-muted: rgba(167, 139, 250, 0.10);
+
+  /* Cyan */
+  --nx-cyan: 34 211 238;
+  --nx-cyan-muted: rgba(34, 211, 238, 0.10);
+
+  /* Text */
+  --nx-text: 200 205 216;
+  --nx-text-strong: 237 240 247;
+  --nx-text-muted: 107 114 128;
+  --nx-text-hint: 59 66 82;
+
+  /* Glass */
+  --nx-glass-bg: rgba(15, 21, 32, 0.65);
+  --nx-glass-border: rgba(255, 255, 255, 0.08);
+  --nx-glass-hover: rgba(255, 255, 255, 0.04);
+
+  /* Component vars */
+  --header-bg: linear-gradient(180deg, rgba(10, 14, 23, 0.92), rgba(10, 14, 23, 0.85));
+  --header-border: rgba(255, 255, 255, 0.06);
+  --header-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  --header-text: #c8cdd8;
+  --header-text-dim: #64748b;
+  --header-text-bright: #edf0f7;
+
+  --ticker-bg: linear-gradient(180deg, rgba(10, 14, 23, 0.7), rgba(10, 14, 23, 0.5));
+  --ticker-border: rgba(255, 255, 255, 0.05);
+
+  --tab-bg: linear-gradient(180deg, rgba(10, 14, 23, 0.7), rgba(10, 14, 23, 0.5));
+  --tab-border: rgba(255, 255, 255, 0.05);
+
+  --card-bg: linear-gradient(145deg, rgba(15, 21, 35, 0.8), rgba(10, 14, 23, 0.9));
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --card-shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 20px rgba(91, 141, 238, 0.04);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --scrollbar-hover: rgba(255, 255, 255, 0.15);
+  --selection-bg: rgba(91, 141, 238, 0.25);
+  --selection-color: #edf0f7;
+
+  --inner-glow: rgba(255, 255, 255, 0.04);
+  --shimmer-a: rgba(255, 255, 255, 0.03);
+  --shimmer-b: rgba(255, 255, 255, 0.06);
+  --ambient-a: rgba(91, 141, 238, 0.06);
+  --ambient-b: rgba(167, 139, 250, 0.04);
+
+  --section-header-color: #94a3b8;
+  --section-line: rgba(91, 141, 238, 0.15);
+  --section-bar-start: #5b8dee;
+  --section-bar-end: #a78bfa;
+
+  --divider-color: rgba(255, 255, 255, 0.08);
+  --stat-row-bg: rgba(91, 141, 238, 0.03);
+  --stat-row-border: rgba(91, 141, 238, 0.3);
+}
+
+/* ══════════════════════════════════════════════
+   BASE STYLES
+   ══════════════════════════════════════════════ */
+
 @layer base {
   * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  html, body, .nx-card, .glass, .glass-solid, .nx-quote-card, header, footer {
+    transition: var(--theme-transition);
+  }
   body {
-    @apply bg-nx-base text-nx-text;
+    background-color: rgb(var(--nx-base));
+    color: rgb(var(--nx-text));
     font-size: 13px;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
   ::selection {
-    background: rgba(91, 141, 238, 0.25);
-    color: #edf0f7;
+    background: var(--selection-bg);
+    color: var(--selection-color);
   }
   ::-webkit-scrollbar {
     width: 5px;
@@ -26,11 +233,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--scrollbar-thumb);
     border-radius: 100px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--scrollbar-hover);
   }
 }
 
@@ -51,7 +258,7 @@
     width: 60%;
     height: 60%;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(91, 141, 238, 0.06) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--ambient-a) 0%, transparent 70%);
     filter: blur(80px);
     animation: ambientFloat 20s ease-in-out infinite alternate;
   }
@@ -63,56 +270,55 @@
     width: 50%;
     height: 50%;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.04) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--ambient-b) 0%, transparent 70%);
     filter: blur(80px);
     animation: ambientFloat 25s ease-in-out infinite alternate-reverse;
   }
 
-  /* ── Glass Panel — Enhanced ── */
+  /* ── Glass Panel ── */
   .glass {
-    @apply bg-nx-glass-bg border border-nx-glass-border rounded-xl;
+    background: var(--nx-glass-bg);
+    border: 1px solid var(--nx-glass-border);
+    border-radius: 0.75rem;
     backdrop-filter: blur(20px) saturate(1.3);
     -webkit-backdrop-filter: blur(20px) saturate(1.3);
     box-shadow:
-      0 4px 30px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 0 0 1px rgba(255, 255, 255, 0.02);
+      var(--card-shadow),
+      inset 0 1px 0 var(--inner-glow);
   }
   .glass-solid {
-    @apply bg-nx-surface border border-nx-border rounded-xl;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    background-color: rgb(var(--nx-surface));
+    border: 1px solid var(--nx-border);
+    border-radius: 0.75rem;
+    box-shadow: inset 0 1px 0 var(--inner-glow);
   }
 
-  /* ── Cards — Deep Glass Treatment ── */
+  /* ── Cards ── */
   .nx-card {
-    @apply rounded-xl transition-all duration-300;
-    background: linear-gradient(145deg, rgba(15, 21, 35, 0.8), rgba(10, 14, 23, 0.9));
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.75rem;
+    transition: all 0.3s;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 0 0 1px rgba(255, 255, 255, 0.02);
+    box-shadow: var(--card-shadow);
   }
   .nx-card:hover {
-    border-color: rgba(255, 255, 255, 0.10);
-    box-shadow:
-      0 8px 40px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 20px rgba(91, 141, 238, 0.04);
+    border-color: var(--nx-border-hover);
+    box-shadow: var(--card-shadow-hover);
   }
 
-  /* ── Quote Cards — QuantConnect Inspired ── */
+  /* ── Quote Cards ── */
   .nx-quote-card {
-    @apply rounded-xl transition-all duration-300 relative overflow-hidden;
-    background: linear-gradient(145deg, rgba(15, 21, 35, 0.85), rgba(10, 14, 23, 0.95));
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.75rem;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow:
-      0 2px 16px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: var(--card-shadow);
   }
   .nx-quote-card::before {
     content: '';
@@ -121,103 +327,109 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    background: linear-gradient(90deg, transparent, var(--nx-border-hover), transparent);
   }
   .nx-quote-card:hover {
-    border-color: rgba(255, 255, 255, 0.10);
+    border-color: var(--nx-border-hover);
     transform: translateY(-1px);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: var(--card-shadow-hover);
   }
   .nx-quote-card-up {
     box-shadow:
-      0 2px 16px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(52, 211, 153, 0.06),
-      0 0 30px rgba(52, 211, 153, 0.04);
+      var(--card-shadow),
+      inset 0 1px 0 rgba(var(--nx-green) / 0.06),
+      0 0 30px rgba(var(--nx-green) / 0.04);
   }
   .nx-quote-card-up:hover {
-    border-color: rgba(52, 211, 153, 0.12);
+    border-color: rgba(var(--nx-green) / 0.12);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(52, 211, 153, 0.08),
-      0 0 40px rgba(52, 211, 153, 0.06);
+      var(--card-shadow-hover),
+      inset 0 1px 0 rgba(var(--nx-green) / 0.08),
+      0 0 40px rgba(var(--nx-green) / 0.06);
   }
   .nx-quote-card-down {
     box-shadow:
-      0 2px 16px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(248, 113, 113, 0.06),
-      0 0 30px rgba(248, 113, 113, 0.04);
+      var(--card-shadow),
+      inset 0 1px 0 rgba(var(--nx-red) / 0.06),
+      0 0 30px rgba(var(--nx-red) / 0.04);
   }
   .nx-quote-card-down:hover {
-    border-color: rgba(248, 113, 113, 0.12);
+    border-color: rgba(var(--nx-red) / 0.12);
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(248, 113, 113, 0.08),
-      0 0 40px rgba(248, 113, 113, 0.06);
+      var(--card-shadow-hover),
+      inset 0 1px 0 rgba(var(--nx-red) / 0.08),
+      0 0 40px rgba(var(--nx-red) / 0.06);
   }
 
   /* ── Ticker Glass Bar ── */
   .nx-ticker-bar {
-    background: linear-gradient(180deg, rgba(10, 14, 23, 0.7), rgba(10, 14, 23, 0.5));
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--ticker-bg);
+    border-bottom: 1px solid var(--ticker-border);
     backdrop-filter: blur(12px) saturate(1.2);
     -webkit-backdrop-filter: blur(12px) saturate(1.2);
-    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.08);
   }
 
-  /* ── Section Headers — QuantConnect Style ── */
+  /* ── Section Headers ── */
   .nx-section-header {
     @apply flex items-center gap-3 mb-4;
   }
   .nx-section-header h3 {
-    @apply text-xs font-bold uppercase tracking-[0.18em];
-    color: #94a3b8;
-    text-shadow: 0 0 20px rgba(148, 163, 184, 0.1);
+    @apply text-xs font-bold uppercase;
+    letter-spacing: 0.18em;
+    color: var(--section-header-color);
   }
   .nx-section-header::after {
     content: '';
     @apply h-px flex-1;
-    background: linear-gradient(90deg, rgba(91, 141, 238, 0.15), transparent);
+    background: linear-gradient(90deg, var(--section-line), transparent);
   }
   .nx-section-header .nx-accent-bar {
     @apply w-1 h-4 rounded-full;
-    background: linear-gradient(180deg, #5b8dee, #a78bfa);
-    box-shadow: 0 0 8px rgba(91, 141, 238, 0.3);
+    background: linear-gradient(180deg, var(--section-bar-start), var(--section-bar-end));
+    box-shadow: 0 0 8px rgba(var(--nx-accent) / 0.3);
   }
 
   /* ── Buttons ── */
   .nx-btn {
-    @apply px-3 py-1.5 text-sm text-nx-text-muted rounded-lg transition-all duration-200;
+    @apply px-3 py-1.5 text-sm rounded-lg transition-all duration-200;
+    color: rgb(var(--nx-text-muted));
   }
   .nx-btn:hover {
-    @apply text-nx-text-strong bg-nx-glass-hover;
+    color: rgb(var(--nx-text-strong));
+    background: var(--nx-glass-hover);
   }
   .nx-btn-active {
-    @apply text-nx-accent bg-nx-accent-muted border border-nx-accent/20;
+    color: rgb(var(--nx-accent));
+    background: var(--nx-accent-muted);
+    border: 1px solid rgba(var(--nx-accent) / 0.2);
   }
 
   /* ── Tab Pills ── */
   .nx-tab {
     @apply px-4 py-2.5 text-sm font-medium transition-all duration-200 relative;
-    @apply text-nx-text-muted hover:text-nx-text-strong;
+    color: rgb(var(--nx-text-muted));
+  }
+  .nx-tab:hover {
+    color: rgb(var(--nx-text-strong));
   }
   .nx-tab-active {
-    @apply text-nx-accent;
-    background: rgba(91, 141, 238, 0.06);
-    box-shadow: inset 0 0 24px rgba(91, 141, 238, 0.03);
+    color: rgb(var(--nx-accent));
+    background: rgba(var(--nx-accent) / 0.06);
+    box-shadow: inset 0 0 24px rgba(var(--nx-accent) / 0.03);
   }
   .nx-tab-active::after {
     content: '';
     @apply absolute bottom-0 left-3 right-3 h-[2px] rounded-full;
-    background: linear-gradient(90deg, #5b8dee, #7b6cf6);
-    box-shadow: 0 0 12px rgba(91, 141, 238, 0.5), 0 0 4px rgba(91, 141, 238, 0.3);
+    background: linear-gradient(90deg, rgb(var(--nx-accent)), rgb(var(--nx-purple)));
+    box-shadow: 0 0 12px rgba(var(--nx-accent) / 0.5), 0 0 4px rgba(var(--nx-accent) / 0.3);
   }
 
   /* ── Toolbar ── */
   .nx-toolbar {
     @apply flex items-center gap-1 px-2 py-1;
-    @apply bg-nx-surface/60 border-b border-nx-border;
+    background-color: rgb(var(--nx-surface) / 0.6);
+    border-bottom: 1px solid var(--nx-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
@@ -225,53 +437,87 @@
   /* ── Dividers ── */
   .nx-divider {
     @apply w-px h-5 mx-1.5;
-    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    background: linear-gradient(180deg, transparent, var(--divider-color), transparent);
   }
 
   /* ── Badges ── */
   .badge-green {
     @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-green-muted text-nx-green border border-nx-green/20;
+    background: var(--nx-green-muted);
+    color: rgb(var(--nx-green));
+    border: 1px solid rgba(var(--nx-green) / 0.2);
   }
   .badge-red {
     @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-red-muted text-nx-red border border-nx-red/20;
+    background: var(--nx-red-muted);
+    color: rgb(var(--nx-red));
+    border: 1px solid rgba(var(--nx-red) / 0.2);
   }
   .badge-orange {
     @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-orange-muted text-nx-orange border border-nx-orange/20;
+    background: var(--nx-orange-muted);
+    color: rgb(var(--nx-orange));
+    border: 1px solid rgba(var(--nx-orange) / 0.2);
   }
   .badge-blue {
     @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-accent-muted text-nx-accent border border-nx-accent/20;
+    background: var(--nx-accent-muted);
+    color: rgb(var(--nx-accent));
+    border: 1px solid rgba(var(--nx-accent) / 0.2);
   }
 
-  /* ── Glow Effects — Enhanced ── */
+  /* ── Glow Effects ── */
   .glow-green {
-    box-shadow: 0 0 30px rgba(52, 211, 153, 0.06), inset 0 1px 0 rgba(52, 211, 153, 0.05);
+    box-shadow: 0 0 30px rgba(var(--nx-green) / 0.06), inset 0 1px 0 rgba(var(--nx-green) / 0.05);
   }
   .glow-red {
-    box-shadow: 0 0 30px rgba(248, 113, 113, 0.06), inset 0 1px 0 rgba(248, 113, 113, 0.05);
+    box-shadow: 0 0 30px rgba(var(--nx-red) / 0.06), inset 0 1px 0 rgba(var(--nx-red) / 0.05);
   }
   .glow-blue {
-    box-shadow: 0 0 30px rgba(91, 141, 238, 0.06), inset 0 1px 0 rgba(91, 141, 238, 0.05);
+    box-shadow: 0 0 30px rgba(var(--nx-accent) / 0.06), inset 0 1px 0 rgba(var(--nx-accent) / 0.05);
   }
 
   /* ── Price Animation ── */
   .price-up {
-    @apply text-nx-green animate-ticker;
+    color: rgb(var(--nx-green));
+    animation: ticker 0.3s ease-in-out;
   }
   .price-down {
-    @apply text-nx-red animate-ticker;
+    color: rgb(var(--nx-red));
+    animation: ticker 0.3s ease-in-out;
   }
 
   /* ── Strategy Tags ── */
-  .strat-momentum { @apply bg-nx-accent-muted text-nx-accent border border-nx-accent/15; }
-  .strat-mean-reversion { @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/15; }
-  .strat-breakout { @apply bg-nx-green-muted text-nx-green border border-nx-green/15; }
-  .strat-carry { @apply bg-nx-orange-muted text-nx-orange border border-nx-orange/15; }
-  .strat-macro { @apply bg-nx-cyan-muted text-nx-cyan border border-nx-cyan/15; }
-  .strat-relative-value { @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/15; }
+  .strat-momentum {
+    background: var(--nx-accent-muted);
+    color: rgb(var(--nx-accent));
+    border: 1px solid rgba(var(--nx-accent) / 0.15);
+  }
+  .strat-mean-reversion {
+    background: var(--nx-purple-muted);
+    color: rgb(var(--nx-purple));
+    border: 1px solid rgba(var(--nx-purple) / 0.15);
+  }
+  .strat-breakout {
+    background: var(--nx-green-muted);
+    color: rgb(var(--nx-green));
+    border: 1px solid rgba(var(--nx-green) / 0.15);
+  }
+  .strat-carry {
+    background: var(--nx-orange-muted);
+    color: rgb(var(--nx-orange));
+    border: 1px solid rgba(var(--nx-orange) / 0.15);
+  }
+  .strat-macro {
+    background: var(--nx-cyan-muted);
+    color: rgb(var(--nx-cyan));
+    border: 1px solid rgba(var(--nx-cyan) / 0.15);
+  }
+  .strat-relative-value {
+    background: var(--nx-purple-muted);
+    color: rgb(var(--nx-purple));
+    border: 1px solid rgba(var(--nx-purple) / 0.15);
+  }
 
   /* ── Section Dividers (legacy) ── */
   .nx-section-divider {
@@ -281,44 +527,43 @@
   .nx-section-divider::after {
     content: '';
     @apply h-px flex-1;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, var(--divider-color), transparent);
   }
   .nx-section-title {
-    @apply text-xs font-semibold uppercase tracking-[0.15em];
-    color: #94a3b8;
+    @apply text-xs font-semibold uppercase;
+    letter-spacing: 0.15em;
+    color: var(--section-header-color);
   }
 
   /* ── Gradient Accents ── */
   .gradient-accent {
-    background: linear-gradient(135deg, rgba(91, 141, 238, 0.15), rgba(167, 139, 250, 0.08));
+    background: linear-gradient(135deg, rgba(var(--nx-accent) / 0.15), rgba(var(--nx-purple) / 0.08));
   }
   .gradient-surface {
-    background: linear-gradient(180deg, rgba(15, 21, 32, 0.8), rgba(10, 14, 23, 0.95));
+    background: var(--card-bg);
   }
 
   /* ── Chart Panel ── */
   .nx-chart-panel {
     @apply rounded-xl;
-    background: linear-gradient(180deg, rgba(12, 17, 28, 0.9), rgba(8, 11, 20, 0.95));
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03),
-      inset 0 0 60px rgba(91, 141, 238, 0.01);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
   }
 
   /* ── Loading shimmer ── */
   .nx-shimmer {
-    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+    background: linear-gradient(90deg, var(--shimmer-a) 25%, var(--shimmer-b) 50%, var(--shimmer-a) 75%);
     background-size: 200% 100%;
-    @apply animate-shimmer rounded;
+    @apply rounded;
+    animation: shimmer 2s linear infinite;
   }
 
-  /* ── Stats Row — QuantConnect style ── */
+  /* ── Stats Row ── */
   .nx-stat-row {
     @apply flex items-center gap-6 px-4 py-2.5;
-    background: linear-gradient(90deg, rgba(91, 141, 238, 0.03), transparent);
-    border-left: 2px solid rgba(91, 141, 238, 0.3);
+    background: var(--stat-row-bg);
+    border-left: 2px solid var(--stat-row-border);
   }
 }
 

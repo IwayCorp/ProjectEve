@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { ThemeProvider } from '@/context/ThemeContext'
 import Header from '@/components/Header'
 import TickerBar from '@/components/TickerBar'
 import MarketOverview from '@/components/MarketOverview'
@@ -87,6 +88,7 @@ export default function Dashboard() {
   ]
 
   return (
+    <ThemeProvider>
     <div className="min-h-screen bg-nx-base relative flex flex-col">
       {/* Ambient background glow orbs */}
       <div className="nx-ambient" />
@@ -98,10 +100,11 @@ export default function Dashboard() {
 
         {/* Tab navigation */}
         <div style={{
-          background: 'linear-gradient(180deg, rgba(10, 14, 23, 0.7), rgba(10, 14, 23, 0.5))',
+          background: 'var(--tab-bg)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          borderBottom: '1px solid var(--tab-border)',
+          transition: 'var(--theme-transition)',
         }}>
           <div className="max-w-[1920px] mx-auto px-5">
             <div className="flex items-center">
@@ -127,7 +130,7 @@ export default function Dashboard() {
                   <div className={`w-1.5 h-1.5 rounded-full ${quotesError ? 'bg-nx-red' : quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
                   {!quotesLoading && !quotesError && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
                 </div>
-                <span className="font-medium" style={{ color: quotesError ? '#f87171' : '#94a3b8' }}>
+                <span className="font-medium" style={{ color: quotesError ? 'rgb(var(--nx-red))' : 'rgb(var(--nx-text-muted))' }}>
                   {quotesError ? 'API Error' : quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}
                 </span>
               </div>
@@ -154,8 +157,8 @@ export default function Dashboard() {
                             : 'hover:bg-nx-glass-hover'
                         }`}
                         style={chartSymbol.symbol === opt.symbol
-                          ? { background: 'rgba(91, 141, 238, 0.12)', boxShadow: '0 0 12px rgba(91, 141, 238, 0.08)' }
-                          : { color: '#94a3b8' }
+                          ? { background: 'var(--nx-accent-muted)', boxShadow: '0 0 12px rgba(var(--nx-accent) / 0.08)' }
+                          : { color: 'rgb(var(--nx-text-muted))' }
                         }
                       >
                         {opt.title}
@@ -224,19 +227,20 @@ export default function Dashboard() {
         </main>
 
         {/* Footer */}
-        <footer className="py-4 mt-auto" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
+        <footer className="py-4 mt-auto" style={{ borderTop: '1px solid var(--nx-border)', transition: 'var(--theme-transition)' }}>
           <div className="max-w-[1920px] mx-auto px-5 flex items-center justify-between">
-            <p className="text-2xs font-medium tracking-wide" style={{ color: '#475569' }}>
+            <p className="text-2xs font-medium tracking-wide" style={{ color: 'rgb(var(--nx-text-hint))' }}>
               Noctis &middot; Quantitative Market Intelligence
               <span className="mx-2">|</span>
               Data via Yahoo Finance
             </p>
-            <p className="text-2xs" style={{ color: '#475569' }}>
+            <p className="text-2xs" style={{ color: 'rgb(var(--nx-text-hint))' }}>
               For informational purposes only. Not financial advice.
             </p>
           </div>
         </footer>
       </div>
     </div>
+    </ThemeProvider>
   )
 }

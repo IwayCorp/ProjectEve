@@ -23,8 +23,8 @@ export default function TickerBar({ quotes, symbols }) {
     const isUp = q.regularMarketChangePercent >= 0
     return (
       <div key={sym} className="flex items-center gap-2.5 min-w-[155px] shrink-0" aria-label={`${label} ticker`}>
-        <span className="text-2xs font-bold uppercase tracking-wider" style={{ color: '#64748b' }}>{label}</span>
-        <span className={`text-xs font-mono font-bold ${q.priceDirection === 'up' ? 'price-up' : q.priceDirection === 'down' ? 'price-down' : ''}`} style={q.priceDirection ? {} : { color: '#e2e8f0' }}>
+        <span className="text-2xs font-bold uppercase tracking-wider" style={{ color: 'rgb(var(--nx-text-muted))' }}>{label}</span>
+        <span className={`text-xs font-mono font-bold ${q.priceDirection === 'up' ? 'price-up' : q.priceDirection === 'down' ? 'price-down' : ''}`} style={q.priceDirection ? {} : { color: 'rgb(var(--nx-text-strong))' }}>
           {formatPrice(q.regularMarketPrice, sym.includes('=X') ? 'forex' : sym.startsWith('^') ? 'index' : 'stock')}
         </span>
         <span className={`text-2xs font-mono font-semibold ${isUp ? 'text-nx-green' : 'text-nx-red'}`}>

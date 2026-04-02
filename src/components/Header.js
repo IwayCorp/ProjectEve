@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import SettingsModal from '@/components/SettingsModal'
 
 // Market sessions with timezone + hours in local time
 const MARKETS = [
@@ -28,7 +29,6 @@ function isOpen(market) {
   const openMins = market.open[0] * 60 + market.open[1]
   const closeMins = market.close[0] * 60 + market.close[1]
   if (market.overnight) {
-    // e.g., CME 5pm-4pm next day — open if NOT between close and open
     return mins >= openMins || mins < closeMins
   }
   return mins >= openMins && mins < closeMins
@@ -37,6 +37,7 @@ function isOpen(market) {
 export default function Header() {
   const [time, setTime] = useState(null)
   const [showMarkets, setShowMarkets] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     setTime(new Date())
@@ -63,101 +64,135 @@ export default function Header() {
 
   const openCount = marketStatuses.filter(m => m.isOpen).length
 
+  const handleToggleSettings = useCallback(() => {
+    setShowSettings(prev => !prev)
+  }, [])
+
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false)
+  }, [])
+
   return (
-    <header className="sticky top-0 z-50" style={{
-      background: 'linear-gradient(180deg, rgba(10, 14, 23, 0.92), rgba(10, 14, 23, 0.85))',
-      backdropFilter: 'blur(24px) saturate(1.4)',
-      WebkitBackdropFilter: 'blur(24px) saturate(1.4)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-      boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.03)'
-    }}>
-      <div className="max-w-[1920px] mx-auto px-5 py-2.5 flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-3.5">
-          <div className="relative group">
-            <img src="/logo.svg" alt="Noctis" className="w-9 h-9 rounded-lg relative z-10" />
-            <div className="absolute -inset-1.5 rounded-xl opacity-25 blur-lg transition-opacity duration-500 group-hover:opacity-40" style={{ background: 'linear-gradient(135deg, #5b8dee, #a78bfa)' }} />
+    <>
+      <header className="sticky top-0 z-50" style={{
+        background: 'var(--header-bg)',
+        backdropFilter: 'blur(24px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(24px) saturate(1.4)',
+        borderBottom: '1px solid var(--header-border)',
+        boxShadow: 'var(--header-shadow)',
+        transition: 'var(--theme-transition)',
+      }}>
+        <div className="max-w-[1920px] mx-auto px-5 py-2.5 flex items-center justify-between">
+          {/* Brand */}
+          <div className="flex items-center gap-3.5">
+            <div className="relative group">
+              <img src="/logo.svg" alt="Noctis" className="w-9 h-9 rounded-lg relative z-10" />
+              <div className="absolute -inset-1.5 rounded-xl opacity-25 blur-lg transition-opacity duration-500 group-hover:opacity-40" style={{ background: 'linear-gradient(135deg, #5b8dee, #a78bfa)' }} />
+            </div>
+            <div>
+              <h1 className="text-md font-bold tracking-tight" style={{ color: 'var(--header-text-bright)' }}>
+                Noctis
+              </h1>
+              <p className="text-2xs font-medium tracking-[0.12em] uppercase" style={{ color: 'var(--header-text-dim)' }}>
+                Quantitative Intelligence
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-md font-bold tracking-tight" style={{ color: '#edf0f7' }}>
-              Noctis
-            </h1>
-            <p className="text-2xs font-medium tracking-[0.12em] uppercase" style={{ color: '#64748b' }}>
-              Quantitative Intelligence
-            </p>
+
+          {/* Right side */}
+          <div className="flex items-center gap-4">
+            {/* Market session pills — compact row */}
+            <div className="hidden lg:flex items-center gap-1.5">
+              {marketStatuses.map(m => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-default transition-all duration-200"
+                  style={{
+                    background: m.isOpen ? `${m.color}10` : 'var(--nx-glass-hover)',
+                    border: `1px solid ${m.isOpen ? `${m.color}25` : 'var(--nx-border)'}`,
+                  }}
+                  title={`${m.full}: ${m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'} local`}
+                >
+                  <div className="relative">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isOpen ? m.color : '#475569' }} />
+                    {m.isOpen && <div className="absolute -inset-0.5 rounded-full animate-pulse-gentle" style={{ background: `${m.color}30` }} />}
+                  </div>
+                  <span className="text-2xs font-bold" style={{ color: m.isOpen ? m.color : '#475569' }}>{m.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile: summary pill */}
+            <button
+              onClick={() => setShowMarkets(!showMarkets)}
+              className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+              style={{ background: 'var(--nx-glass-hover)', border: '1px solid var(--nx-border)' }}
+            >
+              <div className={`w-2 h-2 rounded-full ${openCount > 0 ? 'bg-nx-green' : 'bg-nx-red'}`} />
+              <span className="text-xs font-medium" style={{ color: 'var(--header-text-dim)' }}>{openCount} Open</span>
+            </button>
+
+            <div className="nx-divider" />
+
+            {/* Clock */}
+            <div className="text-right">
+              <div className="text-sm font-mono font-semibold tabular-nums" style={{ color: 'var(--header-text-bright)' }} suppressHydrationWarning>
+                {et ? et.toLocaleTimeString('en-US', { hour12: true }) : '--:--:--'}
+                <span className="text-2xs ml-1 font-normal" style={{ color: 'var(--header-text-dim)' }}>ET</span>
+              </div>
+              <div className="text-2xs font-medium" style={{ color: 'var(--header-text-dim)' }} suppressHydrationWarning>
+                {et ? et.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
+              </div>
+            </div>
+
+            <div className="nx-divider" />
+
+            {/* Settings gear */}
+            <button
+              onClick={handleToggleSettings}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
+              style={{
+                color: showSettings ? 'rgb(var(--nx-accent))' : 'var(--header-text-dim)',
+                background: showSettings ? 'rgba(var(--nx-accent) / 0.08)' : 'transparent',
+                border: showSettings ? '1px solid rgba(var(--nx-accent) / 0.15)' : '1px solid transparent',
+              }}
+              aria-label="Open settings"
+              title="Settings"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.902 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-4">
-          {/* Market session pills — compact row */}
-          <div className="hidden lg:flex items-center gap-1.5">
+        {/* Mobile market detail dropdown */}
+        {showMarkets && (
+          <div className="lg:hidden px-5 pb-3 space-y-1 animate-fade-in">
             {marketStatuses.map(m => (
-              <div
-                key={m.id}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-default transition-all duration-200"
-                style={{
-                  background: m.isOpen ? `${m.color}10` : 'rgba(255,255,255,0.02)',
-                  border: `1px solid ${m.isOpen ? `${m.color}25` : 'rgba(255,255,255,0.04)'}`,
-                }}
-                title={`${m.full}: ${m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'} local`}
-              >
-                <div className="relative">
+              <div key={m.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg" style={{ background: 'var(--nx-glass-hover)' }}>
+                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isOpen ? m.color : '#475569' }} />
-                  {m.isOpen && <div className="absolute -inset-0.5 rounded-full animate-pulse-gentle" style={{ background: `${m.color}30` }} />}
+                  <span className="text-xs font-semibold" style={{ color: m.isOpen ? m.color : 'var(--header-text-dim)' }}>{m.label}</span>
+                  <span className="text-2xs" style={{ color: 'rgb(var(--nx-text-muted))' }}>{m.full}</span>
                 </div>
-                <span className="text-2xs font-bold" style={{ color: m.isOpen ? m.color : '#475569' }}>{m.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xs font-mono" style={{ color: 'var(--header-text-dim)' }} suppressHydrationWarning>
+                    {m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
+                  </span>
+                  <span className={`text-2xs font-bold ${m.isOpen ? 'text-nx-green' : 'text-nx-red'}`}>
+                    {m.isOpen ? 'OPEN' : 'CLOSED'}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
+        )}
+      </header>
 
-          {/* Mobile: summary pill */}
-          <button
-            onClick={() => setShowMarkets(!showMarkets)}
-            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}
-          >
-            <div className={`w-2 h-2 rounded-full ${openCount > 0 ? 'bg-nx-green' : 'bg-nx-red'}`} />
-            <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>{openCount} Open</span>
-          </button>
-
-          <div className="nx-divider" />
-
-          {/* Clock */}
-          <div className="text-right">
-            <div className="text-sm font-mono font-semibold tabular-nums" style={{ color: '#edf0f7' }} suppressHydrationWarning>
-              {et ? et.toLocaleTimeString('en-US', { hour12: true }) : '--:--:--'}
-              <span className="text-2xs ml-1 font-normal" style={{ color: '#64748b' }}>ET</span>
-            </div>
-            <div className="text-2xs font-medium" style={{ color: '#64748b' }} suppressHydrationWarning>
-              {et ? et.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile market detail dropdown */}
-      {showMarkets && (
-        <div className="lg:hidden px-5 pb-3 space-y-1 animate-fade-in">
-          {marketStatuses.map(m => (
-            <div key={m.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isOpen ? m.color : '#475569' }} />
-                <span className="text-xs font-semibold" style={{ color: m.isOpen ? m.color : '#64748b' }}>{m.label}</span>
-                <span className="text-2xs text-nx-text-muted">{m.full}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xs font-mono" style={{ color: '#94a3b8' }} suppressHydrationWarning>
-                  {m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
-                </span>
-                <span className={`text-2xs font-bold ${m.isOpen ? 'text-nx-green' : 'text-nx-red'}`}>
-                  {m.isOpen ? 'OPEN' : 'CLOSED'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </header>
+      {/* Settings modal */}
+      <SettingsModal open={showSettings} onClose={handleCloseSettings} />
+    </>
   )
 }
