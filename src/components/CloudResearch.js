@@ -93,7 +93,17 @@ export default function CloudResearch() {
                 status: 'completed',
                 duration,
                 results: data,
-                resultCount: Array.isArray(data.signals) ? data.signals.length : data.data ? (Array.isArray(data.data) ? data.data.length : Object.keys(data.data).length) : 0,
+                resultCount: Array.isArray(data.signals)
+                  ? data.signals.length
+                  : data.signals && typeof data.signals === 'object'
+                  ? Object.values(data.signals).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+                  : data.trades
+                  ? (Array.isArray(data.trades) ? data.trades.length : data.trades)
+                  : data.heatmapData
+                  ? data.heatmapData.length
+                  : data.events
+                  ? (Array.isArray(data.events) ? data.events.length : 0)
+                  : 0,
               }
             : run
         )
@@ -358,31 +368,61 @@ export default function CloudResearch() {
                       <>
                         {run.results.signals && (
                           <div>
-                            <div className="text-xs font-semibold text-nx-accent mb-2">
-                              Signals Found: {run.results.signals.length}
-                            </div>
-                            <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                              {run.results.signals.slice(0, 5).map((signal, idx) => (
-                                <div
-                                  key={idx}
-                                  className="text-2xs bg-nx-void/60 p-2 rounded border border-nx-border/50"
-                                >
-                                  <div className="font-mono text-nx-text-strong">
-                                    {signal.symbol || signal.name || `Signal ${idx + 1}`}
+                            {/* Handle nested signals object { long: [], short: [], forex: [] } */}
+                            {!Array.isArray(run.results.signals) && typeof run.results.signals === 'object' ? (
+                              Object.entries(run.results.signals).map(([category, signals]) => (
+                                Array.isArray(signals) && signals.length > 0 && (
+                                  <div key={category} className="mb-3">
+                                    <div className="text-xs font-semibold text-nx-accent mb-2 capitalize">
+                                      {category} Signals: {signals.length}
+                                    </div>
+                                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                      {signals.slice(0, 3).map((signal, idx) => (
+                                        <div key={idx} className="text-2xs bg-nx-void/60 p-2 rounded border border-nx-border/50">
+                                          <div className="font-mono text-nx-text-strong">
+                                            {signal.ticker || signal.symbol || signal.name || `Signal ${idx + 1}`}
+                                          </div>
+                                          <div className="text-nx-text-muted mt-0.5">
+                                            {signal.direction && `${signal.direction.toUpperCase()} | `}
+                                            {signal.entryLow && signal.entryHigh && `Entry: $${signal.entryLow.toFixed(2)}-$${signal.entryHigh.toFixed(2)} | `}
+                                            {signal.target && `Target: $${signal.target.toFixed(2)} | `}
+                                            {signal.confidence && `Confidence: ${signal.confidence}%`}
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {signals.length > 3 && (
+                                        <div className="text-2xs text-nx-text-muted">...and {signals.length - 3} more</div>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-nx-text-muted mt-0.5">
-                                    {signal.strength && `Strength: ${signal.strength} | `}
-                                    {signal.score && `Score: ${signal.score.toFixed(2)} | `}
-                                    {signal.price && `Price: $${signal.price}`}
-                                  </div>
+                                )
+                              ))
+                            ) : Array.isArray(run.results.signals) ? (
+                              <div>
+                                <div className="text-xs font-semibold text-nx-accent mb-2">
+                                  Signals Found: {run.results.signals.length}
                                 </div>
-                              ))}
-                              {run.results.signals.length > 5 && (
-                                <div className="text-2xs text-nx-text-muted">
-                                  ...and {run.results.signals.length - 5} more
+                                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                                  {run.results.signals.slice(0, 5).map((signal, idx) => (
+                                    <div key={idx} className="text-2xs bg-nx-void/60 p-2 rounded border border-nx-border/50">
+                                      <div className="font-mono text-nx-text-strong">
+                                        {signal.ticker || signal.symbol || signal.name || `Signal ${idx + 1}`}
+                                      </div>
+                                      <div className="text-nx-text-muted mt-0.5">
+                                        {signal.direction && `${signal.direction.toUpperCase()} | `}
+                                        {signal.entryLow && `Entry: $${signal.entryLow.toFixed(2)} | `}
+                                        {signal.confidence && `Confidence: ${signal.confidence}%`}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {run.results.signals.length > 5 && (
+                                    <div className="text-2xs text-nx-text-muted">
+                                      ...and {run.results.signals.length - 5} more
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            ) : null}
                           </div>
                         )}
 

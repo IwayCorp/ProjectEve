@@ -18,6 +18,35 @@ function LoadingSpinner() {
   )
 }
 
+function formatEventDate(dateStr) {
+  if (!dateStr) return '—'
+  try {
+    // If it looks like an ISO string or contains 'T', parse it
+    if (dateStr.includes('T') || dateStr.includes('-') && dateStr.length > 10) {
+      const d = new Date(dateStr)
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }
+    }
+    // Already formatted (e.g. "Apr 5") — return as-is
+    return dateStr
+  } catch { return dateStr }
+}
+
+function formatEventTime(dateStr, timeStr) {
+  if (timeStr && timeStr !== '—' && !timeStr.includes('T')) return timeStr
+  if (!dateStr) return '—'
+  try {
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr)
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      }
+    }
+    return timeStr || '—'
+  } catch { return timeStr || '—' }
+}
+
 function CountryFlag({ country }) {
   const countryMap = {
     'US': '🇺🇸',
@@ -135,8 +164,8 @@ export default function RiskCalendar({ showBanner = false }) {
 
               {/* Date and Time */}
               <div className="w-20 shrink-0">
-                <div className="text-sm font-bold text-nx-accent font-mono">{event.date}</div>
-                <div className="text-2xs text-nx-text-muted mt-0.5">{event.time || '—'}</div>
+                <div className="text-sm font-bold text-nx-accent font-mono">{formatEventDate(event.date)}</div>
+                <div className="text-2xs text-nx-text-muted mt-0.5">{formatEventTime(event.date, event.time)}</div>
               </div>
 
               {/* Event and Volatility */}
