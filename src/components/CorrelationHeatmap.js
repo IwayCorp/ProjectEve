@@ -2,8 +2,8 @@
 
 function getColor(val) {
   if (val == null) return 'rgba(255, 255, 255, 0.03)'
-  if (val > 0) return val > 0.5 ? '#34d399' : 'rgba(52, 211, 153, 0.7)'
-  return val < -0.5 ? '#f87171' : 'rgba(248, 113, 113, 0.7)'
+  if (val > 0) return val > 0.5 ? '#34d399' : '#34d399b3'
+  return val < -0.5 ? '#f87171' : '#f87171b3'
 }
 
 function getAnomaly(val) {
@@ -18,9 +18,15 @@ export default function CorrelationHeatmap({ correlations, loading }) {
   if (loading) {
     return (
       <div className="nx-card p-4">
-        <h3 className="text-sm font-bold mb-4" style={{ color: '#f1f5f9' }}>Correlation Matrix (90-Day)</h3>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-6 h-6 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
+        <h3 className="text-sm font-bold mb-4" style={{ color: '#f1f5f9' }}>Bond-Currency-Equity Correlation (90-Day)</h3>
+        <div className="space-y-2">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-2.5">
+              <div className="w-44 h-3 nx-shimmer rounded" />
+              <div className="flex-1 h-5 nx-shimmer rounded" />
+              <div className="w-10 h-3 nx-shimmer rounded" />
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -44,9 +50,7 @@ export default function CorrelationHeatmap({ correlations, loading }) {
         {correlations.map((pair, i) => {
           const anomaly = getAnomaly(pair.correlation)
           return (
-            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg transition-colors" style={{ ':hover': { background: 'rgba(255,255,255,0.02)' } }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg transition-colors hover:bg-white/[0.02]"
             >
               <div className="w-44 shrink-0">
                 <span className="text-xs font-semibold" style={{ color: '#cbd5e1' }}>{pair.label}</span>

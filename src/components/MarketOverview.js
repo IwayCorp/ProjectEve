@@ -38,7 +38,7 @@ function QuoteCard({ label, quote, type = 'stock' }) {
         <span>L: {formatPrice(quote.regularMarketDayLow, type)}</span>
       </div>
 
-      {quote.regularMarketDayHigh && quote.regularMarketDayLow && (
+      {quote.regularMarketDayHigh && quote.regularMarketDayLow && quote.regularMarketDayHigh > quote.regularMarketDayLow && (
         <div className="mt-2.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.04)' }}>
           <div
             className="h-full rounded-full transition-all duration-700"

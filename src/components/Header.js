@@ -12,10 +12,15 @@ export default function Header() {
 
   const marketOpen = () => {
     if (!time) return false
-    const h = time.getUTCHours()
-    const m = time.getUTCMinutes()
+    // Convert to Eastern Time (handles EST/EDT automatically)
+    const etStr = time.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false })
+    const etDate = new Date(etStr)
+    const h = etDate.getHours()
+    const m = etDate.getMinutes()
+    const day = etDate.getDay() // 0=Sun, 6=Sat
+    if (day === 0 || day === 6) return false // Weekends closed
     const mins = h * 60 + m
-    return mins >= 14 * 60 + 30 && mins < 21 * 60
+    return mins >= 9 * 60 + 30 && mins < 16 * 60 // 9:30 AM - 4:00 PM ET
   }
 
   return (

@@ -37,7 +37,14 @@ export default function SectorHeatmap({ quotes }) {
         <h3 className="text-sm font-bold" style={{ color: '#f1f5f9' }}>Sector Performance</h3>
       </div>
       <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {sectors.map(s => (
+        {sectors.every(s => s.change == null) ? (
+          Array.from({ length: 11 }).map((_, i) => (
+            <div key={i} className="rounded-lg p-3 text-center" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <div className="h-3 w-20 mx-auto nx-shimmer rounded mb-2" />
+              <div className="h-4 w-12 mx-auto nx-shimmer rounded" />
+            </div>
+          ))
+        ) : sectors.map(s => (
           <div
             key={s.symbol}
             className="rounded-lg p-3 text-center transition-all duration-300 hover:scale-[1.03] cursor-default"

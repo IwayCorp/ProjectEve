@@ -10,7 +10,7 @@ export default function RiskCalendar() {
   return (
     <div className="nx-card">
       <div className="p-3.5 border-b border-nx-border">
-        <h3 className="text-sm font-semibold text-nx-text-strong">Risk Event Calendar &mdash; April 2026</h3>
+        <h3 className="text-sm font-semibold text-nx-text-strong">Risk Event Calendar &mdash; {new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
       </div>
       <div className="p-3 space-y-0.5">
         {RISK_EVENTS.map((event, i) => (

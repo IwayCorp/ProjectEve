@@ -29,6 +29,7 @@ function generateHeatmapData() {
 }
 
 function getHeatColor(val, min, max) {
+  if (min === max) return 'rgba(91, 141, 238, 0.15)'
   const normalized = (val - min) / (max - min)
   if (normalized > 0.8) return 'rgba(52, 211, 153, 0.35)'
   if (normalized > 0.6) return 'rgba(52, 211, 153, 0.22)'
