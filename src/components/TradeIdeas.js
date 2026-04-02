@@ -149,6 +149,8 @@ export default function TradeIdeas({ quotes }) {
           <button
             key={t.id}
             onClick={() => { setTab(t.id); setSelectedStrategy('all') }}
+            aria-label={`Show ${t.id} trade ideas`}
+            aria-pressed={tab === t.id}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
               tab === t.id
                 ? t.color === 'green' ? 'bg-nx-green-muted text-nx-green border border-nx-green/20'
@@ -169,6 +171,8 @@ export default function TradeIdeas({ quotes }) {
           <button
             key={s}
             onClick={() => setSelectedStrategy(s)}
+            aria-label={`Filter by ${s === 'all' ? 'all strategies' : s.replace('-', ' ')} strategy`}
+            aria-pressed={selectedStrategy === s}
             className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
               selectedStrategy === s
                 ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'

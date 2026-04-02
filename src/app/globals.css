@@ -78,11 +78,6 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
       0 0 0 1px rgba(255, 255, 255, 0.02);
   }
-  .glass-subtle {
-    @apply bg-nx-glass-bg/40 border border-nx-glass-border/50 rounded-xl;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
   .glass-solid {
     @apply bg-nx-surface border border-nx-border rounded-xl;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -249,14 +244,6 @@
   .badge-blue {
     @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
     @apply bg-nx-accent-muted text-nx-accent border border-nx-accent/20;
-  }
-  .badge-purple {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-purple-muted text-nx-purple border border-nx-purple/20;
-  }
-  .badge-cyan {
-    @apply text-2xs font-semibold px-2 py-0.5 rounded-md;
-    @apply bg-nx-cyan-muted text-nx-cyan border border-nx-cyan/20;
   }
 
   /* ── Glow Effects — Enhanced ── */

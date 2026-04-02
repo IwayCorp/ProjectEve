@@ -64,7 +64,7 @@ export default function Dashboard() {
     return [...new Set([...Object.values(syms), ...extra])]
   }, [])
 
-  const { data: quotes, loading: quotesLoading } = useQuotes(allSymbols, 15000)
+  const { data: quotes, loading: quotesLoading, error: quotesError } = useQuotes(allSymbols, 15000)
   const { data: correlations, loading: corrLoading } = useCorrelation(300000)
 
   const chartOptions = [
@@ -85,12 +85,12 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-nx-base relative">
+    <div className="min-h-screen bg-nx-base relative flex flex-col">
       {/* Ambient background glow orbs */}
       <div className="nx-ambient" />
 
       {/* Content layer */}
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col flex-1">
         <Header />
         <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
 
@@ -122,17 +122,19 @@ export default function Dashboard() {
               {/* Live indicator */}
               <div className="ml-auto flex items-center gap-2.5 text-2xs">
                 <div className="relative">
-                  <div className={`w-1.5 h-1.5 rounded-full ${quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
-                  {!quotesLoading && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
+                  <div className={`w-1.5 h-1.5 rounded-full ${quotesError ? 'bg-nx-red' : quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
+                  {!quotesLoading && !quotesError && <div className="absolute -inset-0.5 rounded-full bg-nx-green/30 animate-pulse-gentle" />}
                 </div>
-                <span className="font-medium" style={{ color: '#94a3b8' }}>{quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}</span>
+                <span className="font-medium" style={{ color: quotesError ? '#f87171' : '#94a3b8' }}>
+                  {quotesError ? 'API Error' : quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <main className="max-w-[1920px] mx-auto p-4 space-y-5">
+        <main className="max-w-[1920px] mx-auto p-4 space-y-5 flex-1">
           {activeTab === 'overview' && (
             <>
               <MarketOverview quotes={quotes} />
@@ -192,7 +194,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'live' && (
-            <LiveTrading />
+            <LiveTrading quotes={quotes} />
           )}
 
           {activeTab === 'portfolio' && (
@@ -216,10 +218,12 @@ export default function Dashboard() {
         </main>
 
         {/* Footer */}
-        <footer className="py-5 mt-8" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
+        <footer className="py-4 mt-auto" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
           <div className="max-w-[1920px] mx-auto px-5 flex items-center justify-between">
             <p className="text-2xs font-medium tracking-wide" style={{ color: '#475569' }}>
               Noctis &middot; Quantitative Market Intelligence
+              <span className="mx-2">|</span>
+              Data via Yahoo Finance
             </p>
             <p className="text-2xs" style={{ color: '#475569' }}>
               For informational purposes only. Not financial advice.

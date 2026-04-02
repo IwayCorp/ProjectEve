@@ -1,12 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
-const ACTIVE_POSITIONS = [
-  { id: 1, symbol: 'NVDA', direction: 'LONG', qty: 15, entryPrice: 842.50, currentPrice: 858.30, unrealizedPnl: 237.00, unrealizedPct: 1.88, holdDays: 2, stopLoss: 780, target: 920 },
-  { id: 2, symbol: 'RTX', direction: 'LONG', qty: 50, entryPrice: 141.20, currentPrice: 144.80, unrealizedPnl: 180.00, unrealizedPct: 2.55, holdDays: 3, stopLoss: 132, target: 158 },
-  { id: 3, symbol: 'USDJPY', direction: 'SHORT', qty: 100000, entryPrice: 151.20, currentPrice: 150.45, unrealizedPnl: 497.02, unrealizedPct: 0.50, holdDays: 1, stopLoss: 153.50, target: 148.00 },
-  { id: 4, symbol: 'GC=F', direction: 'LONG', qty: 3, entryPrice: 2305.00, currentPrice: 2328.50, unrealizedPnl: 70.50, unrealizedPct: 1.02, holdDays: 4, stopLoss: 2220, target: 2450 },
-  { id: 5, symbol: 'XOM', direction: 'LONG', qty: 40, entryPrice: 137.50, currentPrice: 139.20, unrealizedPnl: 68.00, unrealizedPct: 1.24, holdDays: 1, stopLoss: 128, target: 155 },
+// Base positions — currentPrice/P&L will be computed from live quotes
+const BASE_POSITIONS = [
+  { id: 1, symbol: 'NVDA', quoteKey: 'NVDA', direction: 'LONG', qty: 15, entryPrice: 842.50, holdDays: 2, stopLoss: 780, target: 920 },
+  { id: 2, symbol: 'RTX', quoteKey: 'RTX', direction: 'LONG', qty: 50, entryPrice: 141.20, holdDays: 3, stopLoss: 132, target: 158 },
+  { id: 3, symbol: 'USDJPY', quoteKey: 'JPY=X', direction: 'SHORT', qty: 100000, entryPrice: 151.20, holdDays: 1, stopLoss: 153.50, target: 148.00 },
+  { id: 4, symbol: 'GC=F', quoteKey: 'GC=F', direction: 'LONG', qty: 3, entryPrice: 2305.00, holdDays: 4, stopLoss: 2220, target: 2450 },
+  { id: 5, symbol: 'XOM', quoteKey: 'XOM', direction: 'LONG', qty: 40, entryPrice: 137.50, holdDays: 1, stopLoss: 128, target: 155 },
 ]
 
 const PENDING_ORDERS = [
@@ -24,11 +25,24 @@ const EXECUTION_LOG = [
   { time: '15:30:00', symbol: 'MSFT', action: 'BUY', qty: 25, price: 382.00, type: 'LIMIT', status: 'PENDING' },
 ]
 
-export default function LiveTrading() {
+export default function LiveTrading({ quotes = {} }) {
   const [view, setView] = useState('positions')
 
-  const totalUnrealized = ACTIVE_POSITIONS.reduce((sum, p) => sum + p.unrealizedPnl, 0)
-  const totalExposure = ACTIVE_POSITIONS.reduce((sum, p) => sum + (p.currentPrice * p.qty), 0)
+  // Compute live positions from real-time quotes
+  const positions = useMemo(() => {
+    return BASE_POSITIONS.map(pos => {
+      const q = quotes[pos.quoteKey]
+      const livePrice = q?.regularMarketPrice || pos.entryPrice
+      const pnl = pos.direction === 'LONG'
+        ? (livePrice - pos.entryPrice) * pos.qty
+        : (pos.entryPrice - livePrice) * pos.qty
+      const pct = (pnl / (pos.entryPrice * pos.qty)) * 100
+      return { ...pos, currentPrice: livePrice, unrealizedPnl: pnl, unrealizedPct: pct }
+    })
+  }, [quotes])
+
+  const totalUnrealized = positions.reduce((sum, p) => sum + p.unrealizedPnl, 0)
+  const totalExposure = positions.reduce((sum, p) => sum + (p.currentPrice * p.qty), 0)
   const portfolioValue = 100000 + totalUnrealized
 
   return (
@@ -57,9 +71,9 @@ export default function LiveTrading() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
         {[
           { label: 'Portfolio Value', value: `$${portfolioValue.toLocaleString()}`, color: 'text-nx-text-strong' },
-          { label: 'Unrealized P&L', value: `+$${totalUnrealized.toFixed(2)}`, color: 'text-nx-green' },
+          { label: 'Unrealized P&L', value: `${totalUnrealized >= 0 ? '+' : ''}$${totalUnrealized.toFixed(2)}`, color: totalUnrealized >= 0 ? 'text-nx-green' : 'text-nx-red' },
           { label: 'Total Exposure', value: `$${totalExposure.toLocaleString()}`, color: 'text-nx-accent' },
-          { label: 'Active Positions', value: ACTIVE_POSITIONS.length, color: 'text-nx-text-strong' },
+          { label: 'Active Positions', value: positions.length, color: 'text-nx-text-strong' },
           { label: 'Pending Orders', value: PENDING_ORDERS.length, color: 'text-nx-orange' },
         ].map((item, i) => (
           <div key={i} className="p-3.5 text-center" style={{ borderRight: i < 4 ? '1px solid rgba(255, 255, 255, 0.04)' : 'none' }}>
@@ -82,7 +96,7 @@ export default function LiveTrading() {
             }`}
             style={view === v ? { background: 'rgba(91, 141, 238, 0.12)' } : {}}
           >
-            {v === 'positions' ? `Positions (${ACTIVE_POSITIONS.length})` : v === 'orders' ? `Orders (${PENDING_ORDERS.length})` : `Executions (${EXECUTION_LOG.length})`}
+            {v === 'positions' ? `Positions (${positions.length})` : v === 'orders' ? `Orders (${PENDING_ORDERS.length})` : `Executions (${EXECUTION_LOG.length})`}
           </button>
         ))}
       </div>
@@ -94,7 +108,7 @@ export default function LiveTrading() {
             <div className="grid grid-cols-9 gap-2 px-4 py-2 text-2xs text-nx-text-muted uppercase tracking-wider font-medium">
               <span>Symbol</span><span>Side</span><span>Qty</span><span>Entry</span><span>Current</span><span>Stop</span><span>Target</span><span className="text-right">P&L</span><span className="text-right">Hold</span>
             </div>
-            {ACTIVE_POSITIONS.map(pos => {
+            {positions.map(pos => {
               const targetDist = pos.direction === 'LONG'
                 ? ((pos.target - pos.currentPrice) / (pos.target - pos.entryPrice)) * 100
                 : ((pos.currentPrice - pos.target) / (pos.entryPrice - pos.target)) * 100

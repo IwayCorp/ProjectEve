@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 export default function Header() {
   const [time, setTime] = useState(null)
@@ -10,18 +10,22 @@ export default function Header() {
     return () => clearInterval(t)
   }, [])
 
-  const marketOpen = () => {
-    if (!time) return false
-    // Convert to Eastern Time (handles EST/EDT automatically)
-    const etStr = time.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false })
-    const etDate = new Date(etStr)
-    const h = etDate.getHours()
-    const m = etDate.getMinutes()
-    const day = etDate.getDay() // 0=Sun, 6=Sat
-    if (day === 0 || day === 6) return false // Weekends closed
-    const mins = h * 60 + m
-    return mins >= 9 * 60 + 30 && mins < 16 * 60 // 9:30 AM - 4:00 PM ET
-  }
+  // Derive Eastern Time values once per tick
+  const et = useMemo(() => {
+    if (!time) return null
+    try {
+      const etStr = time.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false })
+      return new Date(etStr)
+    } catch { return null }
+  }, [time])
+
+  const isMarketOpen = useMemo(() => {
+    if (!et) return false
+    const day = et.getDay()
+    if (day === 0 || day === 6) return false
+    const mins = et.getHours() * 60 + et.getMinutes()
+    return mins >= 9 * 60 + 30 && mins < 16 * 60
+  }, [et])
 
   return (
     <header className="sticky top-0 z-50" style={{
@@ -53,13 +57,13 @@ export default function Header() {
           {/* Market status */}
           <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
             <div className="relative">
-              <div className={`w-2 h-2 rounded-full ${marketOpen() ? 'bg-nx-green' : 'bg-nx-red'}`} />
-              {marketOpen() && (
+              <div className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-nx-green' : 'bg-nx-red'}`} />
+              {isMarketOpen && (
                 <div className="absolute -inset-1 rounded-full bg-nx-green/30 animate-pulse-gentle" />
               )}
             </div>
             <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>
-              {marketOpen() ? 'NYSE Open' : 'NYSE Closed'}
+              {isMarketOpen ? 'NYSE Open' : 'NYSE Closed'}
             </span>
           </div>
 
@@ -68,10 +72,11 @@ export default function Header() {
           {/* Clock */}
           <div className="text-right">
             <div className="text-sm font-mono font-semibold tabular-nums" style={{ color: '#edf0f7' }} suppressHydrationWarning>
-              {time ? time.toLocaleTimeString('en-US', { hour12: true }) : '--:--:--'}
+              {et ? et.toLocaleTimeString('en-US', { hour12: true }) : '--:--:--'}
+              <span className="text-2xs ml-1 font-normal" style={{ color: '#64748b' }}>ET</span>
             </div>
             <div className="text-2xs font-medium" style={{ color: '#64748b' }} suppressHydrationWarning>
-              {time ? time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
+              {et ? et.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
             </div>
           </div>
         </div>
