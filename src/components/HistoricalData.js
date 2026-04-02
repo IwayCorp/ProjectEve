@@ -392,8 +392,10 @@ export default function HistoricalData() {
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />
-              {/* If a date in this month is selected, show detail below */}
-              {selectedDate && cm.tradesByDate[selectedDate] && (
+              {/* If a date in this month is selected and belongs to this month, show detail */}
+              {selectedDate && cm.tradesByDate[selectedDate] &&
+                parseInt(selectedDate.split('-')[0]) === cm.year &&
+                parseInt(selectedDate.split('-')[1]) - 1 === cm.month && (
                 <div className="mt-2">
                   <DayDetail
                     dateStr={selectedDate}
