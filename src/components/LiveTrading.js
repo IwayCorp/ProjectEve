@@ -3,26 +3,26 @@ import { useState, useMemo } from 'react'
 
 // Base positions — currentPrice/P&L will be computed from live quotes
 const BASE_POSITIONS = [
-  { id: 1, symbol: 'NVDA', quoteKey: 'NVDA', direction: 'LONG', qty: 15, entryPrice: 842.50, holdDays: 2, stopLoss: 780, target: 920 },
-  { id: 2, symbol: 'RTX', quoteKey: 'RTX', direction: 'LONG', qty: 50, entryPrice: 141.20, holdDays: 3, stopLoss: 132, target: 158 },
-  { id: 3, symbol: 'USDJPY', quoteKey: 'JPY=X', direction: 'SHORT', qty: 100000, entryPrice: 151.20, holdDays: 1, stopLoss: 153.50, target: 148.00 },
-  { id: 4, symbol: 'GC=F', quoteKey: 'GC=F', direction: 'LONG', qty: 3, entryPrice: 2305.00, holdDays: 4, stopLoss: 2220, target: 2450 },
-  { id: 5, symbol: 'XOM', quoteKey: 'XOM', direction: 'LONG', qty: 40, entryPrice: 137.50, holdDays: 1, stopLoss: 128, target: 155 },
+  { id: 1, symbol: 'NVDA', quoteKey: 'NVDA', direction: 'LONG', qty: 15, entryPrice: 172.40, holdDays: 2, stopLoss: 164, target: 188 },
+  { id: 2, symbol: 'RTX', quoteKey: 'RTX', direction: 'LONG', qty: 50, entryPrice: 190.50, holdDays: 3, stopLoss: 182, target: 205 },
+  { id: 3, symbol: 'USDJPY', quoteKey: 'JPY=X', direction: 'SHORT', qty: 100000, entryPrice: 160.80, holdDays: 1, stopLoss: 162.50, target: 157.00 },
+  { id: 4, symbol: 'GC=F', quoteKey: 'GC=F', direction: 'LONG', qty: 3, entryPrice: 4680.00, holdDays: 4, stopLoss: 4580, target: 4820 },
+  { id: 5, symbol: 'XOM', quoteKey: 'XOM', direction: 'LONG', qty: 40, entryPrice: 158.20, holdDays: 1, stopLoss: 150, target: 170 },
 ]
 
 const PENDING_ORDERS = [
-  { id: 1, symbol: 'MSFT', type: 'LIMIT BUY', price: 382.00, qty: 25, status: 'waiting', timeframe: '5-10 days' },
-  { id: 2, symbol: 'CL=F', type: 'LIMIT BUY', price: 83.50, qty: 5, status: 'waiting', timeframe: '3-7 days' },
-  { id: 3, symbol: 'BYND', type: 'LIMIT SELL', price: 8.80, qty: 200, status: 'waiting', timeframe: '14-30 days' },
+  { id: 1, symbol: 'MSFT', type: 'LIMIT BUY', price: 378.00, qty: 25, status: 'waiting', timeframe: '5-10 days' },
+  { id: 2, symbol: 'CL=F', type: 'LIMIT BUY', price: 100.50, qty: 5, status: 'waiting', timeframe: '3-7 days' },
+  { id: 3, symbol: 'BYND', type: 'LIMIT SELL', price: 4.20, qty: 200, status: 'waiting', timeframe: '14-30 days' },
 ]
 
 const EXECUTION_LOG = [
-  { time: '09:31:42', symbol: 'NVDA', action: 'BUY', qty: 15, price: 842.50, type: 'LIMIT', status: 'FILLED' },
-  { time: '09:32:15', symbol: 'RTX', action: 'BUY', qty: 50, price: 141.20, type: 'MARKET', status: 'FILLED' },
-  { time: '10:15:33', symbol: 'USDJPY', action: 'SELL', qty: 100000, price: 151.20, type: 'LIMIT', status: 'FILLED' },
-  { time: '11:02:18', symbol: 'GC=F', action: 'BUY', qty: 3, price: 2305.00, type: 'LIMIT', status: 'FILLED' },
-  { time: '14:45:22', symbol: 'XOM', action: 'BUY', qty: 40, price: 137.50, type: 'MARKET', status: 'FILLED' },
-  { time: '15:30:00', symbol: 'MSFT', action: 'BUY', qty: 25, price: 382.00, type: 'LIMIT', status: 'PENDING' },
+  { time: '09:31:42', symbol: 'NVDA', action: 'BUY', qty: 15, price: 172.40, type: 'LIMIT', status: 'FILLED' },
+  { time: '09:32:15', symbol: 'RTX', action: 'BUY', qty: 50, price: 190.50, type: 'MARKET', status: 'FILLED' },
+  { time: '10:15:33', symbol: 'USDJPY', action: 'SELL', qty: 100000, price: 160.80, type: 'LIMIT', status: 'FILLED' },
+  { time: '11:02:18', symbol: 'GC=F', action: 'BUY', qty: 3, price: 4680.00, type: 'LIMIT', status: 'FILLED' },
+  { time: '14:45:22', symbol: 'XOM', action: 'BUY', qty: 40, price: 158.20, type: 'MARKET', status: 'FILLED' },
+  { time: '15:30:00', symbol: 'MSFT', action: 'BUY', qty: 25, price: 378.00, type: 'LIMIT', status: 'PENDING' },
 ]
 
 export default function LiveTrading({ quotes = {} }) {
@@ -131,7 +131,7 @@ export default function LiveTrading({ quotes = {} }) {
                         {pos.unrealizedPnl >= 0 ? '+' : ''}${pos.unrealizedPnl.toFixed(2)}
                       </div>
                       <div className={`text-2xs font-mono ${pos.unrealizedPct >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
-                        {pos.unrealizedPct >= 0 ? '+' : ''}{pos.unrealizedPct}%
+                        {pos.unrealizedPct >= 0 ? '+' : ''}{pos.unrealizedPct.toFixed(2)}%
                       </div>
                     </div>
                     <span className="text-xs text-nx-text-muted text-right">{pos.holdDays}d</span>
