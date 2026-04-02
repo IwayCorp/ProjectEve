@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { ThemeProvider } from '@/context/ThemeContext'
 import Header from '@/components/Header'
 import TickerBar from '@/components/TickerBar'
-import MarketOverview from '@/components/MarketOverview'
+import MarketOverview, { DEFAULT_FAVORITES, loadFavorites } from '@/components/MarketOverview'
 import PriceChart from '@/components/PriceChart'
 import SectorHeatmap from '@/components/SectorHeatmap'
 import CorrelationHeatmap from '@/components/CorrelationHeatmap'
@@ -52,6 +52,18 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [chartSymbol, setChartSymbol] = useState({ symbol: '^GSPC', title: 'S&P 500' })
   const tabRefs = useRef({})
+  const [favSymbols, setFavSymbols] = useState(() => {
+    // SSR-safe: try reading from localStorage, fall back to defaults
+    if (typeof window !== 'undefined') {
+      const saved = loadFavorites()
+      if (saved) return saved.map(f => f.sym)
+    }
+    return DEFAULT_FAVORITES.map(f => f.sym)
+  })
+
+  const handleFavoritesChange = useCallback((favs) => {
+    setFavSymbols(favs.map(f => f.sym))
+  }, [])
 
   const handleTabClick = useCallback((tabId) => {
     setActiveTab(tabId)
@@ -64,8 +76,8 @@ export default function Dashboard() {
     const syms = getAllSymbols()
     const extra = ['EURUSD=X', 'GBPUSD=X', 'CHF=X', 'AUDUSD=X', 'MXN=X', 'EURGBP=X', 'NZDUSD=X', 'BTC-USD',
       'LMT', 'JPM', 'UNH', 'BYND', 'DIS', 'NKE', 'COIN', 'ARKK', 'IWM', 'TLT', 'XLU', 'XLRE', 'FXI']
-    return [...new Set([...Object.values(syms), ...extra])]
-  }, [])
+    return [...new Set([...Object.values(syms), ...extra, ...favSymbols])]
+  }, [favSymbols])
 
   const { data: quotes, loading: quotesLoading, error: quotesError } = useQuotes(allSymbols, 15000)
   const { data: correlations, loading: corrLoading } = useCorrelation(300000)
@@ -142,7 +154,7 @@ export default function Dashboard() {
         <main className="max-w-[1920px] mx-auto p-4 space-y-5 flex-1">
           {activeTab === 'overview' && (
             <>
-              <MarketOverview quotes={quotes} />
+              <MarketOverview quotes={quotes} onFavoritesChange={handleFavoritesChange} />
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                 <div className="xl:col-span-2">
