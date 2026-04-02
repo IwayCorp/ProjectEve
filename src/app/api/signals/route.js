@@ -131,26 +131,109 @@ function generateSignal(candles, symbol, assetType, name) {
   const sr = findSR(candles)
   const { support, resistance } = sr
 
-  // Classify strategy
-  let strategy = 'momentum', confidence = 50
+  // ---- Multi-factor direction scoring ----
+  // Each factor adds directional conviction from -1 (bearish) to +1 (bullish)
+  let dirScore = 0
+  const factors = {}
+
+  // Factor 1: Price vs MA50 (trend position)
+  if (price > ma50) { dirScore += 1; factors.priceVsMa50 = 1 }
+  else { dirScore -= 1; factors.priceVsMa50 = -1 }
+
+  // Factor 2: MA alignment (MA50 vs MA200)
+  if (ma50 > ma200) { dirScore += 1; factors.maAlignment = 1 }
+  else { dirScore -= 1; factors.maAlignment = -1 }
+
+  // Factor 3: Short-term trend (MA20 vs MA50)
+  if (ma20 > ma50) { dirScore += 0.5; factors.shortTrend = 0.5 }
+  else { dirScore -= 0.5; factors.shortTrend = -0.5 }
+
+  // Factor 4: RSI momentum
+  if (rsi < 30) { dirScore += 1.5; factors.rsi = 1.5 } // oversold bounce
+  else if (rsi < 40) { dirScore += 0.5; factors.rsi = 0.5 }
+  else if (rsi > 70) { dirScore -= 1.5; factors.rsi = -1.5 } // overbought fade
+  else if (rsi > 60) { dirScore -= 0.5; factors.rsi = -0.5 }
+  else { factors.rsi = 0 }
+
+  // Factor 5: MACD histogram
+  if (macd && macd.histogram > 0) { dirScore += 1; factors.macd = 1 }
+  else if (macd && macd.histogram < 0) { dirScore -= 1; factors.macd = -1 }
+  else { factors.macd = 0 }
+
+  // Factor 6: Price relative to support/resistance
+  const nearestSupport = support.length > 0 ? support[0] : null
+  const nearestResist = resistance.length > 0 ? resistance[0] : null
+  if (nearestSupport && nearestResist) {
+    const distToSupport = (price - nearestSupport) / price
+    const distToResist = (nearestResist - price) / price
+    if (distToResist > distToSupport * 2) { dirScore += 0.5; factors.srRatio = 0.5 } // more room to upside
+    else if (distToSupport > distToResist * 2) { dirScore -= 0.5; factors.srRatio = -0.5 } // more room to downside
+    else { factors.srRatio = 0 }
+  } else { factors.srRatio = 0 }
+
+  // Factor 7: Recent price momentum (5-day return)
+  const recentReturn = candles.length >= 6 ? (price - candles[candles.length - 6].close) / candles[candles.length - 6].close : 0
+  if (recentReturn > 0.03) { dirScore += 0.5; factors.momentum5d = 0.5 }
+  else if (recentReturn < -0.03) { dirScore -= 0.5; factors.momentum5d = -0.5 }
+  else { factors.momentum5d = 0 }
+
+  // ---- Strategy classification ----
+  let strategy = 'breakout'
   if (rsi < 30 || rsi > 70) {
     strategy = 'mean-reversion'
-    confidence = Math.min(85, 60 + Math.abs(rsi - 50) / 2)
-  } else if (ma20 > ma50 && ma50 > ma200 && price > ma20) {
-    strategy = 'momentum'; confidence = 70
-  } else if (ma20 < ma50 && ma50 < ma200 && price < ma20) {
-    strategy = 'momentum'; confidence = 70
+  } else if ((ma20 > ma50 && ma50 > ma200) || (ma20 < ma50 && ma50 < ma200)) {
+    strategy = 'momentum'
+  } else if (atr / price < 0.015) {
+    strategy = 'carry' // low-vol environment
   } else {
-    strategy = 'breakout'; confidence = 55
+    strategy = 'breakout'
   }
 
-  // Direction
-  let dirScore = 0
-  if (price > ma50) dirScore += 1; else dirScore -= 1
-  if (ma50 > ma200) dirScore += 1; else dirScore -= 1
-  if (rsi < 40) dirScore += 1; else if (rsi > 60) dirScore -= 1
-  if (macd && macd.histogram > 0) dirScore += 1; else if (macd) dirScore -= 1
-  let direction = strategy === 'mean-reversion' ? (rsi < 50 ? 'long' : 'short') : (dirScore >= 0 ? 'long' : 'short')
+  // ---- Direction from composite score ----
+  let direction
+  if (strategy === 'mean-reversion') {
+    direction = rsi < 50 ? 'long' : 'short'
+  } else {
+    direction = dirScore >= 0 ? 'long' : 'short'
+  }
+
+  // ---- Multi-factor confidence scoring (30–92 range) ----
+  // Base: how many factors agree with the chosen direction
+  const dirSign = direction === 'long' ? 1 : -1
+  const factorValues = Object.values(factors)
+  const agreeingFactors = factorValues.filter(f => (f * dirSign) > 0).length
+  const totalFactors = factorValues.filter(f => f !== 0).length
+  const agreementRatio = totalFactors > 0 ? agreeingFactors / totalFactors : 0.5
+
+  let confidence = 35 + Math.round(agreementRatio * 35) // 35-70 base from factor agreement
+
+  // Boost for extreme conviction signals
+  const absScore = Math.abs(dirScore)
+  if (absScore >= 5) confidence += 15 // very strong alignment
+  else if (absScore >= 3.5) confidence += 10
+  else if (absScore >= 2) confidence += 5
+
+  // Boost for RSI extremes (mean-reversion setups)
+  if (strategy === 'mean-reversion') {
+    const rsiExtreme = Math.abs(rsi - 50)
+    confidence += Math.min(12, Math.round(rsiExtreme / 3))
+  }
+
+  // Boost for clean MA stacking
+  if ((ma20 > ma50 && ma50 > ma200 && direction === 'long') || (ma20 < ma50 && ma50 < ma200 && direction === 'short')) {
+    confidence += 8
+  }
+
+  // Penalty for conflicting signals
+  const conflicting = factorValues.filter(f => (f * dirSign) < 0).length
+  if (conflicting >= 3) confidence -= 8
+  else if (conflicting >= 2) confidence -= 4
+
+  // Risk/reward adjustment — better R:R = higher confidence
+  // (calculated after entry/target/stop are set, adjusted below)
+
+  // Clamp
+  confidence = Math.max(30, Math.min(92, confidence))
 
   // Entry zone
   let entryLow, entryHigh
@@ -186,6 +269,17 @@ function generateSignal(candles, symbol, assetType, name) {
   const stopDist = (Math.abs(price - stopLoss) / price) * 100
   const risk = stopDist < 2 ? 'LOW' : stopDist > 4 ? 'HIGH' : 'MEDIUM'
 
+  // Final confidence adjustment: risk/reward ratio
+  const reward = Math.abs(target - price)
+  const riskAmt = Math.abs(price - stopLoss)
+  const rr = riskAmt > 0 ? reward / riskAmt : 1
+  if (rr >= 3) confidence += 5
+  else if (rr >= 2) confidence += 2
+  else if (rr < 1) confidence -= 5
+
+  // Re-clamp after R:R adjustment
+  confidence = Math.max(30, Math.min(92, confidence))
+
   // Timeframe
   const daysEst = Math.max(1, Math.round(Math.abs(target - price) / atr))
   const timeframe = daysEst <= 3 ? '1-3 days' : daysEst <= 7 ? '3-7 days' : daysEst <= 14 ? '5-14 days' : '10-21 days'
@@ -213,11 +307,20 @@ function generateSignal(candles, symbol, assetType, name) {
     thesis = `${name} (${symbol}) presents a ${direction === 'long' ? 'bullish' : 'bearish'} breakout setup. Price at $${fmt(price)} near key ${direction === 'long' ? 'resistance' : 'support'}. ATR of $${fmt(atr)} implies target at $${fmt(target)}.`
   }
 
-  // Catalyst
-  let catalyst = `RSI at ${r(rsi, 1)}, price ${price > ma50 ? 'above' : 'below'} 50-day MA. `
-  if (macd && macd.histogram > 0 && direction === 'long') catalyst += `MACD positive, confirming upside momentum.`
-  else if (macd && macd.histogram < 0 && direction === 'short') catalyst += `MACD negative, confirming downside pressure.`
-  else catalyst += `Technical setup at ${confidence}% confidence with favorable risk/reward.`
+  // Catalyst — describe what's driving the confidence score
+  const confLevel = confidence >= 75 ? 'high' : confidence >= 55 ? 'moderate' : 'low'
+  const agreeParts = []
+  if (factors.priceVsMa50 * dirSign > 0) agreeParts.push(`price ${direction === 'long' ? 'above' : 'below'} MA50`)
+  if (factors.maAlignment * dirSign > 0) agreeParts.push('MA alignment')
+  if (factors.macd * dirSign > 0) agreeParts.push(`MACD ${direction === 'long' ? 'positive' : 'negative'}`)
+  if (factors.rsi * dirSign > 0) agreeParts.push(`RSI ${rsi < 40 ? 'oversold' : rsi > 60 ? 'overbought' : 'neutral'} at ${r(rsi, 1)}`)
+  if (factors.momentum5d * dirSign > 0) agreeParts.push('5-day momentum')
+
+  let catalyst = `${confLevel[0].toUpperCase() + confLevel.slice(1)}-confidence (${confidence}%) — `
+  if (agreeParts.length > 0) catalyst += `supported by ${agreeParts.join(', ')}. `
+  else catalyst += `mixed technical signals. `
+  if (rr >= 2) catalyst += `R:R of ${rr.toFixed(1)}:1 favors entry.`
+  else catalyst += `R:R of ${rr.toFixed(1)}:1.`
 
   // Hold reason
   const holdReason = strategy === 'mean-reversion' ? 'Hold through initial volatility — mean reversion thesis needs time to play out.'
