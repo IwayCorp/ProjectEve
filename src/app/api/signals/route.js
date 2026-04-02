@@ -284,12 +284,42 @@ function generateSignal(candles, symbol, assetType, name) {
   const daysEst = Math.max(1, Math.round(Math.abs(target - price) / atr))
   const timeframe = daysEst <= 3 ? '1-3 days' : daysEst <= 7 ? '3-7 days' : daysEst <= 14 ? '5-14 days' : '10-21 days'
 
-  // Timing
+  // Timing — dynamic based on signal characteristics
   const now = new Date()
-  const entryDays = strategy === 'breakout' ? 2 : strategy === 'mean-reversion' ? 3 : 4
-  const holdDays = strategy === 'breakout' ? 5 : strategy === 'mean-reversion' ? 7 : 8
-  const entryBy = new Date(now.getTime() + entryDays * 86400000).toISOString().slice(0, 16)
-  const expiresAt = new Date(now.getTime() + (entryDays + holdDays) * 86400000).toISOString().slice(0, 16)
+
+  // Base entry window from strategy (hours, not days)
+  let entryHours = strategy === 'mean-reversion' ? 36 : strategy === 'momentum' ? 72 : strategy === 'carry' ? 96 : 48
+
+  // Volatility adjustment: higher ATR% = shorter window (moves happen fast)
+  const atrPct = (atr / price) * 100
+  if (atrPct > 3) entryHours *= 0.6        // very volatile — act fast
+  else if (atrPct > 2) entryHours *= 0.8   // moderately volatile
+  else if (atrPct < 1) entryHours *= 1.3   // low vol — more time
+
+  // Confidence adjustment: higher conviction = tighter window
+  if (confidence >= 70) entryHours *= 0.85
+  else if (confidence < 50) entryHours *= 1.2
+
+  // Distance to entry zone: if price is already in zone, shorter window
+  const midEntry = (entryLow + entryHigh) / 2
+  const distToEntry = Math.abs(price - midEntry) / atr
+  if (distToEntry < 0.3) entryHours *= 0.7   // price is right at entry — act now
+  else if (distToEntry > 1.5) entryHours *= 1.3 // needs more movement to reach entry
+
+  // RSI extremes mean faster action
+  if (rsi < 25 || rsi > 75) entryHours *= 0.7
+
+  // Round to nearest hour, clamp between 8h and 168h (1 week)
+  entryHours = Math.max(8, Math.min(168, Math.round(entryHours)))
+
+  // Hold duration: based on timeframe estimate and strategy
+  let holdHours = daysEst * 24
+  if (strategy === 'mean-reversion') holdHours = Math.max(48, Math.min(168, holdHours))
+  else if (strategy === 'momentum') holdHours = Math.max(72, Math.min(240, holdHours))
+  else holdHours = Math.max(48, Math.min(192, holdHours))
+
+  const entryBy = new Date(now.getTime() + entryHours * 3600000).toISOString().slice(0, 16)
+  const expiresAt = new Date(now.getTime() + (entryHours + holdHours) * 3600000).toISOString().slice(0, 16)
 
   // Entry window text
   const entryWindow = direction === 'long'
