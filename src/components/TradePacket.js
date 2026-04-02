@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Area } from 'recharts'
 import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
-import { calcRR } from '@/lib/tradeIdeas'
+import { calcRR, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { CHART_AXIS, CHART_YAXIS, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
 
 // Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
@@ -176,6 +176,60 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
         {/* Scrollable content */}
         <div className="overflow-y-auto flex-1" ref={scrollRef}>
           <div className="p-6 space-y-8">
+
+            {/* Urgency & Timing Banner */}
+            {(() => {
+              const urgency = getTradeUrgency(idea)
+              const urgencyConfig = {
+                closing: { label: 'CLOSING SOON', color: '#f87171', bg: 'rgba(248, 113, 113, 0.08)', border: 'rgba(248, 113, 113, 0.20)', icon: '⚡' },
+                urgent:  { label: 'URGENT', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.06)', border: 'rgba(251, 191, 36, 0.15)', icon: '⏰' },
+                active:  { label: 'ACTIVE', color: '#34d399', bg: 'rgba(52, 211, 153, 0.05)', border: 'rgba(52, 211, 153, 0.12)', icon: '✓' },
+                expired: { label: 'EXPIRED', color: '#64748b', bg: 'rgba(100, 116, 139, 0.05)', border: 'rgba(100, 116, 139, 0.12)', icon: '✕' },
+              }
+              const uc = urgencyConfig[urgency] || urgencyConfig.active
+              const entryCountdown = formatCountdown(idea.entryBy)
+              const expiresCountdown = formatCountdown(idea.expiresAt)
+              const isExpired = urgency === 'expired'
+
+              return (
+                <div className="rounded-xl p-4" style={{ background: uc.bg, border: `1px solid ${uc.border}` }}>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{uc.icon}</span>
+                      <div>
+                        <span className={`text-sm font-bold uppercase ${urgency === 'closing' ? 'animate-pulse-gentle' : ''}`} style={{ color: uc.color }}>{uc.label}</span>
+                        {isExpired && <span className="text-xs text-nx-text-hint ml-2">— Thesis window has closed</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-5 text-xs">
+                      {entryCountdown && !isExpired && (
+                        <div>
+                          <span className="text-nx-text-muted">Entry Deadline: </span>
+                          <span className="font-bold font-mono" style={{ color: uc.color }}>{entryCountdown}</span>
+                        </div>
+                      )}
+                      {expiresCountdown && !isExpired && (
+                        <div>
+                          <span className="text-nx-text-muted">Expires: </span>
+                          <span className="font-bold font-mono text-nx-text-strong">{expiresCountdown}</span>
+                        </div>
+                      )}
+                      {idea.entryBy && !isExpired && (
+                        <div className="text-nx-text-hint text-2xs">
+                          {new Date(idea.entryBy).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {idea.entryWindow && !isExpired && (
+                    <div className="mt-3 pt-3 flex items-start gap-2" style={{ borderTop: `1px solid ${uc.border}` }}>
+                      <span className="text-xs shrink-0 mt-px">⏱</span>
+                      <span className="text-xs leading-relaxed" style={{ color: uc.color }}>{idea.entryWindow}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Key metrics bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">

@@ -69,6 +69,9 @@ export const LONG_IDEAS = [
     holdReason: 'Extreme oversold RSI readings historically mean-revert within 2 weeks. Holding through the initial recovery wave until the 20-day MA is retested.',
     thesis: 'Extreme RSI oversold at 12.4 — a reading this low has occurred only 3 times in the past decade, each time producing a 10-15% bounce within 2 weeks. Price is 35% off all-time highs while the business fundamentals remain robust with 15.5% earnings growth intact.',
     catalyst: 'Q3 earnings Apr 29, continued AI/Azure capex expansion, Copilot revenue acceleration',
+    entryBy: '2026-04-04T16:00',
+    expiresAt: '2026-04-08T16:00',
+    entryWindow: 'Enter on any dip below $385 before Q3 earnings run-up begins',
     dataPacket: {
       historicalContext: 'MSFT has not sustained an RSI below 15 for more than 5 trading days since 2018. The 200-day moving average at $415 has acted as a magnet in 8 of the last 10 selloffs. Current price-to-forward-earnings is 27x vs 5-year average of 32x — a 16% discount.',
       bondCorrelation: 'US 10Y yields rising from 4.2% to 4.8% in March compressed tech multiples broadly. However, MSFT has historically decoupled from rate sensitivity faster than peers due to its cash generation ($65B/yr free cash flow). The correlation between MSFT and the 10Y yield shifted from -0.72 to -0.45 over the past 30 days, signaling the rate headwind is fading.',
@@ -109,6 +112,9 @@ export const LONG_IDEAS = [
     holdReason: 'Oversold RSI at 32 with institutional accumulation pattern forming. Mean-reversion toward the 50-day MA typically takes 1-2 weeks for mega-cap names. WWDC catalyst proximity strengthens the setup.',
     thesis: 'RSI at 32 approaching oversold territory with WWDC catalyst 8 weeks out. Consumer sentiment divergence — University of Michigan survey pessimistic but actual retail sales data shows resilience. iPhone installed base of 1.2B creates a services revenue floor.',
     catalyst: 'WWDC June, iPhone 17 cycle leaks, India manufacturing expansion, Services revenue beat',
+    entryBy: '2026-04-07T16:00',
+    expiresAt: '2026-04-14T16:00',
+    entryWindow: 'Optimal entry on a red day; WWDC proximity strengthens the thesis daily',
     dataPacket: {
       historicalContext: 'AAPL has bounced from RSI readings below 35 on 14 of the last 17 occasions over 5 years, with a median 4-day return of +3.8%. The stock is trading at a 12% discount to its 5-year average P/E of 28x. Seasonally, April has been AAPL\'s second-best month historically (+2.4% avg).',
       bondCorrelation: 'AAPL\'s correlation with the US 10Y has been -0.58 over 90 days, but the company\'s $166B cash hoard and net-cash balance sheet make it less rate-sensitive than perceived. When the 2Y-10Y spread has been inverted (as now, at -45bps), AAPL has outperformed the S&P by an average of 6% over the subsequent quarter.',
@@ -149,6 +155,9 @@ export const LONG_IDEAS = [
     holdReason: 'Event-driven with the Iran deadline on April 6 as the primary catalyst. Short hold captures the volatility premium around the binary event.',
     thesis: 'Defense supplemental tailwind of $45B approved by Congress in February is flowing into orders. Patriot/THAAD missile demand surging from Middle East tensions. Less binary than pure energy plays because defense spending is secular, not commodity-dependent.',
     catalyst: 'Iran deadline Apr 6, defense spending bill, NATO expansion orders, Q1 earnings April 22',
+    entryBy: '2026-04-06T16:00',
+    expiresAt: '2026-04-10T16:00',
+    entryWindow: 'Enter before April 6 Iran deadline — defense premium compresses after',
     dataPacket: {
       historicalContext: 'RTX has outperformed the S&P 500 by 18% over the past 12 months. During the 2022 Ukraine conflict escalation, defense stocks gained an average of 22% in the 30 days following major geopolitical events. RTX\'s backlog stands at $202B — the largest in company history — providing 5+ years of revenue visibility.',
       bondCorrelation: 'Defense stocks show low sensitivity to interest rates (RTX beta to 10Y is only -0.12). This makes RTX an effective portfolio hedge when bond yields spike. During the March rate selloff, RTX gained 3.2% while SPX fell 4.1%, confirming negative correlation with broader risk-off moves.',
@@ -189,6 +198,9 @@ export const LONG_IDEAS = [
     holdReason: 'Energy momentum trades move in multi-day waves tied to crude oil. Holding through the OPEC+ meeting and Iran deadline to capture the full geopolitical premium.',
     thesis: 'Energy rotation leader with record production of 5M boe/day. Oil above $85 supports cash flow, and the Hormuz Strait risk premium is not yet fully priced. Strong momentum — the stock is above all key moving averages and making higher highs.',
     catalyst: 'Iran Apr 6 deadline, OPEC+ meeting, Q1 earnings Apr 25',
+    entryBy: '2026-04-03T16:00',
+    expiresAt: '2026-04-08T16:00',
+    entryWindow: 'Enter while oil holds above $100; thesis weakens if crude breaks below $97',
     dataPacket: {
       historicalContext: 'XOM has rallied 42% when oil has been above $80 for 3+ consecutive months (current streak: 5 months). The stock\'s free cash flow yield at 7.2% is the highest among integrated majors, supporting the $3.80/share dividend (3.6% yield). Historically, when WTI trades above the 200-day MA (currently $78), XOM outperforms SPX by 8% on average over the next quarter.',
       bondCorrelation: 'Energy stocks are positively correlated with rising yields (+0.45 to 10Y over 90 days), making XOM a natural hedge in a rising rate environment. The correlation between WTI crude and the 10Y yield is +0.38, reflecting the inflationary pass-through of higher energy costs. When real yields (TIPS) are above 2.0% (currently 2.3%), XOM has averaged +12% quarterly returns.',
@@ -229,6 +241,9 @@ export const LONG_IDEAS = [
     holdReason: 'Breakouts from consolidation patterns need 2 weeks to confirm follow-through. Watching for volume confirmation and institutional accumulation above the breakout level.',
     thesis: 'AI data center buildout driving unprecedented demand for earth-moving equipment. Infrastructure spending from CHIPS Act and IRA flowing into construction. Industrials rotation beneficiary as the market shifts from growth to value.',
     catalyst: 'Infrastructure spending acceleration, AI data center construction boom, Q1 earnings Apr 24',
+    entryBy: '2026-04-10T16:00',
+    expiresAt: '2026-04-18T16:00',
+    entryWindow: 'Patient entry — wait for infrastructure spending data confirmation',
     dataPacket: {
       historicalContext: 'CAT is consolidating near all-time highs in a bull flag pattern. When CAT consolidates in a 5% range for 15+ days above its 50-day MA, it has broken higher 73% of the time with an average move of +7.8%. The stock\'s backlog is at $35B, providing 18 months of revenue visibility.',
       bondCorrelation: 'CAT has a moderately positive correlation with yields (+0.28 to 10Y), as rising rates reflect the economic growth that drives equipment demand. When the ISM Manufacturing PMI is above 50 (currently 51.2), CAT outperforms regardless of rate direction.',
@@ -269,6 +284,9 @@ export const LONG_IDEAS = [
     holdReason: 'Deep oversold bounce plays in mega-cap tech typically resolve within a week. Targeting a snap-back to the 50-day MA before momentum fades.',
     thesis: 'RSI at 28.5 is deeply oversold for a stock with 85% revenue growth. The selloff is driven by valuation compression, not fundamental deterioration. Blackwell GPU ramp is ahead of schedule with $11B in Q1 orders already booked.',
     catalyst: 'GTC conference updates, Blackwell production ramp, data center capex announcements',
+    entryBy: '2026-04-02T16:00',
+    expiresAt: '2026-04-05T16:00',
+    entryWindow: 'Closing fast — RSI will mean-revert within days, enter immediately',
     dataPacket: {
       historicalContext: 'NVDA has bounced from sub-30 RSI readings 9 out of 11 times since 2020, with a median 5-day return of +8.2%. The stock is 22% below its January high but earnings estimates have actually increased 5% during the same period. Forward P/E at 32x vs 12-month average of 40x.',
       bondCorrelation: 'NVDA\'s sensitivity to rates has diminished as its earnings growth profile increasingly resembles a value stock. The 10Y correlation dropped from -0.78 in 2023 to -0.41 currently. At these growth rates, the stock\'s duration is mathematically lower than many "safe" dividend aristocrats.',
@@ -309,6 +327,9 @@ export const LONG_IDEAS = [
     holdReason: 'Gold macro trades unfold over weeks as geopolitical tensions and central bank buying are slow-moving catalysts. Extended hold captures the full safe-haven rotation.',
     thesis: 'Central bank gold buying hit record 1,136 tonnes in 2025 — the third consecutive year above 1,000 tonnes. De-dollarization theme accelerating as BRICS+ settlement mechanisms bypass USD. Real yields declining from peak supports gold.',
     catalyst: 'Iran escalation risk, Fed rate decision Apr 30, central bank reserve data',
+    entryBy: '2026-04-15T16:00',
+    expiresAt: '2026-04-25T16:00',
+    entryWindow: 'Enter on any test of $2,300 support; gold seasonally strong into May',
     dataPacket: {
       historicalContext: 'Gold has rallied 18% YTD, outperforming every major asset class. Historically, when gold breaks above its 200-week MA by more than 15% (currently +22%), it sustains the trend for an average of 14 months. The gold/SPX ratio is at the highest level since 2020, confirming a regime shift toward hard assets.',
       bondCorrelation: 'The traditional negative correlation between gold and real yields (-0.82 historically) has broken down to -0.35. This divergence is explained by central bank buying that is price-insensitive. Gold vs 10Y nominal yield correlation is now positive (+0.18) — unprecedented and driven by inflation expectations rather than opportunity cost.',
@@ -349,6 +370,9 @@ export const LONG_IDEAS = [
     holdReason: 'Crude oil macro trades around geopolitical events are fast-moving. Short hold to capture the Iran deadline spike before mean-reversion kicks in.',
     thesis: 'Iran escalation + OPEC+ discipline + depleted SPR = tightest oil market since 2022. Supply deficit of 1.2M bpd projected for Q2. Strait of Hormuz disruption risk is severely underpriced in options — 1M call skew is only +2.1%.',
     catalyst: 'Iran deadline Apr 6, OPEC+ meeting, US driving season demand',
+    entryBy: '2026-04-06T16:00',
+    expiresAt: '2026-04-10T16:00',
+    entryWindow: 'Enter before Iran deadline April 6 — crude supply risk is the catalyst',
     dataPacket: {
       historicalContext: 'WTI has traded in a $72-92 range for 8 months. A break above $88 would trigger a measured move target of $104 based on the range width. During the 2019 Saudi Aramco attack, oil spiked 15% in a single session — a Hormuz closure would be 3-5x more impactful to supply.',
       bondCorrelation: 'Oil and the 10Y yield have a +0.38 correlation currently, reflecting the inflation pass-through mechanism. When oil rises above $90, breakeven inflation rates widen by 15-20bps, which pressures bonds and lifts yields. This creates a self-reinforcing cycle: higher oil → higher yields → stronger USD → (temporarily) lower oil → snap-back.',
@@ -389,6 +413,9 @@ export const LONG_IDEAS = [
     holdReason: 'Defense momentum is a secular trend with earnings on April 22 as the exit catalyst. Holding through the run-up into earnings for maximum premium capture.',
     thesis: 'F-35 production ramp to 156/year by 2027, up from 98 in 2025. Backlog at $165B. Stock is in a clean uptrend with price above all moving averages. Defense spending globally entering a super-cycle not seen since the Reagan era.',
     catalyst: 'NATO spending commitments, F-35 orders from Germany/Japan, Q1 earnings Apr 22',
+    entryBy: '2026-04-08T16:00',
+    expiresAt: '2026-04-15T16:00',
+    entryWindow: 'LMT has clear momentum; enter on any 2%+ pullback day',
     dataPacket: {
       historicalContext: 'LMT has gained 28% in the past 6 months, outperforming SPX by 32%. The stock has not had a pullback greater than 5% during this rally — indicating institutional accumulation. Average daily volume is 35% above the 90-day average, confirming broad participation.',
       bondCorrelation: 'LMT has near-zero correlation to the 10Y (-0.05), making it one of the purest defensive plays in the current rate-sensitive market. This low beta-to-rates characteristic means LMT can rally regardless of what the Fed does.',
@@ -429,6 +456,9 @@ export const LONG_IDEAS = [
     holdReason: 'Financial sector breakouts tied to yield curve shifts play out over 1-2 weeks. Holding through confirmation of the breakout above key resistance levels.',
     thesis: 'The only mega-bank trading at a premium to book value (2.1x). Net interest income guidance raised to $90B+ for 2026. Credit quality stable despite market concerns. Building a base for breakout above $240 resistance.',
     catalyst: 'Q1 earnings Apr 11 (first major bank), commercial real estate stabilization data',
+    entryBy: '2026-04-11T16:00',
+    expiresAt: '2026-04-18T16:00',
+    entryWindow: 'Enter before bank earnings April 11 — the catalyst for breakout',
     dataPacket: {
       historicalContext: 'JPM has consolidated between $215-240 for 3 months. The last 4 times JPM spent 60+ days in a 10% range, it broke out higher 3 times with an average move of +12%. Book value per share at $112 growing at 15% annually provides a rising floor.',
       bondCorrelation: 'JPM benefits from rising rates (NII expansion) but is hurt by the yield curve inversion. The 2s10s spread at -45bps is the key variable. When the curve un-inverts (consensus for H2 2026), bank NIMs expand 30-50bps, adding $4-6B to JPM annual earnings. The stock\'s correlation to the 10Y is +0.35.',
@@ -469,6 +499,9 @@ export const LONG_IDEAS = [
     holdReason: 'Healthcare mean-reversion after a selloff requires time for institutional repositioning. The sector rotation catalyst is gradual, not event-driven.',
     thesis: 'Healthcare selloff overdone — UNH down 18% from highs on Medicare Advantage rate concerns, but the headwind is priced in. Medical cost ratio stabilizing. Optum Health revenue growing 14% with a $250B backlog. Dividend aristocrat with 15 consecutive years of increases.',
     catalyst: 'Q1 earnings Apr 15, CMS rate finalization, Optum deal pipeline',
+    entryBy: '2026-04-09T16:00',
+    expiresAt: '2026-04-15T16:00',
+    entryWindow: 'Healthcare rotation trade; CMS rate finalization is the deadline',
     dataPacket: {
       historicalContext: 'UNH has recovered from sub-35 RSI readings within 10 trading days on 8 of the last 10 occasions since 2018. The stock trades at 17x forward P/E vs 5-year average of 22x — a 23% discount rarely seen for the market\'s largest health insurer.',
       bondCorrelation: 'Healthcare is among the least rate-sensitive sectors (UNH beta to 10Y: -0.08). This defensive characteristic provides portfolio diversification in a rate-volatile environment. UNH has historically been a hiding place during rate-driven equity selloffs.',
@@ -509,6 +542,9 @@ export const LONG_IDEAS = [
     holdReason: 'Crypto breakouts are volatile but can extend for weeks. Holding until the breakout momentum stalls at the next major resistance or shows exhaustion signals.',
     thesis: 'Bitcoin is consolidating above the $80K level after the halving supply shock. ETF inflows averaging $400M/day. The next leg up targets the $98-100K measured move from the current flag pattern. Risk:Reward of 1:1.75 with $76K floor tested 4x. Institutional adoption accelerating with sovereign wealth fund allocations.',
     catalyst: 'ETF flow acceleration, halving supply effect, institutional adoption announcements',
+    entryBy: '2026-04-05T16:00',
+    expiresAt: '2026-04-12T16:00',
+    entryWindow: 'BTC momentum building; ETF inflow data confirms daily — enter on $80K test',
     dataPacket: {
       historicalContext: 'In previous halving cycles, BTC consolidated for 4-6 months post-halving before the major move. We are now 12 months post-halving with price 3.5x above the halving price — consistent with prior cycle trajectories. The $80K support has held 4 separate tests.',
       bondCorrelation: 'BTC\'s correlation to the 10Y has declined from -0.55 to -0.20 over the past year as institutional adoption has changed its market microstructure. BTC increasingly trades as a "digital gold" — its correlation with actual gold has risen to +0.42, the highest on record.',
@@ -555,6 +591,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Financial sector shorts need time for credit stress signals to materialize. Holding through the next batch of regional bank earnings for confirmation.',
     thesis: 'Yield curve inversion persisting at -45bps is compressing net interest margins across regional banks. XLF is in a clear downtrend, making lower lows and lower highs. Credit deterioration in consumer lending and CRE provides a fundamental catalyst for continuation.',
     catalyst: 'Bank earnings starting Apr 11, CRE loss revelations, consumer credit data',
+    entryBy: '2026-04-11T16:00',
+    expiresAt: '2026-04-18T16:00',
+    entryWindow: 'Enter short before bank earnings April 11 — thesis requires earnings miss',
     dataPacket: {
       historicalContext: 'XLF has underperformed SPX by 620bps YTD with no sign of trend reversal. When the 2s10s spread has been inverted for 12+ months (current streak: 22 months), XLF has averaged -8% returns over the subsequent quarter. The ETF is below its 50-day and 200-day MAs with both sloping downward.',
       bondCorrelation: 'XLF has the highest positive correlation to the yield curve slope (+0.71 to 2s10s spread) of any sector ETF. The inverted curve is actively destroying bank profitability — net interest margins fell from 3.4% to 2.8% across the sector. Until the curve un-inverts, the fundamental headwind persists.',
@@ -595,6 +634,9 @@ export const SHORT_IDEAS = [
     holdReason: 'TSLA is high-beta and moves fast. Short momentum plays should be tight to avoid squeeze risk. Quick capture of the downside continuation.',
     thesis: 'Consumer discretionary weakness accelerating. Tesla delivery numbers declining sequentially while competition intensifies from BYD, Xiaomi, and legacy automakers. Political brand damage from Elon Musk\'s government involvement reducing demand. High beta amplifies any risk-off move.',
     catalyst: 'Q1 deliveries report (imminently), consumer sentiment data, EV competition news',
+    entryBy: '2026-04-03T16:00',
+    expiresAt: '2026-04-07T16:00',
+    entryWindow: 'Enter on any bounce above $248; Q1 deliveries data imminent',
     dataPacket: {
       historicalContext: 'TSLA has a 30-day realized volatility of 52% — one of the highest in the S&P 500. The stock has failed to hold above its 50-day MA on the last 4 attempts, creating a pattern of lower highs. Short interest at 3.2% is modest but rising, indicating fresh bearish positioning.',
       bondCorrelation: 'TSLA has one of the highest negative correlations to the 10Y yield (-0.68) among large-caps due to its high-duration growth profile. Rising rates directly compress the DCF valuation of TSLA\'s out-year earnings. Every 50bps rise in the 10Y has historically correlated with a 12% decline in TSLA.',
@@ -635,6 +677,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Small-cap underperformance is a macro trend that plays out over weeks as credit conditions tighten. Extended hold captures the full risk-off rotation.',
     thesis: 'Small caps are the most rate-sensitive equity cohort. With 40% of Russell 2000 debt floating-rate, every Fed hold at restrictive levels increases interest expense. Earnings recession underway — Russell 2000 earnings are projected to decline 3% in Q1.',
     catalyst: 'Fed rate decision Apr 30, regional bank earnings, high-yield credit spreads',
+    entryBy: '2026-04-05T16:00',
+    expiresAt: '2026-04-12T16:00',
+    entryWindow: 'Small-cap weakness accelerating; enter on any dead-cat bounce',
     dataPacket: {
       historicalContext: 'IWM has underperformed SPY by 14% over the past 12 months — the widest large/small divergence since 2000. When the spread gets this wide, small caps have historically mean-reverted, BUT that requires rate cuts or an un-inverted yield curve. Neither is imminent.',
       bondCorrelation: 'IWM has the highest sensitivity to the Fed Funds Rate of any major equity ETF (correlation: -0.72). The 40% floating-rate debt profile means small caps are paying ~8.5% average interest rates vs 4.2% for the S&P 500. This creates a fundamental earnings headwind that persists as long as rates are restrictive.',
@@ -675,6 +720,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Bond shorts around rate decisions are fast trades. Holding through the next economic data release for the yield spike, then covering before mean-reversion.',
     thesis: 'Long-end rates have room to rise further. The term premium is being repriced higher as fiscal deficits widen ($1.8T projected for FY2026). Japan\'s YCC exit is flooding the global bond market with supply. Short TLT captures this structural shift.',
     catalyst: 'Treasury refunding announcement, BoJ meeting Apr 28, CPI data Apr 10',
+    entryBy: '2026-04-08T16:00',
+    expiresAt: '2026-04-15T16:00',
+    entryWindow: 'Bond short has time; yield curve dynamics play out over weeks',
     dataPacket: {
       historicalContext: 'TLT has declined 45% from its 2020 highs and shows no sign of bottoming. The 30Y yield at 4.9% is approaching the psychologically significant 5% level. Bond bear markets historically last 20-30 years — we are only 5 years into this cycle.',
       bondCorrelation: 'This IS the bond trade. TLT has a duration of 17 years, meaning every 100bps rise in the 30Y yield produces a ~17% decline in TLT. The fiscal trajectory (CBO projects $2T deficits by 2030) ensures persistent supply pressure. Foreign holdings of US Treasuries as a % of total have declined from 34% to 23%.',
@@ -715,6 +763,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Speculative growth ETF shorts trend persistently in risk-off environments. Extended hold captures ongoing institutional de-risking and fund redemptions.',
     thesis: 'The poster child for speculative growth is in a persistent downtrend. ARKK is essentially a leveraged bet on declining rate expectations — and rates are staying higher for longer. Cathie Wood\'s top holdings (TSLA, COIN, ROKU) are all in downtrends with deteriorating fundamentals.',
     catalyst: 'Fed messaging, speculative tech earnings, risk sentiment shift',
+    entryBy: '2026-04-04T16:00',
+    expiresAt: '2026-04-10T16:00',
+    entryWindow: 'ARKK redemption pressure peaks at quarter-end — act now',
     dataPacket: {
       historicalContext: 'ARKK is down 75% from its February 2021 peak and has never sustained a rally longer than 3 weeks during this decline. The ETF has experienced net outflows of $12B since its peak. The average cost basis of remaining holders is estimated at $75 — meaning most holders are underwater.',
       bondCorrelation: 'ARKK has the highest duration sensitivity of any equity ETF — its implied duration is estimated at 25+ years based on the cash flow profiles of its holdings. Correlation to the 10Y is -0.82. In a "higher for longer" rate regime, ARKK is structurally impaired.',
@@ -755,6 +806,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Relative value shorts in utilities vs growth take time to converge. Patient hold as the sector rotation out of defensives unfolds gradually.',
     thesis: 'Utilities are bond proxies that suffer in rising rate environments. With the 10Y pushing toward 5%, the dividend yield on XLU (3.1%) is increasingly uncompetitive vs risk-free rates. Regulatory lag means utilities can\'t pass through costs fast enough.',
     catalyst: 'Bond yield trajectory, Fed messaging, state rate case decisions',
+    entryBy: '2026-04-10T16:00',
+    expiresAt: '2026-04-18T16:00',
+    entryWindow: 'Utilities short is a rate-play; enter before next Fed speaker rotation',
     dataPacket: {
       historicalContext: 'XLU has underperformed SPX by 400bps when the 10Y yield is above 4.5% (current: 4.8%). The sector\'s P/E premium to the market has compressed from 5% to -8% over the past year. Utility dividend yields below the 2Y Treasury rate (5.0%) create a "why bother" dynamic for income investors.',
       bondCorrelation: 'XLU has the highest positive correlation to TLT (+0.78) of any equity sector — it is essentially a leveraged bond position with operational risk. When bond yields rise, XLU faces a double hit: higher borrowing costs AND multiple compression from competing income alternatives.',
@@ -795,6 +849,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Real estate shorts tied to rising rates play out over weeks as REITs reprice to new yield levels. Holding through the next CPI print for confirmation.',
     thesis: 'Commercial real estate is in a secular downturn. Office vacancy at 20% nationally (highest ever), rising cap rates compressing valuations, and $680B in CRE debt maturing in 2026 at refinancing rates 300bps higher than origination. REITs are a direct play on this pain.',
     catalyst: 'Bank earnings CRE disclosures, CMBS delinquency data, property appraisal downgrades',
+    entryBy: '2026-04-12T16:00',
+    expiresAt: '2026-04-20T16:00',
+    entryWindow: 'CRE maturity wall hits in April; patience rewarded here',
     dataPacket: {
       historicalContext: 'XLRE has underperformed SPX by 22% over 2 years. The sector is trading at a 30% discount to net asset value — but NAV itself is declining as properties are reappraised lower. Office REITs specifically are down 45% from 2022 peaks.',
       bondCorrelation: 'XLRE has a -0.65 correlation with the 10Y yield. Rising cap rates (currently 6.5% for office, up from 4.5% in 2022) directly reduce property values. The refinancing cliff means many properties will face negative equity when debt matures at current rates.',
@@ -835,6 +892,9 @@ export const SHORT_IDEAS = [
     holdReason: 'China macro shorts move in waves tied to economic data releases. Holding through the next PMI and trade data for the full leg down.',
     thesis: 'China stimulus is underwhelming relative to market expectations. Property crisis deepening with tier-2 and tier-3 city prices still falling. Deflation persisting at -0.3% CPI. Capital outflows accelerating as foreign investors reduce China allocation.',
     catalyst: 'PMI data, property sales data, tariff escalation risk, PBOC policy',
+    entryBy: '2026-04-08T16:00',
+    expiresAt: '2026-04-15T16:00',
+    entryWindow: 'China PMI data next week — enter before the print',
     dataPacket: {
       historicalContext: 'FXI has been in a downtrend since 2021, falling 55% from the peak. Each stimulus announcement has produced shorter and shallower rallies — a classic bear market pattern. The "China trade" has become a consensus short among global macro funds.',
       bondCorrelation: 'Chinese government bonds are diverging from US Treasuries — the yield spread has narrowed from 280bps (China premium) to -120bps (US premium). This yield inversion is driving capital out of China and into USD assets. The correlation between FXI and the US 10Y is -0.25.',
@@ -875,6 +935,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Micro-cap shorts with fundamental deterioration can be held longer as the cash burn story plays out. Low squeeze risk due to minimal institutional ownership.',
     thesis: 'Plant-based meat category in secular decline. Revenue falling 25% YoY with no path to profitability. Cash burn rate implies potential bankruptcy within 18 months without capital raise. The stock is a zero candidate.',
     catalyst: 'Q1 earnings, cash flow report, potential going concern warning',
+    entryBy: '2026-04-02T09:30',
+    expiresAt: '2026-04-05T16:00',
+    entryWindow: 'BYND cash burn is terminal — every bounce is a gift to shorts',
     dataPacket: {
       historicalContext: 'BYND is down 97% from its 2019 IPO peak of $234. Revenue has declined for 8 consecutive quarters. The company has $1.1B in debt with only $180M cash — and is burning $50M/quarter. No analyst has a Buy rating.',
       bondCorrelation: 'BYND\'s bond trades at 45 cents on the dollar — implying a 35% probability of default. The stock is essentially an equity option on a restructuring. High-yield credit spread widening accelerates the funding cost and makes refinancing increasingly impossible.',
@@ -915,6 +978,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Streaming profitability doubts take weeks to fully reprice. Holding through the next subscriber metric release for the fundamental catalyst.',
     thesis: 'Disney+ subscriber growth stalled. Linear TV revenue declining 8% annually. Theme parks showing softening demand with per-capita spending declining for the first time since 2020. The sum-of-parts valuation thesis has not materialized.',
     catalyst: 'Q2 earnings, streaming profitability update, ESPN standalone launch timeline',
+    entryBy: '2026-04-07T16:00',
+    expiresAt: '2026-04-14T16:00',
+    entryWindow: 'DIS short needs Q2 streaming data; parks softening thesis intact',
     dataPacket: {
       historicalContext: 'DIS has been range-bound between $80-110 for 2 years with no discernible uptrend. The stock trades at a 40% discount to its pandemic peak. Disney+ has lost $13B cumulative — more than any streaming service in history. Parks EBITDA growth has decelerated from 25% to 4%.',
       bondCorrelation: 'DIS is moderately rate-sensitive (correlation to 10Y: -0.32) due to its capital-intensive business model ($6B/year in capex). Higher rates increase the cost of theme park expansion and content production financing.',
@@ -955,6 +1021,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Consumer discretionary momentum shorts trend for 2+ weeks as inventory channel checks and guidance cuts filter through analyst models.',
     thesis: 'Nike is losing market share to On Running, Hoka, and New Balance across every category. DTC strategy has alienated wholesale partners. China recovery thesis has failed to materialize. Inventory levels still elevated at 18% above normalized levels.',
     catalyst: 'Q4 earnings June, wholesale partner order data, China Singles Day comparisons',
+    entryBy: '2026-04-05T16:00',
+    expiresAt: '2026-04-12T16:00',
+    entryWindow: 'NKE market share erosion ongoing; enter before Q4 earnings prep',
     dataPacket: {
       historicalContext: 'NKE is down 35% from 2021 highs and making lower lows each quarter. Revenue growth has decelerated from 10% to 1% YoY. The stock\'s P/E premium to consumer discretionary peers has compressed from 30% to 5% as the growth premium evaporates.',
       bondCorrelation: 'NKE has moderate rate sensitivity (correlation to 10Y: -0.28) but the primary driver is consumer spending, not rates. Consumer confidence surveys at 2-year lows are the more relevant macro input.',
@@ -995,6 +1064,9 @@ export const SHORT_IDEAS = [
     holdReason: 'Crypto-adjacent shorts are tied to Bitcoin volatility cycles. Holding through the regulatory headline catalyst window.',
     thesis: 'Crypto trading volumes declining 30% from January peak. Fee compression from competitive pressure. Regulatory overhang from SEC. Revenue is almost entirely transaction-based — a bear market in crypto directly translates to revenue collapse.',
     catalyst: 'BTC price action, SEC regulatory decisions, Q1 earnings',
+    entryBy: '2026-04-04T16:00',
+    expiresAt: '2026-04-10T16:00',
+    entryWindow: 'COIN SEC overhang keeps pressure on; enter on any crypto relief rally',
     dataPacket: {
       historicalContext: 'COIN has a 0.92 beta to Bitcoin — it is essentially leveraged BTC exposure with operational risk. Trading revenue (70% of total) fell 35% QoQ in Q4 2025. The stock has failed to hold above $220 on three separate occasions in 2026.',
       bondCorrelation: 'COIN is among the most rate-sensitive stocks (-0.65 correlation to 10Y) because crypto is the ultimate long-duration asset. Rising rates reduce the speculative capital available for crypto trading, directly impacting COIN\'s transaction revenue.',
@@ -1042,6 +1114,9 @@ export const FOREX_IDEAS = [
     holdReason: 'Carry trades need time for the interest rate differential to accrete. Extended hold captures both the carry income and directional move from BoJ policy shifts.',
     thesis: 'BoJ policy normalization is the defining macro trade of 2026. Japan exiting negative rates and reducing YCC tolerance band is narrowing the US-Japan yield differential. The carry trade unwind (estimated $2T+ in yen-funded positions) creates massive yen buying pressure.',
     catalyst: 'BoJ meeting Apr 28, US-Japan yield spread compression, intervention risk above 155',
+    entryBy: '2026-04-03T17:00',
+    expiresAt: '2026-04-08T17:00',
+    entryWindow: 'BoJ meeting approaching — yen strengthening thesis has a deadline',
     dataPacket: {
       historicalContext: 'USD/JPY has declined from 162 to 153 since January as the BoJ normalization thesis plays out. The 200-day MA at 148 is the medium-term target. Japan intervened at 160 in 2024 and at 152 in 2022 — the MoF has demonstrated willingness to sell USD/JPY when moves become disorderly.',
       bondCorrelation: 'USD/JPY has a +0.85 correlation with the US-Japan 10Y spread, which has narrowed from 380bps to 300bps in 2026. Every 50bps of additional narrowing historically moves USD/JPY 5-7 figures lower. JGB yields rising faster than US yields creates the tailwind.',
@@ -1083,6 +1158,9 @@ export const FOREX_IDEAS = [
     holdReason: 'FX mean-reversion from extreme RSI readings typically resolves within a week. Short hold captures the snap-back toward the 50-day MA.',
     thesis: 'EUR/USD is oversold relative to rate differentials. The ECB has paused cuts while the Fed is being pushed to cut by slowing US data. The narrowing ECB-Fed rate gap supports euro appreciation. European defense spending is a new source of capital inflow.',
     catalyst: 'ECB meeting, US employment data, European defense spending announcements',
+    entryBy: '2026-04-06T17:00',
+    expiresAt: '2026-04-14T17:00',
+    entryWindow: 'ECB meeting early April; enter before rate decision',
     dataPacket: {
       historicalContext: 'EUR/USD has been range-bound between 1.05-1.12 for 18 months. Current level at 1.08 is near the middle, but positioning is extremely USD-long. CFTC data shows net USD longs at 2-year highs — a potential crowded trade.',
       bondCorrelation: 'EUR/USD has a -0.72 correlation with the US-German 10Y spread. The spread has narrowed from 200bps to 170bps as ECB pauses and Bund yields rise on defense spending expectations. Further narrowing to 140bps would push EUR/USD to 1.10-1.12.',
@@ -1124,6 +1202,9 @@ export const FOREX_IDEAS = [
     holdReason: 'GBP carry trades align with the BoE rate cycle. Holding through the next MPC meeting for the rate differential widening catalyst.',
     thesis: 'UK rates at 5.0% are the highest in the G7. BoE is the most hawkish major central bank due to persistent services inflation at 5.4%. The positive carry of 50bps vs USD makes long GBP/USD an income-generating position while waiting for appreciation.',
     catalyst: 'UK CPI data, BoE meeting, wage growth data',
+    entryBy: '2026-04-08T17:00',
+    expiresAt: '2026-04-15T17:00',
+    entryWindow: 'UK PMI data this week — GBP carry trade has macro support',
     dataPacket: {
       historicalContext: 'GBP/USD has been trending higher since October 2025, making higher lows and higher highs. The pair is above its 50-day and 200-day MAs. The UK-US rate differential has been positive for 6 months — each month, carry income adds to the trade\'s profitability.',
       bondCorrelation: 'GBP/USD has a -0.55 correlation with the US-UK 10Y spread. With UK gilts yielding 4.7% vs US 10Y at 4.8%, the spread is the tightest in 18 months. If US yields fall (or UK rise), GBP/USD benefits.',
@@ -1165,6 +1246,9 @@ export const FOREX_IDEAS = [
     holdReason: 'Safe-haven FX trades around geopolitical events are fast. Short hold captures the CHF strength spike from risk-off flows.',
     thesis: 'Swiss franc is the ultimate safe haven currency. With Iran escalation risk, equity volatility rising, and geopolitical uncertainty at multi-year highs, CHF demand increases structurally. SNB has shifted from fighting franc strength to tolerating it.',
     catalyst: 'Iran deadline Apr 6, VIX spike, SNB policy shift, geopolitical escalation',
+    entryBy: '2026-04-04T17:00',
+    expiresAt: '2026-04-10T17:00',
+    entryWindow: 'SNB intervention window narrows as CHF approaches floor',
     dataPacket: {
       historicalContext: 'USD/CHF has been in a secular downtrend for decades, reflecting Switzerland\'s current account surplus (12% of GDP) and the franc\'s safe haven status. The pair is below the 200-day MA and making lower highs. During the 2022 Ukraine escalation, CHF gained 5% in 30 days.',
       bondCorrelation: 'CHF typically strengthens when global bond volatility (MOVE index) rises. The MOVE index at 120 (vs 80 average) confirms elevated fixed income stress. Swiss government bonds are the only major sovereign market with negative real yields — investors pay for safety.',
@@ -1206,6 +1290,9 @@ export const FOREX_IDEAS = [
     holdReason: 'Commodity currency moves tied to China data releases play out over 1-2 weeks. Holding through the next round of PMI and trade data.',
     thesis: 'AUD is a proxy for China growth and commodity demand. With China PMI back in contraction and iron ore prices declining, the fundamental supports for AUD are weakening. RBA has turned dovish, removing the rate support pillar.',
     catalyst: 'China PMI, iron ore prices, RBA meeting, commodity demand data',
+    entryBy: '2026-04-07T17:00',
+    expiresAt: '2026-04-14T17:00',
+    entryWindow: 'AUD weak on China data; RBA April meeting is the catalyst',
     dataPacket: {
       historicalContext: 'AUD/USD has been trending lower since the January high of 0.685. The pair has a 0.78 correlation with iron ore prices, which have fallen 15% from recent highs. AUD is historically one of the first currencies to sell off during global growth scares.',
       bondCorrelation: 'AUD/USD has a -0.45 correlation with the US 10Y, but the more relevant relationship is the RBA-Fed rate differential. RBA cut rates to 4.1% in February while the Fed held at 5.25% — the widening gap is AUD-negative.',
@@ -1247,6 +1334,9 @@ export const FOREX_IDEAS = [
     holdReason: 'EM carry trades with wide rate differentials benefit from extended holds to maximize carry income. The 11.25% Banxico rate supports the peso over time.',
     thesis: 'Mexico\'s Banxico maintains rates at 10.75% — a 550bps premium to the Fed. This enormous carry makes short USD/MXN one of the highest-yielding trades in FX. Nearshoring trend driving record FDI into Mexico supports MXN structurally.',
     catalyst: 'Banxico meeting, nearshoring FDI data, remittance flows, US-Mexico trade data',
+    entryBy: '2026-04-10T17:00',
+    expiresAt: '2026-04-18T17:00',
+    entryWindow: 'MXN carry unwind needs patience; Banxico decision mid-April',
     dataPacket: {
       historicalContext: 'MXN has been the best-performing EM currency over 3 years (+28% vs USD). The carry of 550bps annualized means you earn approximately 1.5% per month simply from the rate differential. MXN has consistently mean-reverted after USD/MXN spikes above 17.5.',
       bondCorrelation: 'USD/MXN has a +0.55 correlation with US 10Y yields, but the carry advantage overwhelms rate moves. A 50bps rise in US yields costs approximately 1% on the MXN position — but 1 month of carry earns 1.5%. The math favors holding.',
@@ -1288,6 +1378,9 @@ export const FOREX_IDEAS = [
     holdReason: 'Cross-rate momentum trades between developed market currencies have moderate pace. Holding for the ECB vs BoE policy divergence to fully manifest.',
     thesis: 'ECB dovish relative to BoE creates a persistent rate differential favoring GBP. UK economic data outperforming eurozone. The EUR/GBP cross is in a clear downtrend with the 50-day MA acting as resistance.',
     catalyst: 'ECB vs BoE rate decisions, UK vs EU PMI divergence, trade balance data',
+    entryBy: '2026-04-05T17:00',
+    expiresAt: '2026-04-12T17:00',
+    entryWindow: 'EUR/GBP spread compressing; enter before ECB-BoE divergence widens',
     dataPacket: {
       historicalContext: 'EUR/GBP has declined 4% from the October 2025 high of 0.89. The pair is below all key moving averages. When the ECB-BoE rate differential has been negative (as now, -75bps), EUR/GBP has averaged -3% over 6 months.',
       bondCorrelation: 'EUR/GBP is driven almost entirely by the UK-German 2Y yield spread. Gilts yielding 4.5% vs Bunds at 2.8% creates a 170bps advantage for sterling. This is the widest spread since 2008.',
@@ -1329,6 +1422,9 @@ export const FOREX_IDEAS = [
     holdReason: 'Small-economy FX mean-reversion is fast-acting. Short hold captures the bounce from oversold levels before the next RBNZ data cycle.',
     thesis: 'New Zealand\'s economy is in recession with 2 consecutive quarters of negative GDP growth. RBNZ has cut rates aggressively to 3.75% from 5.5%. The dairy sector (NZ\'s primary export) facing price declines. NZD is the weakest G10 currency.',
     catalyst: 'RBNZ meeting, dairy auction prices, GDP data, employment report',
+    entryBy: '2026-04-06T17:00',
+    expiresAt: '2026-04-13T17:00',
+    entryWindow: 'NZD weakness structural; RBNZ dovish guidance supports this short',
     dataPacket: {
       historicalContext: 'NZD/USD has fallen 12% from the September 2025 high of 0.68. The pair is well below its 200-day MA at 0.625 — a strong bearish signal. New Zealand\'s current account deficit of 7.5% of GDP is the worst in the OECD, creating structural NZD selling pressure.',
       bondCorrelation: 'NZD is highly sensitive to global risk appetite (correlation to VIX: -0.55). As a small, open, commodity-dependent economy, NZ is disproportionately affected by global growth scares. The NZ-US 2Y yield spread at -150bps is the widest in 5 years.',
@@ -1396,7 +1492,50 @@ export const SCENARIOS = [
 ]
 
 // ============================================================================
-// HELPERS
+// TIMING & EXPIRATION HELPERS
+// ============================================================================
+
+/**
+ * Returns urgency status for a trade idea based on its entryBy / expiresAt dates.
+ *   'expired'    — past expiresAt
+ *   'closing'    — <24 h until entryBy
+ *   'urgent'     — <3 days until entryBy
+ *   'active'     — still within window
+ *   'upcoming'   — entryBy is in the future but window hasn't opened yet
+ */
+export function getTradeUrgency(idea) {
+  const now = new Date()
+  if (idea.expiresAt) {
+    const exp = new Date(idea.expiresAt)
+    if (now > exp) return 'expired'
+  }
+  if (idea.entryBy) {
+    const deadline = new Date(idea.entryBy)
+    const hoursLeft = (deadline - now) / (1000 * 60 * 60)
+    if (hoursLeft < 0) return 'expired'
+    if (hoursLeft < 24) return 'closing'
+    if (hoursLeft < 72) return 'urgent'
+  }
+  return 'active'
+}
+
+/**
+ * Human-readable countdown string: "2d 5h", "14h", "Expired", etc.
+ */
+export function formatCountdown(dateStr) {
+  if (!dateStr) return null
+  const now = new Date()
+  const target = new Date(dateStr)
+  const diff = target - now
+  if (diff <= 0) return 'Expired'
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  if (days > 0) return `${days}d ${hours}h`
+  return `${hours}h`
+}
+
+// ============================================================================
+// GENERAL HELPERS
 // ============================================================================
 export function calcRR(entry, target, stop, direction = 'long') {
   if (direction === 'long') {

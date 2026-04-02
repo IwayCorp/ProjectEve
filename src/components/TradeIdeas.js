@@ -1,9 +1,16 @@
 'use client'
-import { useState } from 'react'
-import { LONG_IDEAS, SHORT_IDEAS, FOREX_IDEAS, STRATEGIES, calcRR, isInEntryZone, checkAlerts } from '@/lib/tradeIdeas'
+import { useState, useEffect } from 'react'
+import { LONG_IDEAS, SHORT_IDEAS, FOREX_IDEAS, STRATEGIES, calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { formatPrice } from '@/lib/marketData'
 import TradePacket from './TradePacket'
 import DemoBanner from '@/components/DemoBanner'
+
+const URGENCY_CONFIG = {
+  closing: { label: 'CLOSING', color: '#f87171', bg: 'rgba(248, 113, 113, 0.10)', border: 'rgba(248, 113, 113, 0.25)', pulse: true },
+  urgent:  { label: 'URGENT', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.08)', border: 'rgba(251, 191, 36, 0.20)', pulse: true },
+  active:  { label: 'ACTIVE', color: '#34d399', bg: 'rgba(52, 211, 153, 0.06)', border: 'rgba(52, 211, 153, 0.15)', pulse: false },
+  expired: { label: 'EXPIRED', color: '#64748b', bg: 'rgba(100, 116, 139, 0.06)', border: 'rgba(100, 116, 139, 0.15)', pulse: false },
+}
 
 function TradeCard({ trade, quote, direction, onOpen }) {
   const price = quote?.regularMarketPrice
@@ -14,13 +21,45 @@ function TradeCard({ trade, quote, direction, onOpen }) {
   const alert = price ? checkAlerts(price, trade.target, trade.stopLoss, direction) : null
   const fmtType = trade.asset === 'forex' ? 'forex' : trade.asset === 'commodity' ? 'stock' : 'stock'
 
+  const urgency = getTradeUrgency(trade)
+  const uc = URGENCY_CONFIG[urgency] || URGENCY_CONFIG.active
+  const countdown = formatCountdown(trade.entryBy)
+  const expiresCountdown = formatCountdown(trade.expiresAt)
+  const isExpired = urgency === 'expired'
+
   return (
     <div
       onClick={() => onOpen(trade, direction)}
       className={`nx-card p-4 cursor-pointer group transition-all duration-300 ${
+        isExpired ? 'opacity-50' :
         alert === 'TARGET_HIT' ? 'glow-green border-nx-green/20' : alert === 'STOP_HIT' ? 'glow-red border-nx-red/20' : ''
       } hover:border-nx-accent/20`}
     >
+      {/* Urgency + Expiration header bar */}
+      <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-nx-border/30">
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-2xs px-2 py-0.5 rounded-md font-bold uppercase ${uc.pulse ? 'animate-pulse-gentle' : ''}`}
+            style={{ background: uc.bg, color: uc.color, border: `1px solid ${uc.border}` }}
+          >
+            {uc.label}
+          </span>
+          {countdown && !isExpired && (
+            <span className="text-2xs font-mono font-semibold" style={{ color: uc.color }}>
+              Entry by: {countdown}
+            </span>
+          )}
+          {isExpired && (
+            <span className="text-2xs font-mono text-nx-text-hint">Thesis window closed</span>
+          )}
+        </div>
+        {expiresCountdown && !isExpired && (
+          <span className="text-2xs text-nx-text-hint font-mono">
+            Expires: {expiresCountdown}
+          </span>
+        )}
+      </div>
+
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -31,7 +70,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
             <span className={`text-2xs px-2 py-0.5 rounded-md font-semibold ${trade.strategy ? `strat-${trade.strategy}` : ''}`}>
               {STRATEGIES[trade.strategy]?.icon} {trade.strategy?.replace('-', ' ')}
             </span>
-            {inZone && <span className="badge-blue animate-pulse-gentle text-2xs">IN ZONE</span>}
+            {inZone && !isExpired && <span className="badge-blue animate-pulse-gentle text-2xs">IN ZONE</span>}
             {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse-gentle text-2xs">TARGET</span>}
             {alert === 'STOP_HIT' && <span className="badge-red animate-pulse-gentle text-2xs">STOP</span>}
           </div>
@@ -52,6 +91,14 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           </span>
         </div>
       </div>
+
+      {/* Entry window guidance */}
+      {trade.entryWindow && !isExpired && (
+        <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg" style={{ background: 'rgba(91, 141, 238, 0.04)', border: '1px solid rgba(91, 141, 238, 0.08)' }}>
+          <span className="text-xs shrink-0 mt-px">⏱</span>
+          <span className="text-2xs text-nx-accent leading-relaxed">{trade.entryWindow}</span>
+        </div>
+      )}
 
       {/* Price bar */}
       <div className="bg-nx-void/60 rounded-lg p-2.5 mb-3 border border-nx-border/30">
@@ -89,7 +136,6 @@ function TradeCard({ trade, quote, direction, onOpen }) {
         </div>
         <div className="ml-auto text-right shrink-0">
           <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || 'Variable'}</div>
-          {trade.holdReason && <div className="text-2xs text-nx-text-hint mt-0.5 max-w-[200px] line-clamp-1" title={trade.holdReason}>{trade.holdReason}</div>}
         </div>
       </div>
 
@@ -106,6 +152,13 @@ export default function TradeIdeas({ quotes }) {
   const [tab, setTab] = useState('long')
   const [selectedStrategy, setSelectedStrategy] = useState('all')
   const [openPacket, setOpenPacket] = useState(null)
+  const [showExpired, setShowExpired] = useState(false)
+  const [, setTick] = useState(0) // force re-render every 60s for countdown updates
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const allStrategies = ['all', ...Object.keys(STRATEGIES)]
   const ideasMap = {
@@ -115,7 +168,18 @@ export default function TradeIdeas({ quotes }) {
   }
 
   const ideas = ideasMap[tab] || []
-  const filtered = selectedStrategy === 'all' ? ideas : ideas.filter(i => i.strategy === selectedStrategy)
+  const stratFiltered = selectedStrategy === 'all' ? ideas : ideas.filter(i => i.strategy === selectedStrategy)
+
+  // Sort by urgency: closing > urgent > active > expired
+  const urgencyOrder = { closing: 0, urgent: 1, active: 2, expired: 3 }
+  const sorted = [...stratFiltered].sort((a, b) => {
+    const ua = urgencyOrder[getTradeUrgency(a)] ?? 2
+    const ub = urgencyOrder[getTradeUrgency(b)] ?? 2
+    return ua - ub
+  })
+
+  const filtered = showExpired ? sorted : sorted.filter(i => getTradeUrgency(i) !== 'expired')
+  const expiredCount = sorted.filter(i => getTradeUrgency(i) === 'expired').length
 
   const getDirection = (idea) => {
     if (tab === 'forex') return idea.direction || 'long'
@@ -170,7 +234,7 @@ export default function TradeIdeas({ quotes }) {
         ))}
       </div>
 
-      {/* Strategy filter */}
+      {/* Strategy filter + expired toggle */}
       <div className="flex items-center gap-1.5 mb-4 flex-wrap">
         <span className="text-xs text-nx-text-muted mr-1 font-medium">Strategy:</span>
         {allStrategies.map(s => (
@@ -188,6 +252,18 @@ export default function TradeIdeas({ quotes }) {
             {s === 'all' ? 'All' : `${STRATEGIES[s]?.icon || ''} ${s.replace('-', ' ')}`}
           </button>
         ))}
+        {expiredCount > 0 && (
+          <button
+            onClick={() => setShowExpired(!showExpired)}
+            className={`ml-auto px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
+              showExpired
+                ? 'bg-nx-surface text-nx-text-muted border border-nx-border'
+                : 'text-nx-text-hint hover:text-nx-text-muted bg-nx-void/40 border border-nx-border'
+            }`}
+          >
+            {showExpired ? 'Hide' : 'Show'} Expired ({expiredCount})
+          </button>
+        )}
       </div>
 
       {/* Cards grid */}
