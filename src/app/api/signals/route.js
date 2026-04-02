@@ -306,7 +306,7 @@ const WATCHLIST = {
     { symbol: 'COIN', name: 'Coinbase Global', asset: 'equity' },
     { symbol: 'ARKK', name: 'ARK Innovation ETF', asset: 'equity' },
     { symbol: 'MARA', name: 'Marathon Digital', asset: 'equity' },
-    { symbol: 'SQ', name: 'Block Inc', asset: 'equity' },
+    { symbol: 'XYZ', name: 'Block Inc', asset: 'equity' },
     { symbol: 'SNAP', name: 'Snap Inc', asset: 'equity' },
     { symbol: 'BTC-USD', name: 'Bitcoin', asset: 'crypto' },
     { symbol: 'RIOT', name: 'Riot Platforms', asset: 'equity' },
@@ -342,11 +342,23 @@ export async function GET(request) {
     const signals = { long: [], short: [], forex: [] }
     const errors = []
 
-    for (const cat of categories) {
-      const list = WATCHLIST[cat] || []
-      // Fetch in batches of 4 to avoid rate limiting
-      for (let batch = 0; batch < list.length; batch += 4) {
-        const batchItems = list.slice(batch, batch + 4)
+    // Merge all non-forex watchlists for signal generation
+    const allEquities = [...(WATCHLIST.long || []), ...(WATCHLIST.short || [])]
+    // Deduplicate by symbol
+    const seen = new Set()
+    const uniqueEquities = allEquities.filter(item => {
+      if (seen.has(item.symbol)) return false
+      seen.add(item.symbol)
+      return true
+    })
+
+    const lists = []
+    if (categories.includes('long') || categories.includes('short')) lists.push({ items: uniqueEquities, isForex: false })
+    if (categories.includes('forex')) lists.push({ items: WATCHLIST.forex || [], isForex: true })
+
+    for (const { items, isForex } of lists) {
+      for (let batch = 0; batch < items.length; batch += 4) {
+        const batchItems = items.slice(batch, batch + 4)
         const results = await Promise.allSettled(
           batchItems.map(async (item) => {
             const { candles } = await fetchCandles(item.symbol, '6mo', '1d')
@@ -355,18 +367,19 @@ export async function GET(request) {
         )
         for (let j = 0; j < results.length; j++) {
           if (results[j].status === 'fulfilled' && results[j].value) {
-            // Override direction for short category
             const sig = results[j].value
-            if (cat === 'short' && sig.direction === 'long') {
-              // Flip to short if the overall signal was long for a "short watchlist" item
-              // Keep original signal — let the engine decide
+            if (isForex) {
+              signals.forex.push(sig)
+            } else {
+              // Categorize by actual computed direction
+              if (sig.direction === 'long') signals.long.push(sig)
+              else signals.short.push(sig)
             }
-            signals[cat].push(sig)
           } else {
             errors.push({ symbol: batchItems[j].symbol, error: results[j].reason?.message || 'Failed' })
           }
         }
-        if (batch + 4 < list.length) await new Promise(r => setTimeout(r, 200))
+        if (batch + 4 < items.length) await new Promise(r => setTimeout(r, 200))
       }
     }
 

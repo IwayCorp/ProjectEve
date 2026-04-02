@@ -297,7 +297,19 @@ const STRATEGIES = {
 
 // Compute performance stats
 function computeStats(trades, candles, initialCapital = 100000, commission = 0.001) {
-  if (trades.length === 0) return { netProfit: 0, netProfitPct: 0, totalTrades: 0, winRate: 0, sharpe: 0, sortino: 0, maxDrawdown: 0, avgTrade: 0, profitFactor: 0, calmar: 0, annualReturn: 0, totalFees: 0, avgHoldDays: 0, maxConsecWins: 0, maxConsecLosses: 0, beta: 0, alpha: 0, informationRatio: 0 }
+  if (trades.length === 0) {
+    // Build benchmark-only equity curve
+    const benchStart = candles[0]?.close || 1
+    const benchEquity = candles.map(c => ({
+      date: new Date(c.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      benchmark: Math.round(initialCapital * (c.close / benchStart)),
+    }))
+    return {
+      stats: { netProfit: 0, netProfitPct: 0, totalTrades: 0, winRate: 0, sharpe: 0, sortino: 0, maxDrawdown: 0, avgTrade: 0, profitFactor: 0, calmar: 0, annualReturn: 0, totalFees: 0, avgHoldDays: 0, maxConsecWins: 0, maxConsecLosses: 0, beta: 0, alpha: 0, informationRatio: 0 },
+      equityCurve: [],
+      benchEquity,
+    }
+  }
 
   let equity = initialCapital
   let peak = initialCapital
