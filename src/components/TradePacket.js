@@ -183,7 +183,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 { label: 'Entry Zone', value: `${idea.entryLow} \u2013 ${idea.entryHigh}`, color: 'text-nx-accent' },
                 { label: 'Target', value: idea.target, color: 'text-nx-green' },
                 { label: 'Stop Loss', value: idea.stopLoss, color: 'text-nx-red' },
-                { label: 'R:R', value: `${rr}:1`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+                { label: 'Risk:Reward', value: `1:${rr}`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
                 { label: 'RSI', value: idea.rsi, color: idea.rsi < 30 ? 'text-nx-green' : idea.rsi > 70 ? 'text-nx-red' : 'text-nx-orange' },
                 { label: 'Risk', value: idea.risk, color: idea.risk === 'LOW' ? 'text-nx-green' : idea.risk === 'HIGH' ? 'text-nx-red' : 'text-nx-orange' },
                 { label: 'Timeframe', value: idea.timeframe || 'Variable', color: 'text-nx-accent' },
@@ -349,7 +349,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   <div className="flex items-center gap-4 text-2xs text-nx-text-hint">
                     <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-nx-accent inline-block" style={{ borderTop: '2px dashed #5b8dee' }} /> Predicted Path</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-nx-accent/10 inline-block" /> Confidence Band</span>
-                    <span className="ml-auto">Model uses RSI, R:R, strategy type, and historical volatility</span>
+                    <span className="ml-auto">Model uses RSI, Risk:Reward, strategy type, and historical volatility</span>
                   </div>
                 </div>
               )}

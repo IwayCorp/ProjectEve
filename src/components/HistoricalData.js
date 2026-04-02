@@ -155,7 +155,7 @@ function DayDetail({ dateStr, trades, expandedId, onToggle }) {
                     { label: 'Target', value: trade.target, cls: 'text-nx-green' },
                     { label: 'Stop', value: trade.stop, cls: 'text-nx-red' },
                     { label: 'Exit Price', value: trade.exitPrice, cls: trade.returnPct > 0 ? 'text-nx-green' : 'text-nx-red' },
-                    { label: 'R:R', value: `${trade.rr}:1`, cls: trade.rr >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+                    { label: 'Risk:Reward', value: `1:${trade.rr}`, cls: trade.rr >= 2 ? 'text-nx-green' : 'text-nx-orange' },
                     { label: 'Held', value: `${trade.entryDate} \u2192 ${trade.exitDate}`, cls: 'text-nx-text' },
                   ].map((item, i) => (
                     <div key={i} className="bg-nx-void/40 rounded-lg p-2">

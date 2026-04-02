@@ -35,12 +35,12 @@ export function generatePrediction(currentPrice, target, stopLoss, direction, ti
   const points = 50 // Data points in the prediction curve
   const totalReturn = isLong ? (target - currentPrice) / currentPrice : (currentPrice - target) / currentPrice
 
-  // R:R ratio
+  // Risk:Reward ratio
   const rr = isLong
     ? (target - currentPrice) / (currentPrice - stopLoss)
     : (currentPrice - target) / (stopLoss - currentPrice)
 
-  // ── BASE CONFIDENCE from R:R and RSI ──
+  // ── BASE CONFIDENCE from Risk:Reward and RSI ──
   let confidence = 0.45
   if (rr >= 3) confidence += 0.12
   else if (rr >= 2) confidence += 0.08

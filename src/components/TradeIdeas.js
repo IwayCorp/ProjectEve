@@ -79,8 +79,8 @@ function TradeCard({ trade, quote, direction, onOpen }) {
 
       <div className="flex items-center gap-4 mb-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-2xs text-nx-text-muted">R:R</span>
-          <span className={`text-sm font-bold font-mono ${parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange'}`}>{rr}:1</span>
+          <span className="text-2xs text-nx-text-muted">Risk:Reward</span>
+          <span className={`text-sm font-bold font-mono ${parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange'}`}>1:{rr}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-2xs text-nx-text-muted">RSI</span>

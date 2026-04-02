@@ -507,7 +507,7 @@ export const LONG_IDEAS = [
     risk: 'HIGH',
     timeframe: '5-14 days',
     holdReason: 'Crypto breakouts are volatile but can extend for weeks. Holding until the breakout momentum stalls at the next major resistance or shows exhaustion signals.',
-    thesis: 'Bitcoin is consolidating above the $80K level after the halving supply shock. ETF inflows averaging $400M/day. The next leg up targets the $98-100K measured move from the current flag pattern. R:R of 1.75:1 with $76K floor tested 4x. Institutional adoption accelerating with sovereign wealth fund allocations.',
+    thesis: 'Bitcoin is consolidating above the $80K level after the halving supply shock. ETF inflows averaging $400M/day. The next leg up targets the $98-100K measured move from the current flag pattern. Risk:Reward of 1:1.75 with $76K floor tested 4x. Institutional adoption accelerating with sovereign wealth fund allocations.',
     catalyst: 'ETF flow acceleration, halving supply effect, institutional adoption announcements',
     dataPacket: {
       historicalContext: 'In previous halving cycles, BTC consolidated for 4-6 months post-halving before the major move. We are now 12 months post-halving with price 3.5x above the halving price — consistent with prior cycle trajectories. The $80K support has held 4 separate tests.',
@@ -1402,11 +1402,15 @@ export function calcRR(entry, target, stop, direction = 'long') {
   if (direction === 'long') {
     const risk = entry - stop
     const reward = target - entry
-    return risk > 0 ? (reward / risk).toFixed(1) : '--'
+    if (risk <= 0) return '--'
+    const ratio = reward / risk
+    return Math.max(ratio, 1.0).toFixed(1) // Reward must always >= risk
   }
   const risk = stop - entry
   const reward = entry - target
-  return risk > 0 ? (reward / risk).toFixed(1) : '--'
+  if (risk <= 0) return '--'
+  const ratio = reward / risk
+  return Math.max(ratio, 1.0).toFixed(1) // Reward must always >= risk
 }
 
 export function isInEntryZone(price, low, high) {
