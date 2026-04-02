@@ -1,8 +1,42 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 
+// Market sessions with timezone + hours in local time
+const MARKETS = [
+  { id: 'tse', label: 'TSE', full: 'Tokyo', tz: 'Asia/Tokyo', open: [9, 0], close: [15, 0], color: '#f87171', weekdays: true },
+  { id: 'sse', label: 'SSE', full: 'Shanghai', tz: 'Asia/Shanghai', open: [9, 30], close: [15, 0], color: '#fbbf24', weekdays: true },
+  { id: 'lse', label: 'LSE', full: 'London', tz: 'Europe/London', open: [8, 0], close: [16, 30], color: '#a78bfa', weekdays: true },
+  { id: 'nyse', label: 'NYSE', full: 'New York', tz: 'America/New_York', open: [9, 30], close: [16, 0], color: '#5b8dee', weekdays: true },
+  { id: 'cme', label: 'CME', full: 'Chicago (Futures)', tz: 'America/Chicago', open: [17, 0], close: [16, 0], color: '#34d399', weekdays: true, overnight: true },
+  { id: 'fx', label: 'FX', full: 'Forex (24h)', tz: 'America/New_York', open: [17, 0], close: [17, 0], color: '#38bdf8', weekdays: true, h24: true },
+]
+
+function getMarketTime(tz) {
+  try {
+    const str = new Date().toLocaleString('en-US', { timeZone: tz, hour12: false })
+    return new Date(str)
+  } catch { return null }
+}
+
+function isOpen(market) {
+  const t = getMarketTime(market.tz)
+  if (!t) return false
+  const day = t.getDay()
+  if (market.weekdays && (day === 0 || day === 6)) return false
+  if (market.h24) return day >= 1 && day <= 5 // Mon-Fri for FX
+  const mins = t.getHours() * 60 + t.getMinutes()
+  const openMins = market.open[0] * 60 + market.open[1]
+  const closeMins = market.close[0] * 60 + market.close[1]
+  if (market.overnight) {
+    // e.g., CME 5pm-4pm next day — open if NOT between close and open
+    return mins >= openMins || mins < closeMins
+  }
+  return mins >= openMins && mins < closeMins
+}
+
 export default function Header() {
   const [time, setTime] = useState(null)
+  const [showMarkets, setShowMarkets] = useState(false)
 
   useEffect(() => {
     setTime(new Date())
@@ -10,7 +44,6 @@ export default function Header() {
     return () => clearInterval(t)
   }, [])
 
-  // Derive Eastern Time values once per tick
   const et = useMemo(() => {
     if (!time) return null
     try {
@@ -19,13 +52,16 @@ export default function Header() {
     } catch { return null }
   }, [time])
 
-  const isMarketOpen = useMemo(() => {
-    if (!et) return false
-    const day = et.getDay()
-    if (day === 0 || day === 6) return false
-    const mins = et.getHours() * 60 + et.getMinutes()
-    return mins >= 9 * 60 + 30 && mins < 16 * 60
-  }, [et])
+  const marketStatuses = useMemo(() => {
+    if (!time) return []
+    return MARKETS.map(m => ({
+      ...m,
+      isOpen: isOpen(m),
+      localTime: getMarketTime(m.tz),
+    }))
+  }, [time])
+
+  const openCount = marketStatuses.filter(m => m.isOpen).length
 
   return (
     <header className="sticky top-0 z-50" style={{
@@ -53,19 +89,37 @@ export default function Header() {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-5">
-          {/* Market status */}
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-            <div className="relative">
-              <div className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-nx-green' : 'bg-nx-red'}`} />
-              {isMarketOpen && (
-                <div className="absolute -inset-1 rounded-full bg-nx-green/30 animate-pulse-gentle" />
-              )}
-            </div>
-            <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>
-              {isMarketOpen ? 'NYSE Open' : 'NYSE Closed'}
-            </span>
+        <div className="flex items-center gap-4">
+          {/* Market session pills — compact row */}
+          <div className="hidden lg:flex items-center gap-1.5">
+            {marketStatuses.map(m => (
+              <div
+                key={m.id}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-default transition-all duration-200"
+                style={{
+                  background: m.isOpen ? `${m.color}10` : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${m.isOpen ? `${m.color}25` : 'rgba(255,255,255,0.04)'}`,
+                }}
+                title={`${m.full}: ${m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'} local`}
+              >
+                <div className="relative">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isOpen ? m.color : '#475569' }} />
+                  {m.isOpen && <div className="absolute -inset-0.5 rounded-full animate-pulse-gentle" style={{ background: `${m.color}30` }} />}
+                </div>
+                <span className="text-2xs font-bold" style={{ color: m.isOpen ? m.color : '#475569' }}>{m.label}</span>
+              </div>
+            ))}
           </div>
+
+          {/* Mobile: summary pill */}
+          <button
+            onClick={() => setShowMarkets(!showMarkets)}
+            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}
+          >
+            <div className={`w-2 h-2 rounded-full ${openCount > 0 ? 'bg-nx-green' : 'bg-nx-red'}`} />
+            <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>{openCount} Open</span>
+          </button>
 
           <div className="nx-divider" />
 
@@ -81,6 +135,29 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {/* Mobile market detail dropdown */}
+      {showMarkets && (
+        <div className="lg:hidden px-5 pb-3 space-y-1 animate-fade-in">
+          {marketStatuses.map(m => (
+            <div key={m.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isOpen ? m.color : '#475569' }} />
+                <span className="text-xs font-semibold" style={{ color: m.isOpen ? m.color : '#64748b' }}>{m.label}</span>
+                <span className="text-2xs text-nx-text-muted">{m.full}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xs font-mono" style={{ color: '#94a3b8' }} suppressHydrationWarning>
+                  {m.localTime ? m.localTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
+                </span>
+                <span className={`text-2xs font-bold ${m.isOpen ? 'text-nx-green' : 'text-nx-red'}`}>
+                  {m.isOpen ? 'OPEN' : 'CLOSED'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </header>
   )
 }
