@@ -1,7 +1,8 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { generateHistoricalTrades, computeStats, groupTradesByMonth, groupTradesByDate } from '@/lib/predictions'
 import { STRATEGIES } from '@/lib/tradeIdeas'
+import { loadTradeHistory, calcHistoryStats, clearTradeHistory } from '@/lib/tradeHistory'
 import DemoBanner from '@/components/DemoBanner'
 
 function OutcomeBadge({ outcome }) {
@@ -10,24 +11,226 @@ function OutcomeBadge({ outcome }) {
     STOPPED: { label: 'STOPPED', cls: 'badge-red' },
     PARTIAL_WIN: { label: 'PARTIAL WIN', cls: 'badge-blue' },
     PARTIAL_LOSS: { label: 'PARTIAL LOSS', cls: 'badge-orange' },
+    TARGET_HIT: { label: 'TARGET HIT', cls: 'badge-green' },
+    STOP_HIT: { label: 'STOP HIT', cls: 'badge-red' },
+    OPEN: { label: 'TRACKING', cls: 'badge-blue' },
   }
-  const m = map[outcome] || { label: outcome, cls: 'badge-blue' }
+  const m = map[outcome] || { label: outcome || 'PENDING', cls: 'badge-blue' }
   return <span className={m.cls}>{m.label}</span>
 }
 
+// ── Live Trade History Section ──
+function LiveTradeHistorySection() {
+  const [history, setHistory] = useState([])
+  const [stats, setStats] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
+  const [filter, setFilter] = useState('all')
+
+  useEffect(() => {
+    const h = loadTradeHistory()
+    setHistory(h)
+    setStats(calcHistoryStats(h))
+
+    // Refresh every 30s to pick up outcome updates
+    const interval = setInterval(() => {
+      const fresh = loadTradeHistory()
+      setHistory(fresh)
+      setStats(calcHistoryStats(fresh))
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return history
+    if (filter === 'wins') return history.filter(t => t.outcome === 'TARGET_HIT')
+    if (filter === 'losses') return history.filter(t => t.outcome === 'STOP_HIT')
+    if (filter === 'open') return history.filter(t => t.outcome === 'OPEN' || t.outcome === null)
+    return history
+  }, [history, filter])
+
+  if (history.length === 0) {
+    return (
+      <div className="nx-card p-8 text-center">
+        <div className="text-3xl mb-3">📊</div>
+        <h4 className="text-sm font-bold text-nx-text-strong mb-2">No Tracked Trades Yet</h4>
+        <p className="text-xs text-nx-text-muted max-w-md mx-auto leading-relaxed">
+          When trade ideas expire, they are automatically cataloged as executed trades.
+          Visit the Trade Ideas tab and wait for signals to expire — they will appear here
+          with live outcome tracking.
+        </p>
+      </div>
+    )
+  }
+
+  const handleClearHistory = () => {
+    if (window.confirm('Clear all trade history? This cannot be undone.')) {
+      clearTradeHistory()
+      setHistory([])
+      setStats(calcHistoryStats([]))
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Stats overview */}
+      {stats && stats.total > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-0 rounded-xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--nx-border)' }}>
+          {[
+            { label: 'Total', value: stats.total, color: 'text-nx-text-strong' },
+            { label: 'Resolved', value: stats.resolved, color: 'text-nx-text-strong' },
+            { label: 'Open', value: stats.open, color: 'text-nx-accent' },
+            { label: 'Wins', value: stats.wins, color: 'text-nx-green' },
+            { label: 'Losses', value: stats.losses, color: 'text-nx-red' },
+            { label: 'Win Rate', value: stats.resolved > 0 ? `${stats.winRate.toFixed(0)}%` : '--', color: stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red' },
+            { label: 'Avg P/L', value: stats.resolved > 0 ? `${stats.avgPnl >= 0 ? '+' : ''}${stats.avgPnl.toFixed(1)}%` : '--', color: stats.avgPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
+            { label: 'Total P/L', value: stats.resolved > 0 ? `${stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(1)}%` : '--', color: stats.totalPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
+          ].map((item, i) => (
+            <div key={i} className="p-3 text-center" style={{ borderRight: i < 7 ? '1px solid var(--nx-border)' : 'none' }}>
+              <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{item.label}</div>
+              <div className={`text-sm font-bold font-mono tabular-nums mt-1 ${item.color}`}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filter row */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
+          {[
+            { id: 'all', label: `All (${history.length})` },
+            { id: 'wins', label: `Wins (${history.filter(t => t.outcome === 'TARGET_HIT').length})` },
+            { id: 'losses', label: `Losses (${history.filter(t => t.outcome === 'STOP_HIT').length})` },
+            { id: 'open', label: `Open (${history.filter(t => t.outcome === 'OPEN' || t.outcome === null).length})` },
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 ${
+                filter === f.id
+                  ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
+                  : 'text-nx-text-hint hover:text-nx-text-muted bg-nx-void/40 border border-nx-border'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleClearHistory}
+          className="px-2.5 py-1 text-2xs rounded-md font-medium text-nx-red/60 hover:text-nx-red hover:bg-nx-red-muted/30 border border-transparent hover:border-nx-red/15 transition-all duration-200"
+        >
+          Clear History
+        </button>
+      </div>
+
+      {/* Trade list */}
+      <div className="space-y-2">
+        {filtered.map((trade, idx) => {
+          const pnl = trade.outcome === 'TARGET_HIT' || trade.outcome === 'STOP_HIT'
+            ? trade.direction === 'long'
+              ? ((trade.outcomePrice - trade.entryPrice) / trade.entryPrice) * 100
+              : ((trade.entryPrice - trade.outcomePrice) / trade.entryPrice) * 100
+            : trade.lastCheckedPrice
+              ? trade.direction === 'long'
+                ? ((trade.lastCheckedPrice - trade.entryPrice) / trade.entryPrice) * 100
+                : ((trade.entryPrice - trade.lastCheckedPrice) / trade.entryPrice) * 100
+              : null
+
+          const isExpanded = expandedId === trade.signalId
+          const fmtPrice = (p) => p != null ? (trade.asset === 'forex' ? p.toFixed(4) : p.toFixed(2)) : '--'
+          const catalogDate = trade.catalogedAt ? new Date(trade.catalogedAt).toLocaleDateString() : '--'
+          const outcomeDate = trade.outcomeAt ? new Date(trade.outcomeAt).toLocaleDateString() : null
+
+          return (
+            <div
+              key={trade.signalId || idx}
+              onClick={() => setExpandedId(isExpanded ? null : trade.signalId)}
+              className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                isExpanded ? 'border-nx-accent/20' : ''
+              } ${trade.outcome === 'TARGET_HIT' ? 'border-l-2 border-l-nx-green/40' : trade.outcome === 'STOP_HIT' ? 'border-l-2 border-l-nx-red/40' : 'border-l-2 border-l-nx-accent/30'}`}
+              style={{ background: 'var(--card-bg)', border: '1px solid var(--nx-border)' }}
+            >
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-bold text-nx-text-strong w-16">{trade.ticker}</span>
+                <span className={`text-2xs px-2 py-0.5 rounded-md font-bold uppercase ${trade.direction === 'long' ? 'bg-nx-green-muted text-nx-green border border-nx-green/15' : 'bg-nx-red-muted text-nx-red border border-nx-red/15'}`}>
+                  {trade.direction}
+                </span>
+                {trade.strategy && (
+                  <span className={`text-2xs px-2 py-0.5 rounded-md font-semibold strat-${trade.strategy}`}>
+                    {STRATEGIES[trade.strategy]?.icon} {trade.strategy?.replace('-', ' ')}
+                  </span>
+                )}
+                <OutcomeBadge outcome={trade.outcome} />
+                <span className="text-2xs text-nx-text-hint">{catalogDate}</span>
+                {trade.confidence && (
+                  <span className={`text-2xs font-mono ${trade.confidence >= 65 ? 'text-nx-green' : 'text-nx-orange'}`}>
+                    {trade.confidence}%
+                  </span>
+                )}
+                <div className="ml-auto text-right">
+                  {pnl !== null ? (
+                    <span className={`text-sm font-bold font-mono ${pnl >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
+                      {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%
+                    </span>
+                  ) : (
+                    <span className="text-sm font-mono text-nx-text-hint">--</span>
+                  )}
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="mt-3 pt-3 border-t border-nx-border/50 space-y-2 animate-fade-in">
+                  <p className="text-xs text-nx-text-muted leading-relaxed">{trade.thesis}</p>
+                  {trade.catalyst && <p className="text-2xs text-nx-purple">{trade.catalyst}</p>}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+                    {[
+                      { label: 'Entry', value: fmtPrice(trade.entryPrice), cls: 'text-nx-accent' },
+                      { label: 'Target', value: fmtPrice(trade.target), cls: 'text-nx-green' },
+                      { label: 'Stop', value: fmtPrice(trade.stopLoss), cls: 'text-nx-red' },
+                      { label: 'Last Price', value: fmtPrice(trade.lastCheckedPrice), cls: pnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
+                      { label: trade.outcome === 'TARGET_HIT' || trade.outcome === 'STOP_HIT' ? 'Exit Price' : 'Status', value: trade.outcomePrice ? fmtPrice(trade.outcomePrice) : (trade.outcome || 'Tracking'), cls: trade.outcome === 'TARGET_HIT' ? 'text-nx-green' : trade.outcome === 'STOP_HIT' ? 'text-nx-red' : 'text-nx-accent' },
+                    ].map((item, i) => (
+                      <div key={i} className="bg-nx-void/40 rounded-lg p-2">
+                        <div className="text-2xs text-nx-text-muted">{item.label}</div>
+                        <div className={`text-sm font-mono ${item.cls}`}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {trade.peakPnl !== null && (
+                    <div className="flex items-center gap-4 mt-1 text-2xs">
+                      <span className="text-nx-text-muted">Peak P/L: <span className="text-nx-green font-mono">{trade.peakPnl >= 0 ? '+' : ''}{trade.peakPnl.toFixed(2)}%</span></span>
+                      <span className="text-nx-text-muted">Trough P/L: <span className="text-nx-red font-mono">{trade.troughPnl >= 0 ? '+' : ''}{trade.troughPnl.toFixed(2)}%</span></span>
+                      {outcomeDate && <span className="text-nx-text-hint">Resolved: {outcomeDate}</span>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-8 text-nx-text-muted text-xs">
+          No trades match the selected filter.
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 // ── Calendar Heatmap ──
-// Shows a month as a grid of day cells, each colored by that day's P&L
 function CalendarHeatmap({ year, month, tradesByDate, selectedDate, onSelectDate }) {
   const firstDay = new Date(year, month, 1)
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const startDow = firstDay.getDay() // 0=Sun
+  const startDow = firstDay.getDay()
 
   const monthName = firstDay.toLocaleString('en-US', { month: 'long', year: 'numeric' })
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-  // Build cells: leading blanks + actual days
   const cells = []
-  for (let i = 0; i < startDow; i++) cells.push(null) // blank
+  for (let i = 0; i < startDow; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     const trades = tradesByDate[dateStr] || []
@@ -55,13 +258,11 @@ function CalendarHeatmap({ year, month, tradesByDate, selectedDate, onSelectDate
   return (
     <div className="nx-card p-4">
       <h4 className="text-sm font-bold text-nx-text-strong mb-3">{monthName}</h4>
-      {/* DOW header */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {DOW.map(d => (
           <div key={d} className="text-center text-2xs text-nx-text-hint font-medium py-1">{d}</div>
         ))}
       </div>
-      {/* Day cells */}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell, i) => {
           if (!cell) return <div key={`blank-${i}`} />
@@ -102,7 +303,6 @@ function CalendarHeatmap({ year, month, tradesByDate, selectedDate, onSelectDate
 }
 
 // ── Expanded Day Detail ──
-// Shows when user clicks a day in the heatmap
 function DayDetail({ dateStr, trades, expandedId, onToggle }) {
   const d = new Date(dateStr + 'T12:00:00')
   const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -157,7 +357,7 @@ function DayDetail({ dateStr, trades, expandedId, onToggle }) {
                     { label: 'Stop', value: trade.stop, cls: 'text-nx-red' },
                     { label: 'Exit Price', value: trade.exitPrice, cls: trade.returnPct > 0 ? 'text-nx-green' : 'text-nx-red' },
                     { label: 'Risk:Reward', value: `1:${trade.rr}`, cls: trade.rr >= 2 ? 'text-nx-green' : 'text-nx-orange' },
-                    { label: 'Held', value: `${trade.entryDate} \u2192 ${trade.exitDate}`, cls: 'text-nx-text' },
+                    { label: 'Held', value: `${trade.entryDate} → ${trade.exitDate}`, cls: 'text-nx-text' },
                   ].map((item, i) => (
                     <div key={i} className="bg-nx-void/40 rounded-lg p-2">
                       <div className="text-2xs text-nx-text-muted">{item.label}</div>
@@ -175,14 +375,13 @@ function DayDetail({ dateStr, trades, expandedId, onToggle }) {
 }
 
 export default function HistoricalData() {
+  const [viewMode, setViewMode] = useState('live')  // 'live' or 'simulated'
   const allTrades = useMemo(() => generateHistoricalTrades(), [])
   const globalStats = useMemo(() => computeStats(allTrades), [allTrades])
-  const monthGroups = useMemo(() => groupTradesByMonth(allTrades), [allTrades])
   const [expandedId, setExpandedId] = useState(null)
   const [filter, setFilter] = useState('all')
   const [selectedDate, setSelectedDate] = useState(null)
 
-  // Apply filter
   const filteredTrades = useMemo(() => {
     if (filter === 'all') return allTrades
     if (filter === 'wins') return allTrades.filter(t => t.returnPct > 0)
@@ -193,15 +392,12 @@ export default function HistoricalData() {
   }, [allTrades, filter])
 
   const filteredMonths = useMemo(() => groupTradesByMonth(filteredTrades), [filteredTrades])
-
-  // Sort months newest first
   const sortedMonths = Object.keys(filteredMonths).sort((a, b) => {
     const da = new Date(filteredMonths[a][0].entryDate)
     const db = new Date(filteredMonths[b][0].entryDate)
     return db - da
   })
 
-  // Global equity curve
   const equityCurve = useMemo(() => {
     let equity = 10000
     return allTrades.map(t => {
@@ -212,16 +408,13 @@ export default function HistoricalData() {
 
   const toggleTrade = (id) => setExpandedId(expandedId === id ? null : id)
 
-  // Build calendar month data from filtered trades
   const calendarMonths = useMemo(() => {
     const byDate = groupTradesByDate(filteredTrades)
-    // Determine unique year-month combos
     const monthSet = new Set()
     filteredTrades.forEach(t => {
       const d = new Date(t.entryDate)
       monthSet.add(`${d.getFullYear()}-${d.getMonth()}`)
     })
-    // Sort newest first
     return [...monthSet]
       .map(key => {
         const [y, m] = key.split('-').map(Number)
@@ -230,183 +423,209 @@ export default function HistoricalData() {
       .sort((a, b) => b.year - a.year || b.month - a.month)
   }, [filteredTrades])
 
-  // Strategy breakdown from global stats
   const stratEntries = Object.entries(globalStats.byStrategy || {})
 
   return (
     <div className="space-y-5">
-      <DemoBanner
-        type="simulated"
-        message="All trade signals, P&L figures, and equity curves on this page are fabricated for UI demonstration. These are not real executed trades and do not represent actual performance. No backtest engine has been run against historical data."
-      />
-
-      {/* Performance Dashboard Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="nx-section-header">
-            <div className="nx-accent-bar" />
-            <h3>Backtest Performance</h3>
-          </div>
-          <p className="text-xs text-nx-text-muted mt-1 ml-3">
-            {allTrades.length} simulated signals across {sortedMonths.length} months of historical data
-          </p>
+      {/* View mode toggle */}
+      <div className="flex items-center gap-3">
+        <div className="nx-section-header">
+          <div className="nx-accent-bar" />
+          <h3>Trade Results</h3>
         </div>
-        <div className="flex items-center gap-2">
-          {['all', 'wins', 'losses', 'targets', 'stopped'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              aria-label={`Filter by ${f}`}
-              aria-pressed={filter === f}
-              className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 capitalize ${
-                filter === f
-                  ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
-                  : 'text-nx-text-hint hover:text-nx-text-muted bg-nx-void/40 border border-nx-border'
-              }`}
-            >
-              {f === 'all' ? `All (${allTrades.length})` : f}
-            </button>
-          ))}
+        <div className="flex items-center gap-1 ml-4 p-0.5 rounded-lg" style={{ background: 'var(--card-bg)', border: '1px solid var(--nx-border)' }}>
+          <button
+            onClick={() => setViewMode('live')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+              viewMode === 'live'
+                ? 'bg-nx-accent-muted text-nx-accent'
+                : 'text-nx-text-muted hover:text-nx-text-strong'
+            }`}
+          >
+            Live Tracked
+          </button>
+          <button
+            onClick={() => setViewMode('simulated')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+              viewMode === 'simulated'
+                ? 'bg-nx-accent-muted text-nx-accent'
+                : 'text-nx-text-muted hover:text-nx-text-strong'
+            }`}
+          >
+            Simulated Backtest
+          </button>
         </div>
       </div>
 
-      {/* Global Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-0 rounded-xl overflow-hidden" style={{ background: 'rgba(15, 21, 35, 0.6)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-        {[
-          { label: 'Total Trades', value: globalStats.total, color: 'text-nx-text-strong' },
-          { label: 'Win Rate', value: `${globalStats.winRate}%`, color: globalStats.winRate >= 60 ? 'text-nx-green' : 'text-nx-orange' },
-          { label: 'Target Hit', value: `${globalStats.targetHitRate}%`, color: globalStats.targetHitRate >= 50 ? 'text-nx-green' : 'text-nx-orange' },
-          { label: 'Total Return', value: `${globalStats.totalReturn > 0 ? '+' : ''}${globalStats.totalReturn}%`, color: globalStats.totalReturn > 0 ? 'text-nx-green' : 'text-nx-red' },
-          { label: 'Avg Win', value: `+${globalStats.avgWin}%`, color: 'text-nx-green' },
-          { label: 'Avg Loss', value: `${globalStats.avgLoss}%`, color: 'text-nx-red' },
-          { label: 'Sharpe', value: globalStats.sharpe, color: globalStats.sharpe >= 1.5 ? 'text-nx-green' : 'text-nx-orange' },
-          { label: 'Profit Factor', value: globalStats.profitFactor === Infinity ? '\u221E' : globalStats.profitFactor, color: globalStats.profitFactor >= 2 ? 'text-nx-green' : 'text-nx-orange' },
-          { label: 'Max DD', value: `-${globalStats.maxDrawdown}%`, color: 'text-nx-red' },
-          { label: 'Avg Hold', value: `${globalStats.avgHoldDays}d`, color: 'text-nx-text-strong' },
-        ].map((item, i) => (
-          <div key={i} className="p-3 text-center" style={{ borderRight: i < 9 ? '1px solid rgba(255, 255, 255, 0.04)' : 'none' }}>
-            <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{item.label}</div>
-            <div className={`text-sm font-bold font-mono tabular-nums mt-1 ${item.color}`}>{item.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Equity Curve */}
-      <div className="nx-card p-4">
-        <h4 className="text-sm font-semibold text-nx-text-strong mb-3">Simulated Equity Curve ($10,000 hypothetical starting capital)</h4>
-        <div className="flex items-end gap-0.5 h-28">
-          {equityCurve.map((pt, i) => {
-            const min = Math.min(...equityCurve.map(p => p.equity))
-            const max = Math.max(...equityCurve.map(p => p.equity))
-            const range = max - min || 1
-            const h = ((pt.equity - min) / range) * 100
-            const isUp = pt.pct > 0
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center group relative">
-                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity glass px-2 py-1 text-2xs text-nx-text-strong whitespace-nowrap z-10 pointer-events-none" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                  {pt.ticker} &middot; ${pt.equity.toLocaleString()} &middot; {pt.date}
-                </div>
-                <div
-                  className={`w-full rounded-sm transition-all duration-300 ${isUp ? 'bg-nx-green/50 hover:bg-nx-green' : 'bg-nx-red/50 hover:bg-nx-red'}`}
-                  style={{ height: `${Math.max(4, h)}%` }}
-                />
-              </div>
-            )
-          })}
-        </div>
-        <div className="flex justify-between mt-2 text-2xs text-nx-text-hint">
-          <span>{equityCurve.length ? equityCurve[0].date : ''}</span>
-          <span>Current: ${equityCurve.length ? equityCurve[equityCurve.length - 1].equity.toLocaleString() : '10,000'}</span>
-          <span>{equityCurve.length ? equityCurve[equityCurve.length - 1].date : ''}</span>
-        </div>
-      </div>
-
-      {/* Strategy Breakdown */}
-      {stratEntries.length > 0 && (
-        <div className="nx-card p-4">
-          <h4 className="text-sm font-semibold text-nx-text-strong mb-3">Strategy Breakdown (Backtested)</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {stratEntries.map(([strat, data]) => {
-              const wr = data.trades > 0 ? Math.round((data.wins / data.trades) * 100) : 0
-              return (
-                <div key={strat} className="glass-solid p-3 text-center">
-                  <div className={`text-2xs font-semibold uppercase mb-1 px-2 py-0.5 rounded-md inline-block strat-${strat}`}>
-                    {STRATEGIES[strat]?.icon} {strat.replace('-', ' ')}
-                  </div>
-                  <div className="text-lg font-bold text-nx-text-strong font-mono mt-1">{wr}%</div>
-                  <div className="text-2xs text-nx-text-muted">{data.wins}W / {data.trades - data.wins}L</div>
-                  <div className={`text-2xs font-mono mt-0.5 ${data.totalReturn > 0 ? 'text-nx-green' : 'text-nx-red'}`}>
-                    {data.totalReturn > 0 ? '+' : ''}{Math.round(data.totalReturn * 100) / 100}%
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+      {/* ── LIVE TRACKED VIEW ── */}
+      {viewMode === 'live' && (
+        <LiveTradeHistorySection />
       )}
 
-      {/* Calendar Heatmap Log */}
-      <div>
-        <div className="nx-section-header mb-4">
-          <div className="nx-accent-bar" />
-          <h3>Signal Calendar</h3>
-        </div>
+      {/* ── SIMULATED VIEW ── */}
+      {viewMode === 'simulated' && (
+        <>
+          <DemoBanner
+            type="simulated"
+            message="All trade signals, P&L figures, and equity curves on this page are fabricated for UI demonstration. These are not real executed trades and do not represent actual performance. No backtest engine has been run against historical data."
+          />
 
-        {/* Heatmap legend */}
-        <div className="flex items-center gap-3 mb-4 ml-1 text-2xs text-nx-text-muted">
-          <span>Loss</span>
-          <div className="flex gap-0.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-nx-text-muted ml-3">
+              {allTrades.length} simulated signals across {sortedMonths.length} months of historical data
+            </p>
+            <div className="flex items-center gap-2">
+              {['all', 'wins', 'losses', 'targets', 'stopped'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  aria-label={`Filter by ${f}`}
+                  aria-pressed={filter === f}
+                  className={`px-2.5 py-1 text-2xs rounded-md font-medium transition-all duration-200 capitalize ${
+                    filter === f
+                      ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
+                      : 'text-nx-text-hint hover:text-nx-text-muted bg-nx-void/40 border border-nx-border'
+                  }`}
+                >
+                  {f === 'all' ? `All (${allTrades.length})` : f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Global Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-0 rounded-xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--nx-border)' }}>
             {[
-              'rgba(248, 113, 113, 0.25)',
-              'rgba(248, 113, 113, 0.15)',
-              'rgba(248, 113, 113, 0.08)',
-              'rgba(255,255,255,0.015)',
-              'rgba(52, 211, 153, 0.08)',
-              'rgba(52, 211, 153, 0.15)',
-              'rgba(52, 211, 153, 0.25)',
-              'rgba(52, 211, 153, 0.35)',
-            ].map((c, i) => (
-              <div key={i} className="w-4 h-3 rounded-sm" style={{ background: c, border: '1px solid rgba(255,255,255,0.06)' }} />
+              { label: 'Total Trades', value: globalStats.total, color: 'text-nx-text-strong' },
+              { label: 'Win Rate', value: `${globalStats.winRate}%`, color: globalStats.winRate >= 60 ? 'text-nx-green' : 'text-nx-orange' },
+              { label: 'Target Hit', value: `${globalStats.targetHitRate}%`, color: globalStats.targetHitRate >= 50 ? 'text-nx-green' : 'text-nx-orange' },
+              { label: 'Total Return', value: `${globalStats.totalReturn > 0 ? '+' : ''}${globalStats.totalReturn}%`, color: globalStats.totalReturn > 0 ? 'text-nx-green' : 'text-nx-red' },
+              { label: 'Avg Win', value: `+${globalStats.avgWin}%`, color: 'text-nx-green' },
+              { label: 'Avg Loss', value: `${globalStats.avgLoss}%`, color: 'text-nx-red' },
+              { label: 'Sharpe', value: globalStats.sharpe, color: globalStats.sharpe >= 1.5 ? 'text-nx-green' : 'text-nx-orange' },
+              { label: 'Profit Factor', value: globalStats.profitFactor === Infinity ? '∞' : globalStats.profitFactor, color: globalStats.profitFactor >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+              { label: 'Max DD', value: `-${globalStats.maxDrawdown}%`, color: 'text-nx-red' },
+              { label: 'Avg Hold', value: `${globalStats.avgHoldDays}d`, color: 'text-nx-text-strong' },
+            ].map((item, i) => (
+              <div key={i} className="p-3 text-center" style={{ borderRight: i < 9 ? '1px solid var(--nx-border)' : 'none' }}>
+                <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{item.label}</div>
+                <div className={`text-sm font-bold font-mono tabular-nums mt-1 ${item.color}`}>{item.value}</div>
+              </div>
             ))}
           </div>
-          <span>Gain</span>
-          <span className="ml-2 text-nx-text-hint">Click a day to see details</span>
-        </div>
 
-        {/* Render calendar grids per month */}
-        <div className="space-y-4">
-          {calendarMonths.map(cm => (
-            <div key={`${cm.year}-${cm.month}`}>
-              <CalendarHeatmap
-                year={cm.year}
-                month={cm.month}
-                tradesByDate={cm.tradesByDate}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
-              {/* If a date in this month is selected and belongs to this month, show detail */}
-              {selectedDate && cm.tradesByDate[selectedDate] &&
-                parseInt(selectedDate.split('-')[0]) === cm.year &&
-                parseInt(selectedDate.split('-')[1]) - 1 === cm.month && (
-                <div className="mt-2">
-                  <DayDetail
-                    dateStr={selectedDate}
-                    trades={cm.tradesByDate[selectedDate]}
-                    expandedId={expandedId}
-                    onToggle={toggleTrade}
-                  />
-                </div>
-              )}
+          {/* Equity Curve */}
+          <div className="nx-card p-4">
+            <h4 className="text-sm font-semibold text-nx-text-strong mb-3">Simulated Equity Curve ($10,000 hypothetical starting capital)</h4>
+            <div className="flex items-end gap-0.5 h-28">
+              {equityCurve.map((pt, i) => {
+                const min = Math.min(...equityCurve.map(p => p.equity))
+                const max = Math.max(...equityCurve.map(p => p.equity))
+                const range = max - min || 1
+                const h = ((pt.equity - min) / range) * 100
+                const isUp = pt.pct > 0
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center group relative">
+                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity glass px-2 py-1 text-2xs text-nx-text-strong whitespace-nowrap z-10 pointer-events-none" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                      {pt.ticker} &middot; ${pt.equity.toLocaleString()} &middot; {pt.date}
+                    </div>
+                    <div
+                      className={`w-full rounded-sm transition-all duration-300 ${isUp ? 'bg-nx-green/50 hover:bg-nx-green' : 'bg-nx-red/50 hover:bg-nx-red'}`}
+                      style={{ height: `${Math.max(4, h)}%` }}
+                    />
+                  </div>
+                )
+              })}
             </div>
-          ))}
-        </div>
-
-        {filteredTrades.length === 0 && (
-          <div className="text-center py-12 text-nx-text-muted">
-            No signals match the selected filter.
+            <div className="flex justify-between mt-2 text-2xs text-nx-text-hint">
+              <span>{equityCurve.length ? equityCurve[0].date : ''}</span>
+              <span>Current: ${equityCurve.length ? equityCurve[equityCurve.length - 1].equity.toLocaleString() : '10,000'}</span>
+              <span>{equityCurve.length ? equityCurve[equityCurve.length - 1].date : ''}</span>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Strategy Breakdown */}
+          {stratEntries.length > 0 && (
+            <div className="nx-card p-4">
+              <h4 className="text-sm font-semibold text-nx-text-strong mb-3">Strategy Breakdown (Backtested)</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                {stratEntries.map(([strat, data]) => {
+                  const wr = data.trades > 0 ? Math.round((data.wins / data.trades) * 100) : 0
+                  return (
+                    <div key={strat} className="glass-solid p-3 text-center">
+                      <div className={`text-2xs font-semibold uppercase mb-1 px-2 py-0.5 rounded-md inline-block strat-${strat}`}>
+                        {STRATEGIES[strat]?.icon} {strat.replace('-', ' ')}
+                      </div>
+                      <div className="text-lg font-bold text-nx-text-strong font-mono mt-1">{wr}%</div>
+                      <div className="text-2xs text-nx-text-muted">{data.wins}W / {data.trades - data.wins}L</div>
+                      <div className={`text-2xs font-mono mt-0.5 ${data.totalReturn > 0 ? 'text-nx-green' : 'text-nx-red'}`}>
+                        {data.totalReturn > 0 ? '+' : ''}{Math.round(data.totalReturn * 100) / 100}%
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Calendar Heatmap */}
+          <div>
+            <div className="nx-section-header mb-4">
+              <div className="nx-accent-bar" />
+              <h3>Signal Calendar</h3>
+            </div>
+            <div className="flex items-center gap-3 mb-4 ml-1 text-2xs text-nx-text-muted">
+              <span>Loss</span>
+              <div className="flex gap-0.5">
+                {[
+                  'rgba(248, 113, 113, 0.25)',
+                  'rgba(248, 113, 113, 0.15)',
+                  'rgba(248, 113, 113, 0.08)',
+                  'rgba(255,255,255,0.015)',
+                  'rgba(52, 211, 153, 0.08)',
+                  'rgba(52, 211, 153, 0.15)',
+                  'rgba(52, 211, 153, 0.25)',
+                  'rgba(52, 211, 153, 0.35)',
+                ].map((c, i) => (
+                  <div key={i} className="w-4 h-3 rounded-sm" style={{ background: c, border: '1px solid rgba(255,255,255,0.06)' }} />
+                ))}
+              </div>
+              <span>Gain</span>
+              <span className="ml-2 text-nx-text-hint">Click a day to see details</span>
+            </div>
+            <div className="space-y-4">
+              {calendarMonths.map(cm => (
+                <div key={`${cm.year}-${cm.month}`}>
+                  <CalendarHeatmap
+                    year={cm.year}
+                    month={cm.month}
+                    tradesByDate={cm.tradesByDate}
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                  />
+                  {selectedDate && cm.tradesByDate[selectedDate] &&
+                    parseInt(selectedDate.split('-')[0]) === cm.year &&
+                    parseInt(selectedDate.split('-')[1]) - 1 === cm.month && (
+                    <div className="mt-2">
+                      <DayDetail
+                        dateStr={selectedDate}
+                        trades={cm.tradesByDate[selectedDate]}
+                        expandedId={expandedId}
+                        onToggle={toggleTrade}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {filteredTrades.length === 0 && (
+              <div className="text-center py-12 text-nx-text-muted">
+                No signals match the selected filter.
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

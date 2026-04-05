@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { formatPrice } from '@/lib/marketData'
+import { catalogSignal, updateTradeOutcomes, loadTradeHistory, calcHistoryStats } from '@/lib/tradeHistory'
 import TradePacket from './TradePacket'
 
 const STRATEGIES = {
@@ -19,6 +20,14 @@ const URGENCY_CONFIG = {
   active:  { label: 'ACTIVE', color: '#34d399', bg: 'rgba(52, 211, 153, 0.06)', border: 'rgba(52, 211, 153, 0.15)', pulse: false },
   expired: { label: 'EXPIRED', color: '#64748b', bg: 'rgba(100, 116, 139, 0.06)', border: 'rgba(100, 116, 139, 0.15)', pulse: false },
 }
+
+const TICKER_MAP = {
+  'USDJPY': 'JPY=X', 'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'USDCHF': 'CHF=X',
+  'AUDUSD': 'AUDUSD=X', 'USDMXN': 'MXN=X', 'EURGBP': 'EURGBP=X', 'NZDUSD': 'NZDUSD=X',
+}
+
+// Auto-refresh interval: regenerate signals every 20 minutes
+const SIGNAL_REFRESH_INTERVAL = 20 * 60 * 1000
 
 function TradeCard({ trade, quote, direction, onOpen }) {
   const price = quote?.regularMarketPrice
@@ -58,7 +67,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
             </span>
           )}
           {isExpired && (
-            <span className="text-2xs font-mono text-nx-text-hint">Thesis window closed</span>
+            <span className="text-2xs font-mono text-nx-text-hint">Cataloged as executed</span>
           )}
         </div>
         {expiresCountdown && !isExpired && (
@@ -162,6 +171,66 @@ function TradeCard({ trade, quote, direction, onOpen }) {
   )
 }
 
+// ── Mini Stats Bar ──
+function HistoryStatsBar({ stats }) {
+  if (stats.total === 0) return null
+  return (
+    <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-nx-border/30" style={{ background: 'var(--card-bg)' }}>
+      <div className="flex items-center gap-1.5">
+        <span className="text-2xs text-nx-text-muted">Tracked</span>
+        <span className="text-sm font-bold font-mono text-nx-text-strong">{stats.total}</span>
+      </div>
+      {stats.resolved > 0 && (
+        <>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Win Rate</span>
+            <span className={`text-sm font-bold font-mono ${stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red'}`}>
+              {stats.winRate.toFixed(0)}%
+            </span>
+          </div>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">W/L</span>
+            <span className="text-sm font-bold font-mono">
+              <span className="text-nx-green">{stats.wins}</span>
+              <span className="text-nx-text-hint">/</span>
+              <span className="text-nx-red">{stats.losses}</span>
+            </span>
+          </div>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Avg P/L</span>
+            <span className={`text-sm font-bold font-mono ${stats.avgPnl >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
+              {stats.avgPnl >= 0 ? '+' : ''}{stats.avgPnl.toFixed(1)}%
+            </span>
+          </div>
+        </>
+      )}
+      {stats.open > 0 && (
+        <>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Open</span>
+            <span className="text-sm font-bold font-mono text-nx-accent">{stats.open}</span>
+          </div>
+        </>
+      )}
+      {stats.currentStreak > 1 && (
+        <>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Streak</span>
+            <span className={`text-sm font-bold font-mono ${stats.streakType === 'win' ? 'text-nx-green' : 'text-nx-red'}`}>
+              {stats.currentStreak} {stats.streakType === 'win' ? 'W' : 'L'}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function TradeIdeas({ quotes }) {
   const [tab, setTab] = useState('long')
   const [selectedStrategy, setSelectedStrategy] = useState('all')
@@ -174,10 +243,16 @@ export default function TradeIdeas({ quotes }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastGenerated, setLastGenerated] = useState(null)
+  const [nextRefresh, setNextRefresh] = useState(null)
+  const [historyStats, setHistoryStats] = useState({ total: 0, resolved: 0, open: 0, wins: 0, losses: 0, winRate: 0, totalPnl: 0, avgPnl: 0, currentStreak: 0, streakType: null })
 
-  // Countdown ticker
+  const catalogedRef = useRef(new Set())  // track which signals we've already cataloged this session
+  const quotesRef = useRef(quotes)
+  quotesRef.current = quotes  // always keep current
+
+  // Countdown ticker — update every 30s for more responsive urgency changes
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 60000)
+    const interval = setInterval(() => setTick(t => t + 1), 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -197,6 +272,7 @@ export default function TradeIdeas({ quotes }) {
         forex: (data.signals?.forex || []).filter(s => s != null),
       })
       setLastGenerated(data.generatedAt || new Date().toISOString())
+      setNextRefresh(Date.now() + SIGNAL_REFRESH_INTERVAL)
     } catch (err) {
       console.error('Signal fetch error:', err)
       setError(err.message)
@@ -205,7 +281,62 @@ export default function TradeIdeas({ quotes }) {
     }
   }, [])
 
+  // Initial fetch
   useEffect(() => { fetchSignals() }, [fetchSignals])
+
+  // Auto-refresh signals every 20 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSignals()
+    }, SIGNAL_REFRESH_INTERVAL)
+    return () => clearInterval(interval)
+  }, [fetchSignals])
+
+  // ── AUTO-CATALOG EXPIRED SIGNALS ──
+  // When signals expire, snapshot them as executed trades
+  useEffect(() => {
+    if (!quotes || Object.keys(quotes).length === 0) return
+
+    const allSignals = [...(signals.long || []), ...(signals.short || []), ...(signals.forex || [])]
+    let anyCataloged = false
+
+    for (const signal of allSignals) {
+      const urgency = getTradeUrgency(signal)
+      if (urgency !== 'expired') continue
+      if (catalogedRef.current.has(signal.id)) continue
+
+      // Determine direction
+      const direction = signal.direction || (signals.short?.includes(signal) ? 'short' : 'long')
+
+      // Get current price
+      const sym = TICKER_MAP[signal.ticker] || signal.ticker
+      const price = quotes[sym]?.regularMarketPrice || null
+
+      catalogSignal(signal, direction, price)
+      catalogedRef.current.add(signal.id)
+      anyCataloged = true
+    }
+
+    if (anyCataloged) {
+      const history = loadTradeHistory()
+      setHistoryStats(calcHistoryStats(history))
+    }
+  }, [signals, quotes])
+
+  // ── UPDATE TRADE OUTCOMES on every quote refresh ──
+  useEffect(() => {
+    if (!quotes || Object.keys(quotes).length === 0) return
+    const history = updateTradeOutcomes(quotes)
+    setHistoryStats(calcHistoryStats(history))
+  }, [quotes])
+
+  // Load initial stats
+  useEffect(() => {
+    const history = loadTradeHistory()
+    setHistoryStats(calcHistoryStats(history))
+    // Pre-populate cataloged set from existing history
+    for (const t of history) catalogedRef.current.add(t.signalId)
+  }, [])
 
   const allStrategies = ['all', ...Object.keys(STRATEGIES)]
   const ideas = signals[tab] || []
@@ -229,13 +360,12 @@ export default function TradeIdeas({ quotes }) {
   }
 
   const getQuote = (idea) => {
-    const tickerMap = {
-      'USDJPY': 'JPY=X', 'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'USDCHF': 'CHF=X',
-      'AUDUSD': 'AUDUSD=X', 'USDMXN': 'MXN=X', 'EURGBP': 'EURGBP=X', 'NZDUSD': 'NZDUSD=X',
-    }
-    const sym = tickerMap[idea.ticker] || idea.ticker
+    const sym = TICKER_MAP[idea.ticker] || idea.ticker
     return quotes[sym]
   }
+
+  // Format next refresh countdown
+  const refreshCountdown = nextRefresh ? Math.max(0, Math.ceil((nextRefresh - Date.now()) / 60000)) : null
 
   return (
     <div className="space-y-5">
@@ -255,6 +385,7 @@ export default function TradeIdeas({ quotes }) {
           {lastGenerated && !loading && (
             <span className="text-2xs text-nx-text-hint">
               Generated {new Date(lastGenerated).toLocaleTimeString()}
+              {refreshCountdown !== null && ` · Next in ${refreshCountdown}m`}
             </span>
           )}
         </div>
@@ -273,6 +404,9 @@ export default function TradeIdeas({ quotes }) {
           Signal Engine Error: {error}. Retrying may help.
         </div>
       )}
+
+      {/* Trade History Stats Bar */}
+      <HistoryStatsBar stats={historyStats} />
 
       {/* Tab row */}
       <div className="flex items-center gap-2.5 mb-4 flex-wrap">
