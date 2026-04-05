@@ -824,7 +824,7 @@ function LessonView({ module, onComplete, speed }) {
         {/* Trade example */}
         {section.example && (
           <div className="rounded-xl p-4 mt-3" style={{ background: 'var(--nx-glass)', border: '1px solid var(--nx-border)' }}>
-            <div className="text-xs font-bold text-nx-accent uppercase tracking-wider mb-2">\u{1F4CB} Worked Example</div>
+            <div className="text-xs font-bold text-nx-accent uppercase tracking-wider mb-2">{'\u{1F4CB}'} Worked Example</div>
             <div className="text-sm text-nx-text-strong mb-3">{section.example.scenario}</div>
             <div className="space-y-2">
               {section.example.outcomes.map((o, i) => (
@@ -858,7 +858,7 @@ function LessonView({ module, onComplete, speed }) {
         {section.thinkAboutIt && (
           <div className="rounded-xl p-4 mt-3" style={{ background: 'rgba(var(--nx-purple) / 0.06)', border: '1px solid rgba(var(--nx-purple) / 0.15)' }}>
             <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'rgb(var(--nx-purple))' }}>
-              \u{1F914} Think About It
+              {'\u{1F914}'} Think About It
             </div>
             <p className="text-sm leading-relaxed" style={{ color: 'rgb(var(--nx-purple))' }}>{section.thinkAboutIt}</p>
           </div>
@@ -1028,7 +1028,7 @@ function QuizView({ module, onComplete, speed }) {
               <div>
                 {!showFollowUp ? (
                   <button onClick={() => setShowFollowUp(true)} className="text-2xs font-semibold px-3 py-1.5 rounded-lg transition-all" style={{ background: 'rgba(var(--nx-purple) / 0.08)', color: 'rgb(var(--nx-purple))' }}>
-                    \u{1F914} Dig Deeper...
+                    {'\u{1F914}'} Dig Deeper...
                   </button>
                 ) : (
                   <div className="rounded-xl p-4" style={{ background: 'rgba(var(--nx-purple) / 0.06)', border: '1px solid rgba(var(--nx-purple) / 0.15)' }}>
