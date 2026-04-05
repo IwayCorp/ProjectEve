@@ -8,14 +8,11 @@ import { CHART_AXIS, CHART_YAXIS, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
 // Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
 function getDefaultTimeframe(tradeTimeframe) {
   if (!tradeTimeframe) return '4d'
-  // Parse the first number from the timeframe string
   const match = tradeTimeframe.match(/(\d+)/)
   if (!match) return '4d'
   const days = parseInt(match[1])
-  // For ranges like "5-14 days", use the midpoint
   const rangeMatch = tradeTimeframe.match(/(\d+)\s*-\s*(\d+)/)
   const midDays = rangeMatch ? Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2) : days
-  // Map to closest TIMEFRAMES id
   if (midDays <= 1) return '1d'
   if (midDays <= 3) return '4d'
   if (midDays <= 6) return '1w'
@@ -30,7 +27,14 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
   const [chartLoading, setChartLoading] = useState(true)
   const [activeSection, setActiveSection] = useState('overview')
   const [selectedTimeframe, setSelectedTimeframe] = useState(() => getDefaultTimeframe(idea.timeframe))
+  const [, setTick] = useState(0) // drives countdown re-renders
   const dp = idea.dataPacket
+
+  // Tick every second for live countdowns
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Generate prediction based on selected timeframe
   const prediction = useMemo(() => {
@@ -131,15 +135,30 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-nx-void/80 backdrop-blur-sm" />
+      {/* Overlay — no blur, just a semi-transparent scrim */}
+      <div className="absolute inset-0" style={{ background: 'rgb(var(--nx-void) / 0.7)' }} />
       <div
-        className="relative w-full max-w-5xl mx-4 mt-4 mb-4 rounded-2xl shadow-glass-lg animate-slide-up flex flex-col border border-nx-border"
-        style={{ maxHeight: 'calc(100vh - 32px)', background: 'rgba(10, 14, 23, 0.95)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+        className="relative w-full max-w-5xl mx-4 mt-4 mb-4 rounded-2xl shadow-glass-lg animate-slide-up flex flex-col border"
+        style={{
+          maxHeight: 'calc(100vh - 32px)',
+          background: 'rgb(var(--nx-base) / 0.98)',
+          borderColor: 'var(--nx-border)',
+          transition: 'var(--theme-transition)',
+        }}
         onClick={e => e.stopPropagation()}
       >
 
         {/* Sticky Header + Nav */}
-        <div className="sticky top-0 z-10 rounded-t-2xl shrink-0 border-b border-nx-border" style={{ background: 'rgba(15, 21, 32, 0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+        <div
+          className="sticky top-0 z-10 rounded-t-2xl shrink-0 border-b"
+          style={{
+            background: 'rgb(var(--nx-elevated) / 0.95)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderColor: 'var(--nx-border)',
+            transition: 'var(--theme-transition)',
+          }}
+        >
           <div className="flex items-center justify-between p-5 pb-3">
             <div className="flex items-center gap-3 flex-wrap">
               <span className={`text-2xl font-bold ${isLong ? 'text-nx-green' : 'text-nx-red'}`}>
@@ -214,9 +233,9 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                           <span className="font-bold font-mono text-nx-text-strong">{expiresCountdown}</span>
                         </div>
                       )}
-                      {idea.entryBy && !isExpired && (
+                      {idea.expiresAt && !isExpired && (
                         <div className="text-nx-text-hint text-2xs">
-                          {new Date(idea.entryBy).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(idea.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </div>
                       )}
                     </div>
@@ -288,7 +307,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                     Rec: {idea.timeframe}
                   </span>
                 )}
-                <div className="flex gap-1 p-0.5 rounded-lg bg-nx-void/40">
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'rgb(var(--nx-void) / 0.4)' }}>
                   {TIMEFRAMES.map(tf => (
                     <button
                       key={tf.id}
@@ -395,7 +414,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                         {/* Target & Stop lines */}
                         {idea.target && <ReferenceLine y={idea.target} stroke="#34d399" strokeDasharray="4 4" label={{ value: `Target $${idea.target}`, fill: '#34d399', fontSize: 10, position: 'right' }} />}
                         {idea.stopLoss && <ReferenceLine y={idea.stopLoss} stroke="#f87171" strokeDasharray="4 4" label={{ value: `Stop $${idea.stopLoss}`, fill: '#f87171', fontSize: 10, position: 'right' }} />}
-                        {currentPrice && <ReferenceLine y={currentPrice} stroke="rgba(255,255,255,0.3)" strokeDasharray="2 4" label={{ value: `Now $${currentPrice.toFixed(2)}`, fill: '#6b7280', fontSize: 10, position: 'left' }} />}
+                        {currentPrice && <ReferenceLine y={currentPrice} stroke="rgba(128,128,128,0.4)" strokeDasharray="2 4" label={{ value: `Now $${currentPrice.toFixed(2)}`, fill: '#6b7280', fontSize: 10, position: 'left' }} />}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
@@ -419,7 +438,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 <span className="nx-section-title">Price Chart</span>
               </div>
               <div className="space-y-4">
-                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-nx-void/40 w-fit">
+                <div className="flex items-center gap-1 p-0.5 rounded-lg w-fit" style={{ background: 'rgb(var(--nx-void) / 0.4)' }}>
                   {Object.keys(rangeMap).map(r => (
                     <button
                       key={r}
@@ -438,12 +457,9 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={chartData}>
-                        <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} interval="preserveStartEnd" />
-                        <YAxis domain={['auto', 'auto']} tick={{ fill: '#6b7280', fontSize: 10 }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.06)' }} width={65} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: 'rgba(15, 21, 32, 0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 11, backdropFilter: 'blur(12px)' }}
-                          labelStyle={{ color: '#6b7280' }}
-                        />
+                        <XAxis dataKey="date" {...CHART_AXIS} interval="preserveStartEnd" />
+                        <YAxis domain={['auto', 'auto']} {...CHART_YAXIS} />
+                        <Tooltip {...CHART_TOOLTIP_STYLE} />
                         <Area type="monotone" dataKey="close" fill="rgba(91, 141, 238, 0.06)" stroke="none" />
                         <Line type="monotone" dataKey="close" stroke="#5b8dee" strokeWidth={2} dot={false} />
                         {idea.entryHigh && <ReferenceLine y={idea.entryHigh} stroke="#5b8dee" strokeDasharray="4 4" label={{ value: `Entry ${idea.entryHigh}`, fill: '#5b8dee', fontSize: 10, position: 'right' }} />}
