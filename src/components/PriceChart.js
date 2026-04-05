@@ -40,18 +40,18 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
     return (
       <div className="p-3 text-xs" style={{
         background: 'linear-gradient(145deg, rgba(15, 21, 35, 0.95), rgba(10, 14, 23, 0.98))',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        border: '1px solid rgba(128, 128, 128, 0.2)',
         borderRadius: '10px',
         backdropFilter: 'blur(20px)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(91, 141, 238, 0.05)',
         minWidth: 150,
       }}>
-        <div className="mb-2 font-medium" style={{ color: '#94a3b8' }}>{d.date} {d.time_label}</div>
+        <div className="mb-2 font-medium text-nx-text-muted">{d.date} {d.time_label}</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-          <span style={{ color: '#64748b' }}>O</span><span className="font-mono tabular-nums" style={{ color: '#e2e8f0' }}>{d.open?.toFixed(2)}</span>
-          <span style={{ color: '#64748b' }}>H</span><span className="font-mono tabular-nums text-nx-green">{d.high?.toFixed(2)}</span>
-          <span style={{ color: '#64748b' }}>L</span><span className="font-mono tabular-nums text-nx-red">{d.low?.toFixed(2)}</span>
-          <span style={{ color: '#64748b' }}>C</span><span className="font-mono tabular-nums font-bold" style={{ color: '#f1f5f9' }}>{d.close?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">O</span><span className="font-mono tabular-nums text-nx-text-strong">{d.open?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">H</span><span className="font-mono tabular-nums text-nx-green">{d.high?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">L</span><span className="font-mono tabular-nums text-nx-red">{d.low?.toFixed(2)}</span>
+          <span className="text-nx-text-muted">C</span><span className="font-mono tabular-nums font-bold text-nx-text-strong">{d.close?.toFixed(2)}</span>
         </div>
       </div>
     )
@@ -59,9 +59,9 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
 
   return (
     <div className="nx-chart-panel">
-      <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <h3 className="text-sm font-bold" style={{ color: '#f1f5f9' }}>{title}</h3>
-        <div className="flex gap-0.5 p-1 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+      <div className="flex items-center justify-between p-4 border-b border-nx-border">
+        <h3 className="text-sm font-bold text-nx-text-strong">{title}</h3>
+        <div className="flex gap-0.5 p-1 rounded-lg" style={{ background: 'rgb(var(--nx-void) / 0.3)', border: '1px solid var(--nx-border)' }}>
           {ranges.map(r => (
             <button
               key={r.value}
@@ -69,7 +69,7 @@ export default function PriceChart({ symbol = '^GSPC', title = 'S&P 500' }) {
               className="px-3 py-1.5 text-2xs rounded-md font-semibold transition-all duration-200"
               style={range === r.value
                 ? { background: 'rgba(91, 141, 238, 0.15)', color: '#5b8dee', boxShadow: '0 0 8px rgba(91, 141, 238, 0.1)' }
-                : { color: '#64748b' }
+                : { color: 'rgb(var(--nx-text-muted))' }
               }
             >
               {r.label}

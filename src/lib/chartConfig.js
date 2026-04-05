@@ -3,7 +3,7 @@
 export const CHART_AXIS = {
   tick: { fontSize: 10, fill: '#64748b', fontWeight: 500 },
   tickLine: false,
-  axisLine: { stroke: 'rgba(255,255,255,0.06)' },
+  axisLine: { stroke: 'rgba(128, 128, 128, 0.15)' },
 }
 
 export const CHART_YAXIS = {
@@ -14,14 +14,14 @@ export const CHART_YAXIS = {
 
 export const CHART_GRID = {
   strokeDasharray: '3 3',
-  stroke: 'rgba(255,255,255,0.04)',
+  stroke: 'rgba(128, 128, 128, 0.1)',
   vertical: false,
 }
 
 export const CHART_TOOLTIP_STYLE = {
   contentStyle: {
     backgroundColor: 'rgba(15, 21, 32, 0.95)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    border: '1px solid rgba(128, 128, 128, 0.2)',
     borderRadius: 10,
     fontSize: 11,
     padding: '8px 12px',

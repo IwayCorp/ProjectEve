@@ -28,6 +28,7 @@ import SectorHeatmap from '@/components/SectorHeatmap'
 import CorrelationHeatmap from '@/components/CorrelationHeatmap'
 import TradeIdeas from '@/components/TradeIdeas'
 import RiskCalendar from '@/components/RiskCalendar'
+import NewsFeed from '@/components/NewsFeed'
 import ScenarioAnalysis from '@/components/ScenarioAnalysis'
 import HistoricalData from '@/components/HistoricalData'
 import CloudResearch from '@/components/CloudResearch'
@@ -56,6 +57,7 @@ const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'trades', label: 'Trade Ideas' },
   { id: 'research', label: 'Research' },
+  { id: 'news', label: 'News' },
   { id: 'backtest', label: 'Backtesting' },
   { id: 'ai', label: 'AI Assistant' },
   { id: 'optimize', label: 'Optimization' },
@@ -259,6 +261,10 @@ export default function Dashboard() {
 
           {activeTab === 'research' && (
             <CloudResearch />
+          )}
+
+          {activeTab === 'news' && (
+            <NewsFeed quotes={quotes} />
           )}
 
           {activeTab === 'backtest' && (

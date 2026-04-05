@@ -33,13 +33,13 @@ export default function SectorHeatmap({ quotes }) {
 
   return (
     <div className="nx-card">
-      <div className="p-4" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <h3 className="text-sm font-bold" style={{ color: '#f1f5f9' }}>Sector Performance</h3>
+      <div className="p-4 border-b border-nx-border">
+        <h3 className="text-sm font-bold text-nx-text-strong">Sector Performance</h3>
       </div>
       <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
         {sectors.every(s => s.change == null) ? (
           Array.from({ length: 11 }).map((_, i) => (
-            <div key={i} className="rounded-lg p-3 text-center" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+            <div key={i} className="rounded-lg p-3 text-center" style={{ background: 'rgb(var(--nx-surface) / 0.5)', border: '1px solid var(--nx-border)' }}>
               <div className="h-3 w-20 mx-auto nx-shimmer rounded mb-2" />
               <div className="h-4 w-12 mx-auto nx-shimmer rounded" />
             </div>
@@ -53,7 +53,7 @@ export default function SectorHeatmap({ quotes }) {
               border: `1px solid ${getHeatBorder(s.change)}`,
             }}
           >
-            <div className="text-2xs font-bold truncate mb-1" style={{ color: '#cbd5e1' }}>{s.label}</div>
+            <div className="text-2xs font-bold truncate mb-1 text-nx-text-strong">{s.label}</div>
             <div className={`text-sm font-bold font-mono tabular-nums ${(s.change || 0) >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
               {s.change != null ? formatChange(s.change) : '--'}
             </div>
