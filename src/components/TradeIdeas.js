@@ -250,13 +250,13 @@ export default function TradeIdeas({ quotes }) {
   const quotesRef = useRef(quotes)
   quotesRef.current = quotes  // always keep current
 
-  // Countdown ticker — update every 30s for more responsive urgency changes
+  // Countdown ticker — update every 1s for second-level countdown accuracy
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 30000)
+    const interval = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // Fetch signals from real signal engine
+  // Fetch signals from real signal engine, with localStorage caching for timestamps
   const fetchSignals = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -266,11 +266,70 @@ export default function TradeIdeas({ quotes }) {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      setSignals({
-        long: (data.signals?.long || []).filter(s => s != null),
-        short: (data.signals?.short || []).filter(s => s != null),
-        forex: (data.signals?.forex || []).filter(s => s != null),
-      })
+      // Load cached signals from localStorage
+      let cachedSignals = { long: [], short: [], forex: [] }
+      try {
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem('noctis-signal-cache')
+          if (cached) cachedSignals = JSON.parse(cached)
+        }
+      } catch (e) {
+        console.warn('Error reading signal cache:', e)
+      }
+
+      // Merge new signals with cached ones: keep old signals if they're still active
+      const mergedSignals = { long: [], short: [], forex: [] }
+      const now = new Date().getTime()
+
+      // Helper to check if signal has expired
+      const isExpired = (signal) => {
+        const expiresAt = new Date(signal.expiresAt).getTime()
+        return expiresAt <= now
+      }
+
+      // Helper to find cached version of signal
+      const findCached = (newSignal, category) => {
+        return cachedSignals[category].find(
+          cached => cached.ticker === newSignal.ticker && cached.direction === newSignal.direction
+        )
+      }
+
+      // Process each category
+      for (const category of ['long', 'short', 'forex']) {
+        const newSignals = (data.signals?.[category] || []).filter(s => s != null)
+
+        for (const newSignal of newSignals) {
+          const cached = findCached(newSignal, category)
+          if (cached && !isExpired(cached)) {
+            // Keep the cached version with original timestamps
+            mergedSignals[category].push(cached)
+          } else {
+            // Add the new signal
+            mergedSignals[category].push(newSignal)
+          }
+        }
+
+        // Also keep any expired cached signals (for cataloging)
+        for (const cached of cachedSignals[category]) {
+          const stillInNew = newSignals.some(
+            ns => ns.ticker === cached.ticker && ns.direction === cached.direction
+          )
+          if (!stillInNew) {
+            mergedSignals[category].push(cached)
+          }
+        }
+      }
+
+      // Save merged signals back to localStorage
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('noctis-signal-cache', JSON.stringify(mergedSignals))
+        }
+      } catch (e) {
+        console.warn('Error saving signal cache:', e)
+      }
+
+      setSignals(mergedSignals)
       setLastGenerated(data.generatedAt || new Date().toISOString())
       setNextRefresh(Date.now() + SIGNAL_REFRESH_INTERVAL)
     } catch (err) {

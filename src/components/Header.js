@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import SettingsModal from '@/components/SettingsModal'
 
 // Market sessions with timezone + hours in local time
@@ -34,16 +34,93 @@ function isOpen(market) {
   return mins >= openMins && mins < closeMins
 }
 
-export default function Header() {
+export default function Header({ onSearchSelect }) {
   const [time, setTime] = useState(null)
   const [showMarkets, setShowMarkets] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchInputRef = useRef(null)
+  const searchTimeoutRef = useRef(null)
 
   useEffect(() => {
     setTime(new Date())
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
+
+  // Handle search input with debounce
+  const handleSearchInput = useCallback((e) => {
+    const query = e.target.value
+    setSearchQuery(query)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        const data = await res.json()
+        setSearchResults(data.results || [])
+      } catch (err) {
+        console.error('Search error:', err)
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  // Close search on Escape
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      setShowSearch(false)
+      setSearchQuery('')
+      setSearchResults([])
+    }
+  }, [])
+
+  // Handle search result click
+  const handleSelectResult = useCallback((result) => {
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchResults([])
+    if (onSearchSelect) {
+      onSearchSelect(result)
+    }
+  }, [onSearchSelect])
+
+  // Close search on outside click
+  useEffect(() => {
+    if (!showSearch) return
+
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-search-modal]') && !e.target.closest('[data-search-trigger]')) {
+        setShowSearch(false)
+        setSearchQuery('')
+        setSearchResults([])
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showSearch])
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showSearch])
 
   const et = useMemo(() => {
     if (!time) return null
@@ -147,6 +224,25 @@ export default function Header() {
 
             <div className="nx-divider" />
 
+            {/* Search magnifying glass */}
+            <button
+              data-search-trigger
+              onClick={() => setShowSearch(!showSearch)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
+              style={{
+                color: showSearch ? 'rgb(var(--nx-accent))' : 'var(--header-text-dim)',
+                background: showSearch ? 'rgba(var(--nx-accent) / 0.08)' : 'transparent',
+                border: showSearch ? '1px solid rgba(var(--nx-accent) / 0.15)' : '1px solid transparent',
+              }}
+              aria-label="Open search"
+              title="Search assets"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6.5" cy="6.5" r="5" />
+                <path d="M9.9 9.9L14 14" />
+              </svg>
+            </button>
+
             {/* Settings gear */}
             <button
               onClick={handleToggleSettings}
@@ -187,6 +283,113 @@ export default function Header() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Search modal overlay */}
+        {showSearch && (
+          <div
+            data-search-modal
+            className="animate-fade-in"
+            style={{
+              background: 'var(--card-bg)',
+              borderBottom: '1px solid var(--nx-border)',
+              boxShadow: 'var(--header-shadow)',
+            }}
+          >
+            <div className="max-w-[1920px] mx-auto px-5 py-4 space-y-3">
+              {/* Search Input */}
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search any asset... (e.g. AAPL, Bitcoin, EUR/USD)"
+                  value={searchQuery}
+                  onChange={handleSearchInput}
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-4 py-2.5 rounded-lg text-sm"
+                  style={{
+                    background: 'var(--nx-glass)',
+                    color: 'var(--nx-text-strong)',
+                    border: '1px solid var(--nx-border)',
+                    outline: 'none',
+                  }}
+                />
+                {searchLoading && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-nx-accent/20 border-t-nx-accent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* Search Results */}
+              {searchQuery && (
+                <div
+                  className="rounded-lg max-h-[400px] overflow-y-auto space-y-1"
+                  style={{ background: 'var(--nx-glass-hover)' }}
+                >
+                  {searchLoading && !searchResults.length ? (
+                    <div className="px-4 py-6 text-center text-sm text-nx-text-muted">
+                      Searching...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-nx-text-muted">
+                      No results found for "{searchQuery}"
+                    </div>
+                  ) : (
+                    searchResults.map((result, idx) => (
+                      <button
+                        key={`${result.symbol}-${idx}`}
+                        onClick={() => handleSelectResult(result)}
+                        className="w-full px-4 py-3 text-left hover:bg-nx-glass transition-colors border-b border-nx-border last:border-b-0"
+                        style={{
+                          color: 'var(--nx-text-strong)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm">{result.symbol}</div>
+                            <div className="text-2xs text-nx-text-muted truncate">{result.name}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Type badge with color */}
+                            <span
+                              className="px-2 py-1 rounded-md text-2xs font-bold"
+                              style={{
+                                background:
+                                  result.type === 'EQUITY' ? 'rgba(59, 130, 246, 0.15)' :
+                                  result.type === 'ETF' ? 'rgba(139, 92, 246, 0.15)' :
+                                  result.type === 'CRYPTOCURRENCY' ? 'rgba(249, 115, 22, 0.15)' :
+                                  result.type === 'INDEX' ? 'rgba(34, 197, 94, 0.15)' :
+                                  result.type === 'CURRENCY' ? 'rgba(168, 85, 247, 0.15)' :
+                                  'rgba(148, 163, 184, 0.15)',
+                                color:
+                                  result.type === 'EQUITY' ? '#3b82f6' :
+                                  result.type === 'ETF' ? '#8b5cf6' :
+                                  result.type === 'CRYPTOCURRENCY' ? '#f97316' :
+                                  result.type === 'INDEX' ? '#22c55e' :
+                                  result.type === 'CURRENCY' ? '#a855f7' :
+                                  '#94a3b8',
+                              }}
+                            >
+                              {result.type === 'EQUITY' ? 'Stock' :
+                               result.type === 'CRYPTOCURRENCY' ? 'Crypto' :
+                               result.type === 'INDEX' ? 'Index' :
+                               result.type === 'CURRENCY' ? 'Currency' :
+                               result.type === 'ETF' ? 'ETF' :
+                               result.type}
+                            </span>
+                            {result.exchange && (
+                              <span className="text-2xs text-nx-text-muted">{result.exchange}</span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </header>

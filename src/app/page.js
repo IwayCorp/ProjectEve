@@ -3,6 +3,25 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { ThemeProvider } from '@/context/ThemeContext'
 import Header from '@/components/Header'
 import TickerBar from '@/components/TickerBar'
+
+// Padlock SVG icon for lock/unlock toggle
+const LockIcon = ({ locked }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.7 }}>
+    {locked ? (
+      <>
+        <rect x="2" y="7" width="12" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+        <path d="M4 7V4.5C4 2.57 5.57 1 7.5 1C9.43 1 11 2.57 11 4.5V7" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+        <circle cx="8" cy="10.5" r="0.5" fill="currentColor"/>
+      </>
+    ) : (
+      <>
+        <rect x="2" y="7" width="12" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+        <path d="M4 7V4.5C4 2.57 5.57 1 7.5 1C9.43 1 11 2.57 11 4.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeDasharray="2,2"/>
+        <circle cx="8" cy="10.5" r="0.5" fill="currentColor"/>
+      </>
+    )}
+  </svg>
+)
 import MarketOverview, { DEFAULT_FAVORITES, loadFavorites } from '@/components/MarketOverview'
 import PriceChart from '@/components/PriceChart'
 import SectorHeatmap from '@/components/SectorHeatmap'
@@ -52,6 +71,14 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [chartSymbol, setChartSymbol] = useState({ symbol: '^GSPC', title: 'S&P 500' })
   const tabRefs = useRef({})
+  const [stickyBars, setStickyBars] = useState(() => {
+    // SSR-safe: read from localStorage with default true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('noctis-sticky-bars')
+      return saved !== null ? JSON.parse(saved) : true
+    }
+    return true
+  })
   const [favSymbols, setFavSymbols] = useState(() => {
     // SSR-safe: try reading from localStorage, fall back to defaults
     if (typeof window !== 'undefined') {
@@ -65,11 +92,30 @@ export default function Dashboard() {
     setFavSymbols(favs.map(f => f.sym))
   }, [])
 
+  const handleToggleStickyBars = useCallback(() => {
+    setStickyBars(prev => {
+      const newValue = !prev
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('noctis-sticky-bars', JSON.stringify(newValue))
+      }
+      return newValue
+    })
+  }, [])
+
   const handleTabClick = useCallback((tabId) => {
     setActiveTab(tabId)
     requestAnimationFrame(() => {
       tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
     })
+  }, [])
+
+  const handleSearchSelect = useCallback((result) => {
+    // Set the chart to the selected symbol and navigate to trade ideas tab
+    setChartSymbol({
+      symbol: result.symbol,
+      title: result.name || result.symbol
+    })
+    setActiveTab('trades')
   }, [])
 
   const allSymbols = useMemo(() => {
@@ -107,11 +153,16 @@ export default function Dashboard() {
 
       {/* Content layer */}
       <div className="relative z-10 flex flex-col flex-1">
-        <Header />
-        <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
+        <Header onSearchSelect={handleSearchSelect} />
+        <div style={stickyBars ? { position: 'sticky', top: '52px', zIndex: 40 } : {}}>
+          <TickerBar quotes={quotes} symbols={TICKER_SYMBOLS} />
+        </div>
 
         {/* Tab navigation */}
         <div style={{
+          position: stickyBars ? 'sticky' : 'static',
+          top: stickyBars ? '88px' : 'auto',
+          zIndex: stickyBars ? 39 : 'auto',
           background: 'var(--tab-bg)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
@@ -136,7 +187,7 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {/* Live indicator */}
+              {/* Live indicator + Sticky bars lock toggle */}
               <div className="ml-auto flex items-center gap-2.5 text-2xs">
                 <div className="relative">
                   <div className={`w-1.5 h-1.5 rounded-full ${quotesError ? 'bg-nx-red' : quotesLoading ? 'bg-nx-orange animate-pulse' : 'bg-nx-green'}`} />
@@ -145,6 +196,18 @@ export default function Dashboard() {
                 <span className="font-medium" style={{ color: quotesError ? 'rgb(var(--nx-red))' : 'rgb(var(--nx-text-muted))' }}>
                   {quotesError ? 'API Error' : quotesLoading ? 'Refreshing...' : 'Live \u00B7 15s'}
                 </span>
+
+                <div className="w-px h-4 bg-nx-border/30 mx-1" />
+
+                <button
+                  onClick={handleToggleStickyBars}
+                  aria-label={stickyBars ? 'Unlock sticky bars' : 'Lock sticky bars'}
+                  className="p-1.5 rounded-md transition-all duration-200 hover:bg-nx-surface"
+                  style={{ color: 'rgb(var(--nx-text-muted))' }}
+                  title={stickyBars ? 'Bars are locked (sticky)' : 'Bars are unlocked'}
+                >
+                  <LockIcon locked={stickyBars} />
+                </button>
               </div>
             </div>
           </div>
@@ -185,7 +248,7 @@ export default function Dashboard() {
               </div>
 
               <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
-              <RiskCalendar />
+              <RiskCalendar quotes={quotes} />
               <ScenarioAnalysis />
             </>
           )}
@@ -224,7 +287,7 @@ export default function Dashboard() {
 
           {activeTab === 'risk' && (
             <>
-              <RiskCalendar showBanner />
+              <RiskCalendar showBanner quotes={quotes} />
               <ScenarioAnalysis showBanner />
             </>
           )}

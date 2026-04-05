@@ -1520,7 +1520,7 @@ export function getTradeUrgency(idea) {
 }
 
 /**
- * Human-readable countdown string: "2d 5h", "14h", "Expired", etc.
+ * Human-readable countdown string: "2d 5h", "14h", "45m 30s", "30s", "Expired", etc.
  */
 export function formatCountdown(dateStr) {
   if (!dateStr) return null
@@ -1530,8 +1530,13 @@ export function formatCountdown(dateStr) {
   if (diff <= 0) return 'Expired'
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
   if (days > 0) return `${days}d ${hours}h`
-  return `${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
 }
 
 // ============================================================================
