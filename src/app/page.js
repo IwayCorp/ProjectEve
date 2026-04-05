@@ -38,6 +38,7 @@ import Optimization from '@/components/Optimization'
 import LiveTrading from '@/components/LiveTrading'
 import MultiAssetPortfolio from '@/components/MultiAssetPortfolio'
 import LivePerformance from '@/components/LivePerformance'
+import TradingGuide from '@/components/TradingGuide'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -67,6 +68,7 @@ const TABS = [
   { id: 'risk', label: 'Risk Calendar' },
   { id: 'history', label: 'Simulated Results' },
   { id: 'performance', label: 'Performance' },
+  { id: 'academy', label: 'Academy' },
 ]
 
 export default function Dashboard() {
@@ -304,6 +306,10 @@ export default function Dashboard() {
 
           {activeTab === 'performance' && (
             <LivePerformance />
+          )}
+
+          {activeTab === 'academy' && (
+            <TradingGuide />
           )}
         </main>
 

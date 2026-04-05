@@ -83,6 +83,34 @@ function generateEventAnalysis(event) {
   return `This ${country} economic event is monitored for insights into economic health and potential currency movements. Check forecasts vs. previous values for market impact.`
 }
 
+// Generate search URLs across multiple unbiased news sources
+function generateNewsLinks(event) {
+  const eventName = event.event || event.title || ''
+  const country = event.country || ''
+  const query = encodeURIComponent(`${eventName} ${country} economic data`)
+  const shortQuery = encodeURIComponent(eventName)
+
+  const sources = [
+    { name: 'Reuters', url: `https://www.reuters.com/search/news?query=${shortQuery}`, icon: '\u{1F4F0}', color: 'rgb(var(--nx-accent))' },
+    { name: 'Bloomberg', url: `https://www.bloomberg.com/search?query=${shortQuery}`, icon: '\u{1F4CA}', color: 'rgb(var(--nx-purple))' },
+    { name: 'CNBC', url: `https://www.cnbc.com/search/?query=${shortQuery}`, icon: '\u{1F4FA}', color: 'rgb(var(--nx-green))' },
+    { name: 'MarketWatch', url: `https://www.marketwatch.com/search?q=${shortQuery}&ts=0&tab=All%20News`, icon: '\u{1F4C8}', color: 'rgb(var(--nx-orange))' },
+    { name: 'Financial Times', url: `https://www.ft.com/search?q=${shortQuery}`, icon: '\u{1F4D1}', color: 'rgb(var(--nx-cyan))' },
+    { name: 'Investing.com', url: `https://www.investing.com/search/?q=${shortQuery}&tab=news`, icon: '\u{1F310}', color: 'rgb(var(--nx-text-muted))' },
+  ]
+
+  // Add country-specific sources
+  if (country === 'JP') {
+    sources.push({ name: 'Nikkei Asia', url: `https://asia.nikkei.com/search?query=${shortQuery}`, icon: '\u{1F5FE}', color: 'rgb(var(--nx-red))' })
+  } else if (country === 'UK') {
+    sources.push({ name: 'BBC Business', url: `https://www.bbc.co.uk/search?q=${shortQuery}&page=1`, icon: '\u{1F1EC}\u{1F1E7}', color: 'rgb(var(--nx-red))' })
+  } else if (country === 'EU') {
+    sources.push({ name: 'ECB News', url: `https://www.ecb.europa.eu/press/pr/html/index.en.html`, icon: '\u{1F1EA}\u{1F1FA}', color: 'rgb(var(--nx-accent))' })
+  }
+
+  return sources
+}
+
 export default function NewsFeed({ quotes = {} }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -282,6 +310,37 @@ export default function NewsFeed({ quotes = {} }) {
                             </span>
                           ))
                         })()}
+                      </div>
+                    </div>
+
+                    {/* Related News Sources — multi-source hyperlinks */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-nx-text-muted uppercase tracking-wider mb-1.5">Related Sources</h4>
+                      <p className="text-2xs text-nx-text-muted mb-2">Cross-reference multiple outlets for unbiased coverage</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {generateNewsLinks(event).map(source => (
+                          <a
+                            key={source.name}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-2xs font-semibold transition-all duration-200 hover:scale-[1.03]"
+                            style={{
+                              background: 'var(--nx-glass)',
+                              border: '1px solid var(--nx-border)',
+                              color: source.color,
+                              textDecoration: 'none',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = source.color; e.currentTarget.style.boxShadow = `0 0 12px ${source.color}20` }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--nx-border)'; e.currentTarget.style.boxShadow = 'none' }}
+                          >
+                            <span>{source.icon}</span>
+                            <span>{source.name}</span>
+                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                              <path d="M4 1h7v7" /><path d="M11 1L1 11" />
+                            </svg>
+                          </a>
+                        ))}
                       </div>
                     </div>
 

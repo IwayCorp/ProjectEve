@@ -223,8 +223,10 @@ function AddFavoriteCard({ onAdd }) {
         )}
       </div>
 
-      {/* Results */}
-      <div className="max-h-[200px] overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
+      {/* Results — absolute positioned so dropdown doesn't change card/grid size */}
+      {(query.length > 0 || searching) && (
+      <div className="absolute left-0 right-0 top-full mt-1 mx-3 rounded-lg overflow-hidden" style={{ background: 'rgb(var(--nx-surface))', border: '1px solid var(--nx-border)', boxShadow: 'var(--card-shadow)', zIndex: 30 }}>
+      <div className="max-h-[240px] overflow-y-auto space-y-0.5 p-1" style={{ scrollbarWidth: 'thin' }}>
         {searching && (
           <div className="flex items-center gap-2 px-2 py-2">
             <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgb(var(--nx-accent))', borderTopColor: 'transparent' }} />
@@ -263,6 +265,8 @@ function AddFavoriteCard({ onAdd }) {
           </button>
         ))}
       </div>
+      </div>
+      )}
     </div>
   )
 }
