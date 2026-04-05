@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { formatPrice } from '@/lib/marketData'
 import { catalogSignal, updateTradeOutcomes, loadTradeHistory, calcHistoryStats } from '@/lib/tradeHistory'
+import { Term, TermText } from './Tooltip'
 import TradePacket from './TradePacket'
 
 const STRATEGIES = {
@@ -82,10 +83,10 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg font-bold text-nx-text-strong group-hover:text-nx-accent transition-colors">{trade.ticker}</span>
             <span className={`text-2xs px-2 py-0.5 rounded-md font-bold uppercase ${direction === 'long' ? 'bg-nx-green-muted text-nx-green border border-nx-green/15' : 'bg-nx-red-muted text-nx-red border border-nx-red/15'}`}>
-              {direction}
+              <Term>{direction === 'long' ? 'Long' : 'Short'}</Term>
             </span>
             <span className={`text-2xs px-2 py-0.5 rounded-md font-semibold ${trade.strategy ? `strat-${trade.strategy}` : ''}`}>
-              {STRATEGIES[trade.strategy]?.icon} {trade.strategy?.replace('-', ' ')}
+              {STRATEGIES[trade.strategy]?.icon} <Term>{STRATEGIES[trade.strategy]?.name || trade.strategy?.replace('-', ' ')}</Term>
             </span>
             {inZone && !isExpired && <span className="badge-blue animate-pulse-gentle text-2xs">IN ZONE</span>}
             {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse-gentle text-2xs">TARGET</span>}
@@ -120,9 +121,9 @@ function TradeCard({ trade, quote, direction, onOpen }) {
       {/* Price bar */}
       <div className="bg-nx-void/60 rounded-lg p-2.5 mb-3 border border-nx-border/30">
         <div className="flex justify-between text-2xs mb-1.5">
-          <span className="text-nx-red font-medium">Stop {formatPrice(trade.stopLoss, fmtType)}</span>
-          <span className="text-nx-accent font-medium">Entry {formatPrice(trade.entryLow, fmtType)}–{formatPrice(trade.entryHigh, fmtType)}</span>
-          <span className="text-nx-green font-medium">Target {formatPrice(trade.target, fmtType)}</span>
+          <span className="text-nx-red font-medium"><Term>Stop Loss</Term> {formatPrice(trade.stopLoss, fmtType)}</span>
+          <span className="text-nx-accent font-medium"><Term>Entry Zone</Term> {formatPrice(trade.entryLow, fmtType)}–{formatPrice(trade.entryHigh, fmtType)}</span>
+          <span className="text-nx-green font-medium"><Term>Target</Term> {formatPrice(trade.target, fmtType)}</span>
         </div>
         {price && (
           <div className="relative h-1.5 bg-nx-border/30 rounded-full overflow-hidden">
@@ -144,11 +145,11 @@ function TradeCard({ trade, quote, direction, onOpen }) {
 
       <div className="flex items-center gap-4 mb-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-2xs text-nx-text-muted">Risk:Reward</span>
+          <span className="text-2xs text-nx-text-muted"><Term>Risk:Reward</Term></span>
           <span className={`text-sm font-bold font-mono ${parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange'}`}>1:{rr}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-2xs text-nx-text-muted">RSI</span>
+          <span className="text-2xs text-nx-text-muted"><Term>RSI</Term></span>
           <span className={`text-sm font-bold font-mono ${trade.rsi < 30 ? 'text-nx-green' : trade.rsi > 70 ? 'text-nx-red' : 'text-nx-orange'}`}>{trade.rsi}</span>
         </div>
         {trade.confidence && (
@@ -162,7 +163,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
         </div>
       </div>
 
-      <p className="text-xs text-nx-text-muted leading-relaxed mb-2 line-clamp-2">{trade.thesis}</p>
+      <p className="text-xs text-nx-text-muted leading-relaxed mb-2 line-clamp-2"><TermText>{trade.thesis}</TermText></p>
       <div className="flex items-center justify-between">
         <div className="text-2xs text-nx-purple truncate max-w-[80%]">{trade.catalyst}</div>
         <span className="text-2xs text-nx-accent opacity-0 group-hover:opacity-100 transition-opacity font-medium">View Packet &rarr;</span>
@@ -184,7 +185,7 @@ function HistoryStatsBar({ stats }) {
         <>
           <div className="w-px h-4 bg-nx-border/30" />
           <div className="flex items-center gap-1.5">
-            <span className="text-2xs text-nx-text-muted">Win Rate</span>
+            <span className="text-2xs text-nx-text-muted"><Term>Win Rate</Term></span>
             <span className={`text-sm font-bold font-mono ${stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red'}`}>
               {stats.winRate.toFixed(0)}%
             </span>
@@ -200,7 +201,7 @@ function HistoryStatsBar({ stats }) {
           </div>
           <div className="w-px h-4 bg-nx-border/30" />
           <div className="flex items-center gap-1.5">
-            <span className="text-2xs text-nx-text-muted">Avg P/L</span>
+            <span className="text-2xs text-nx-text-muted">Avg <Term>P/L</Term></span>
             <span className={`text-sm font-bold font-mono ${stats.avgPnl >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
               {stats.avgPnl >= 0 ? '+' : ''}{stats.avgPnl.toFixed(1)}%
             </span>

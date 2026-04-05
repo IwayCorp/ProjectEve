@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { Term, TermText } from './Tooltip'
 import {
   catalogCalendarEvents,
   loadCalendarHistory,
@@ -290,10 +291,10 @@ export default function RiskCalendar({ showBanner = false, quotes = {} }) {
               {/* Event and Volatility */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-nx-text-strong">{event.event}</span>
+                  <span className="text-sm font-medium text-nx-text-strong"><TermText>{event.event}</TermText></span>
                   <VolBadge level={event.volatility} />
                 </div>
-                <div className="text-2xs text-nx-text-muted mt-0.5">{event.impact || '—'}</div>
+                <div className="text-2xs text-nx-text-muted mt-0.5"><TermText>{event.impact || '—'}</TermText></div>
               </div>
 
               {/* Action (hidden on mobile) */}
@@ -321,7 +322,7 @@ export default function RiskCalendar({ showBanner = false, quotes = {} }) {
                   {/* Event name + Volatility */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-nx-text-strong truncate">{event.event}</span>
+                      <span className="text-sm font-medium text-nx-text-strong truncate"><TermText>{event.event}</TermText></span>
                       <VolBadge level={event.volatility} />
                     </div>
                   </div>

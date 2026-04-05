@@ -4,6 +4,7 @@ import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, R
 import { TIMEFRAMES, generatePrediction } from '@/lib/predictions'
 import { calcRR, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { CHART_AXIS, CHART_YAXIS, CHART_TOOLTIP_STYLE } from '@/lib/chartConfig'
+import { Term, TermText } from './Tooltip'
 
 // Map a trade's timeframe string (e.g. "5-14 days") to the best matching TIMEFRAMES id
 function getDefaultTimeframe(tradeTimeframe) {
@@ -253,11 +254,11 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
             {/* Key metrics bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
               {[
-                { label: 'Entry Zone', value: `${idea.entryLow} \u2013 ${idea.entryHigh}`, color: 'text-nx-accent' },
-                { label: 'Target', value: idea.target, color: 'text-nx-green' },
-                { label: 'Stop Loss', value: idea.stopLoss, color: 'text-nx-red' },
-                { label: 'Risk:Reward', value: `1:${rr}`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
-                { label: 'RSI', value: idea.rsi, color: idea.rsi < 30 ? 'text-nx-green' : idea.rsi > 70 ? 'text-nx-red' : 'text-nx-orange' },
+                { label: <Term>Entry Zone</Term>, value: `${idea.entryLow} \u2013 ${idea.entryHigh}`, color: 'text-nx-accent' },
+                { label: <Term>Target</Term>, value: idea.target, color: 'text-nx-green' },
+                { label: <Term>Stop Loss</Term>, value: idea.stopLoss, color: 'text-nx-red' },
+                { label: <Term>Risk:Reward</Term>, value: `1:${rr}`, color: parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+                { label: <Term>RSI</Term>, value: idea.rsi, color: idea.rsi < 30 ? 'text-nx-green' : idea.rsi > 70 ? 'text-nx-red' : 'text-nx-orange' },
                 { label: 'Risk', value: idea.risk, color: idea.risk === 'LOW' ? 'text-nx-green' : idea.risk === 'HIGH' ? 'text-nx-red' : 'text-nx-orange' },
                 { label: 'Timeframe', value: idea.timeframe || 'Variable', color: 'text-nx-accent' },
               ].map((m, i) => (
@@ -276,19 +277,19 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
               <div className="space-y-5">
                 <div>
                   <h4 className="text-md font-semibold text-nx-text-strong mb-2">Thesis</h4>
-                  <p className="text-sm text-nx-text leading-relaxed">{idea.thesis}</p>
+                  <p className="text-sm text-nx-text leading-relaxed"><TermText>{idea.thesis}</TermText></p>
                 </div>
                 <div>
                   <h4 className="text-md font-semibold text-nx-text-strong mb-2">Catalyst</h4>
-                  <p className="text-sm text-nx-text leading-relaxed">{idea.catalyst}</p>
+                  <p className="text-sm text-nx-text leading-relaxed"><TermText>{idea.catalyst}</TermText></p>
                 </div>
                 <div>
                   <h4 className="text-md font-semibold text-nx-text-strong mb-2">Historical Context</h4>
-                  <p className="text-sm text-nx-text leading-relaxed">{dp.historicalContext}</p>
+                  <p className="text-sm text-nx-text leading-relaxed"><TermText>{dp.historicalContext}</TermText></p>
                 </div>
                 <div>
                   <h4 className="text-md font-semibold text-nx-text-strong mb-2">Sector Context</h4>
-                  <p className="text-sm text-nx-text leading-relaxed">{dp.sectorContext}</p>
+                  <p className="text-sm text-nx-text leading-relaxed"><TermText>{dp.sectorContext}</TermText></p>
                 </div>
               </div>
             </div>
@@ -374,7 +375,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   {/* Prediction Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
                     <div className="glass-solid p-3">
-                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">Confidence</div>
+                      <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium"><Term>Confidence</Term></div>
                       <div className={`text-lg font-bold font-mono mt-1 ${prediction.confidence >= 65 ? 'text-nx-green' : prediction.confidence >= 50 ? 'text-nx-orange' : 'text-nx-red'}`}>{prediction.confidence}%</div>
                     </div>
                     <div className="glass-solid p-3">
@@ -422,7 +423,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   <div className="flex items-center gap-4 text-2xs text-nx-text-hint">
                     <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-nx-accent inline-block" style={{ borderTop: '2px dashed #5b8dee' }} /> Predicted Path</span>
                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-nx-accent/10 inline-block" /> Confidence Band</span>
-                    <span className="ml-auto">Model uses RSI, Risk:Reward, strategy type, and historical volatility</span>
+                    <span className="ml-auto">Model uses <Term>RSI</Term>, <Term>Risk:Reward</Term>, strategy type, and historical volatility</span>
                   </div>
                 </div>
               )}
@@ -481,7 +482,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 <span className="nx-section-title">Bond & Rate Correlation</span>
               </div>
               <div className="glass-solid p-5">
-                <p className="text-sm text-nx-text leading-relaxed">{dp.bondCorrelation}</p>
+                <p className="text-sm text-nx-text leading-relaxed"><TermText>{dp.bondCorrelation}</TermText></p>
               </div>
             </div>
 
@@ -491,7 +492,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 <span className="nx-section-title">Global Macro & Government</span>
               </div>
               <div className="glass-solid p-5">
-                <p className="text-sm text-nx-text leading-relaxed">{dp.globalMacro}</p>
+                <p className="text-sm text-nx-text leading-relaxed"><TermText>{dp.globalMacro}</TermText></p>
               </div>
             </div>
 
@@ -504,7 +505,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 {dp.newsDrivers.map((news, i) => (
                   <div key={i} className="flex gap-3 items-start glass-solid p-3.5">
                     <span className="text-nx-accent font-bold text-sm mt-0.5 shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
-                    <p className="text-sm text-nx-text leading-relaxed">{news}</p>
+                    <p className="text-sm text-nx-text leading-relaxed"><TermText>{news}</TermText></p>
                   </div>
                 ))}
               </div>
@@ -519,7 +520,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="glass-solid p-4">
-                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Support Levels</div>
+                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium"><Term>Support</Term> Levels</div>
                       {dp.technicalLevels.support.map((s, i) => (
                         <div key={i} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
                           <span className="text-xs text-nx-text-muted">S{i + 1}</span>
@@ -528,7 +529,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                       ))}
                     </div>
                     <div className="glass-solid p-4">
-                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Resistance Levels</div>
+                      <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium"><Term>Resistance</Term> Levels</div>
                       {dp.technicalLevels.resistance.map((r, i) => (
                         <div key={i} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
                           <span className="text-xs text-nx-text-muted">R{i + 1}</span>
@@ -540,14 +541,14 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                       <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Moving Averages</div>
                       {Object.entries(dp.technicalLevels.movingAverages).map(([key, val]) => (
                         <div key={key} className="flex justify-between py-1.5 border-b border-nx-border last:border-0">
-                          <span className="text-xs text-nx-text-muted">{key.toUpperCase()}</span>
+                          <span className="text-xs text-nx-text-muted"><Term term={key.toUpperCase()}>{key.toUpperCase()}</Term></span>
                           <span className="text-sm font-medium text-nx-text font-mono tabular-nums">{val}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div className="glass-solid p-4">
-                    <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium">Pivot Points</div>
+                    <div className="text-xs text-nx-text-muted uppercase tracking-wider mb-3 font-medium"><Term>Pivot Points</Term></div>
                     <div className="grid grid-cols-4 gap-4">
                       {Object.entries(dp.technicalLevels.pivotPoints).map(([key, val]) => (
                         <div key={key} className="text-center">

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
+import { Term, TermText } from './Tooltip'
 import { generateHistoricalTrades, computeStats, groupTradesByMonth, groupTradesByDate } from '@/lib/predictions'
 import { STRATEGIES } from '@/lib/tradeIdeas'
 import { loadTradeHistory, calcHistoryStats, clearTradeHistory } from '@/lib/tradeHistory'
@@ -81,9 +82,9 @@ function LiveTradeHistorySection() {
             { label: 'Open', value: stats.open, color: 'text-nx-accent' },
             { label: 'Wins', value: stats.wins, color: 'text-nx-green' },
             { label: 'Losses', value: stats.losses, color: 'text-nx-red' },
-            { label: 'Win Rate', value: stats.resolved > 0 ? `${stats.winRate.toFixed(0)}%` : '--', color: stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red' },
-            { label: 'Avg P/L', value: stats.resolved > 0 ? `${stats.avgPnl >= 0 ? '+' : ''}${stats.avgPnl.toFixed(1)}%` : '--', color: stats.avgPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
-            { label: 'Total P/L', value: stats.resolved > 0 ? `${stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(1)}%` : '--', color: stats.totalPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
+            { label: <Term>Win Rate</Term>, value: stats.resolved > 0 ? `${stats.winRate.toFixed(0)}%` : '--', color: stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red' },
+            { label: <Term>P/L</Term>, value: stats.resolved > 0 ? `${stats.avgPnl >= 0 ? '+' : ''}${stats.avgPnl.toFixed(1)}%` : '--', color: stats.avgPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
+            { label: <Term>P/L</Term>, value: stats.resolved > 0 ? `${stats.totalPnl >= 0 ? '+' : ''}${stats.totalPnl.toFixed(1)}%` : '--', color: stats.totalPnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
           ].map((item, i) => (
             <div key={i} className="p-3 text-center" style={{ borderRight: i < 7 ? '1px solid var(--nx-border)' : 'none' }}>
               <div className="text-2xs text-nx-text-muted uppercase tracking-wider font-medium">{item.label}</div>
@@ -153,11 +154,11 @@ function LiveTradeHistorySection() {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-bold text-nx-text-strong w-16">{trade.ticker}</span>
                 <span className={`text-2xs px-2 py-0.5 rounded-md font-bold uppercase ${trade.direction === 'long' ? 'bg-nx-green-muted text-nx-green border border-nx-green/15' : 'bg-nx-red-muted text-nx-red border border-nx-red/15'}`}>
-                  {trade.direction}
+                  <Term>{trade.direction}</Term>
                 </span>
                 {trade.strategy && (
                   <span className={`text-2xs px-2 py-0.5 rounded-md font-semibold strat-${trade.strategy}`}>
-                    {STRATEGIES[trade.strategy]?.icon} {trade.strategy?.replace('-', ' ')}
+                    {STRATEGIES[trade.strategy]?.icon} <Term term={trade.strategy?.replace('-', ' ')}>{trade.strategy?.replace('-', ' ')}</Term>
                   </span>
                 )}
                 <OutcomeBadge outcome={trade.outcome} />
@@ -180,13 +181,13 @@ function LiveTradeHistorySection() {
 
               {isExpanded && (
                 <div className="mt-3 pt-3 border-t border-nx-border/50 space-y-2 animate-fade-in">
-                  <p className="text-xs text-nx-text-muted leading-relaxed">{trade.thesis}</p>
+                  <p className="text-xs text-nx-text-muted leading-relaxed"><TermText>{trade.thesis}</TermText></p>
                   {trade.catalyst && <p className="text-2xs text-nx-purple">{trade.catalyst}</p>}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
                     {[
                       { label: 'Entry', value: fmtPrice(trade.entryPrice), cls: 'text-nx-accent' },
-                      { label: 'Target', value: fmtPrice(trade.target), cls: 'text-nx-green' },
-                      { label: 'Stop', value: fmtPrice(trade.stopLoss), cls: 'text-nx-red' },
+                      { label: <Term>Target</Term>, value: fmtPrice(trade.target), cls: 'text-nx-green' },
+                      { label: <Term>Stop Loss</Term>, value: fmtPrice(trade.stopLoss), cls: 'text-nx-red' },
                       { label: 'Last Price', value: fmtPrice(trade.lastCheckedPrice), cls: pnl >= 0 ? 'text-nx-green' : 'text-nx-red' },
                       { label: trade.outcome === 'TARGET_HIT' || trade.outcome === 'STOP_HIT' ? 'Exit Price' : 'Status', value: trade.outcomePrice ? fmtPrice(trade.outcomePrice) : (trade.outcome || 'Tracking'), cls: trade.outcome === 'TARGET_HIT' ? 'text-nx-green' : trade.outcome === 'STOP_HIT' ? 'text-nx-red' : 'text-nx-accent' },
                     ].map((item, i) => (
@@ -334,10 +335,10 @@ function DayDetail({ dateStr, trades, expandedId, onToggle }) {
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-nx-text-strong w-16">{trade.ticker}</span>
               <span className={`text-2xs px-2 py-0.5 rounded-md font-bold uppercase ${trade.direction === 'long' ? 'bg-nx-green-muted text-nx-green border border-nx-green/15' : 'bg-nx-red-muted text-nx-red border border-nx-red/15'}`}>
-                {trade.direction}
+                <Term>{trade.direction}</Term>
               </span>
               <span className={`text-2xs px-2 py-0.5 rounded-md font-semibold strat-${trade.strategy}`}>
-                {STRATEGIES[trade.strategy]?.icon} {trade.strategy?.replace('-', ' ')}
+                {STRATEGIES[trade.strategy]?.icon} <Term term={trade.strategy?.replace('-', ' ')}>{trade.strategy?.replace('-', ' ')}</Term>
               </span>
               <OutcomeBadge outcome={trade.outcome} />
               <span className="text-2xs text-nx-text-hint hidden md:inline">{trade.holdDays}d hold</span>
@@ -349,14 +350,14 @@ function DayDetail({ dateStr, trades, expandedId, onToggle }) {
             </div>
             {expandedId === trade.id && (
               <div className="mt-3 pt-3 border-t border-nx-border space-y-2 animate-fade-in">
-                <p className="text-sm text-nx-text leading-relaxed">{trade.thesis}</p>
+                <p className="text-sm text-nx-text leading-relaxed"><TermText>{trade.thesis}</TermText></p>
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                   {[
                     { label: 'Entry', value: trade.entry, cls: 'text-nx-accent' },
-                    { label: 'Target', value: trade.target, cls: 'text-nx-green' },
-                    { label: 'Stop', value: trade.stop, cls: 'text-nx-red' },
+                    { label: <Term>Target</Term>, value: trade.target, cls: 'text-nx-green' },
+                    { label: <Term>Stop Loss</Term>, value: trade.stop, cls: 'text-nx-red' },
                     { label: 'Exit Price', value: trade.exitPrice, cls: trade.returnPct > 0 ? 'text-nx-green' : 'text-nx-red' },
-                    { label: 'Risk:Reward', value: `1:${trade.rr}`, cls: trade.rr >= 2 ? 'text-nx-green' : 'text-nx-orange' },
+                    { label: <Term>R:R</Term>, value: `1:${trade.rr}`, cls: trade.rr >= 2 ? 'text-nx-green' : 'text-nx-orange' },
                     { label: 'Held', value: `${trade.entryDate} → ${trade.exitDate}`, cls: 'text-nx-text' },
                   ].map((item, i) => (
                     <div key={i} className="bg-nx-void/40 rounded-lg p-2">
