@@ -190,7 +190,7 @@ export default function NewsFeed({ quotes = {} }) {
         </div>
 
         {/* Content */}
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-nx-border scrollbar-track-transparent">
           {loading && <LoadingSpinner />}
 
           {error && (
