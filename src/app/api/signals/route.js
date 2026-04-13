@@ -69,11 +69,60 @@ function calcEMA(closes, period) {
 }
 
 function calcMACD(closes) {
-  const f = calcEMA(closes, 12), s = calcEMA(closes, 26)
-  if (f == null || s == null) return null
-  const macd = f - s
-  // approximate signal line from recent macd values
-  return { macd, histogram: macd * 0.7 } // simplified for edge
+  if (closes.length < 35) return null
+  const k12 = 2 / 13, k26 = 2 / 27, k9 = 2 / 10
+  let ema12 = 0, ema26 = 0
+  for (let i = 0; i < 12; i++) ema12 += closes[i]; ema12 /= 12
+  for (let i = 0; i < 26; i++) ema26 += closes[i]; ema26 /= 26
+  const macdSeries = []
+  for (let i = 26; i < closes.length; i++) {
+    ema12 = closes[i] * k12 + ema12 * (1 - k12)
+    ema26 = closes[i] * k26 + ema26 * (1 - k26)
+    macdSeries.push(ema12 - ema26)
+  }
+  if (macdSeries.length < 9) return null
+  let signal = 0
+  for (let i = 0; i < 9; i++) signal += macdSeries[i]; signal /= 9
+  for (let i = 9; i < macdSeries.length; i++) signal = macdSeries[i] * k9 + signal * (1 - k9)
+  const macd = macdSeries[macdSeries.length - 1]
+  return { macd, signal, histogram: macd - signal }
+}
+
+function calcBollingerBands(closes, period = 20, mult = 2) {
+  if (closes.length < period) return null
+  const slice = closes.slice(-period)
+  const sma = slice.reduce((a, b) => a + b, 0) / period
+  const variance = slice.reduce((a, b) => a + (b - sma) ** 2, 0) / period
+  const std = Math.sqrt(variance)
+  return { upper: sma + mult * std, middle: sma, lower: sma - mult * std, std, bandwidth: (mult * 2 * std) / sma }
+}
+
+function analyzeVolume(candles, lookback = 20) {
+  if (candles.length < lookback + 5) return { ratio: 1, trend: 'flat' }
+  const recent5 = candles.slice(-5)
+  const prior = candles.slice(-(lookback + 5), -5)
+  const avgRecent = recent5.reduce((a, c) => a + (c.volume || 0), 0) / 5
+  const avgPrior = prior.reduce((a, c) => a + (c.volume || 0), 0) / prior.length
+  const ratio = avgPrior > 0 ? avgRecent / avgPrior : 1
+  const trend = ratio > 1.3 ? 'rising' : ratio < 0.7 ? 'declining' : 'flat'
+  return { ratio: r(ratio, 2), trend, avgRecent: Math.round(avgRecent), avgPrior: Math.round(avgPrior) }
+}
+
+function calcATRPercentile(candles, period = 14) {
+  if (candles.length < period + 60) return 50
+  const atrValues = []
+  for (let end = period + 1; end <= candles.length; end++) {
+    const slice = candles.slice(end - period - 1, end)
+    let atr = 0
+    for (let i = 1; i < slice.length; i++) {
+      atr += Math.max(slice[i].high - slice[i].low, Math.abs(slice[i].high - slice[i-1].close), Math.abs(slice[i].low - slice[i-1].close))
+    }
+    atrValues.push(atr / period)
+  }
+  const currentATR = atrValues[atrValues.length - 1]
+  const sorted = [...atrValues].sort((a, b) => a - b)
+  const rank = sorted.findIndex(v => v >= currentATR)
+  return Math.round((rank / sorted.length) * 100)
 }
 
 function findSR(candles, lookback = 60) {
@@ -128,6 +177,9 @@ function generateSignal(candles, symbol, assetType, name) {
   const ma50 = calcSMA(closes, 50) || price
   const ma200 = calcSMA(closes, 200) || price
   const macd = calcMACD(closes)
+  const bb = calcBollingerBands(closes)
+  const vol = analyzeVolume(candles)
+  const atrPctile = calcATRPercentile(candles)
   const sr = findSR(candles)
   const { support, resistance } = sr
 
@@ -177,14 +229,41 @@ function generateSignal(candles, symbol, assetType, name) {
   else if (recentReturn < -0.03) { dirScore -= 0.5; factors.momentum5d = -0.5 }
   else { factors.momentum5d = 0 }
 
-  // ---- Strategy classification ----
+  // Factor 8: Bollinger Band position
+  if (bb) {
+    const bbPos = (price - bb.lower) / (bb.upper - bb.lower) // 0 = lower band, 1 = upper band
+    if (bbPos > 0.9) { dirScore -= 0.75; factors.bollinger = -0.75 } // near upper band
+    else if (bbPos < 0.1) { dirScore += 0.75; factors.bollinger = 0.75 } // near lower band
+    else { factors.bollinger = 0 }
+  } else { factors.bollinger = 0 }
+
+  // Factor 9: Volume confirmation
+  if (vol.trend === 'rising' && recentReturn > 0) { dirScore += 0.5; factors.volume = 0.5 }
+  else if (vol.trend === 'rising' && recentReturn < 0) { dirScore -= 0.5; factors.volume = -0.5 }
+  else if (vol.trend === 'declining') {
+    // Declining volume = weakening trend, slight contrarian lean
+    if (recentReturn > 0.02) { dirScore -= 0.25; factors.volume = -0.25 }
+    else if (recentReturn < -0.02) { dirScore += 0.25; factors.volume = 0.25 }
+    else { factors.volume = 0 }
+  } else { factors.volume = 0 }
+
+  // Factor 10: Volatility regime
+  if (atrPctile > 80) {
+    // High volatility: reduce conviction, widen everything
+    dirScore *= 0.8 // dampen signals in high-vol environments
+    factors.volRegime = 0 // neutral — just reduces confidence
+  } else { factors.volRegime = 0 }
+
+  // ---- Strategy classification with guard rails ----
   let strategy = 'breakout'
-  if (rsi < 30 || rsi > 70) {
-    strategy = 'mean-reversion'
+  if (rsi < 25 || (rsi < 30 && bb && price < bb.lower && vol.trend !== 'rising')) {
+    strategy = 'mean-reversion' // Only trigger MR on EXTREME oversold with BB confirmation
+  } else if (rsi > 75 || (rsi > 70 && bb && price > bb.upper && vol.trend === 'declining')) {
+    strategy = 'mean-reversion' // Only trigger MR on EXTREME overbought with BB + exhaustion
   } else if ((ma20 > ma50 && ma50 > ma200) || (ma20 < ma50 && ma50 < ma200)) {
     strategy = 'momentum'
   } else if (atr / price < 0.015) {
-    strategy = 'carry' // low-vol environment
+    strategy = 'carry'
   } else {
     strategy = 'breakout'
   }
@@ -192,7 +271,10 @@ function generateSignal(candles, symbol, assetType, name) {
   // ---- Direction from composite score ----
   let direction
   if (strategy === 'mean-reversion') {
-    direction = rsi < 50 ? 'long' : 'short'
+    // Tighter guard rails: don't just fade any overbought/oversold
+    if (rsi < 30 && bb && price <= bb.lower) direction = 'long'
+    else if (rsi > 70 && bb && price >= bb.upper) direction = 'short'
+    else direction = dirScore >= 0 ? 'long' : 'short' // fall back to composite if MR conditions aren't extreme
   } else {
     direction = dirScore >= 0 ? 'long' : 'short'
   }
@@ -229,6 +311,17 @@ function generateSignal(candles, symbol, assetType, name) {
   if (conflicting >= 3) confidence -= 8
   else if (conflicting >= 2) confidence -= 4
 
+  // Penalty: high-volatility environment reduces confidence
+  if (atrPctile > 80) confidence -= 10
+  else if (atrPctile > 60) confidence -= 5
+
+  // Penalty: no volume confirmation
+  if (vol.trend === 'declining') confidence -= 5
+  else if (vol.ratio > 1.5) confidence += 3 // strong volume confirms
+
+  // Penalty: Bollinger Band squeeze (low bandwidth = imminent breakout, unpredictable)
+  if (bb && bb.bandwidth < 0.03) confidence -= 8
+
   // Risk/reward adjustment — better R:R = higher confidence
   // (calculated after entry/target/stop are set, adjusted below)
 
@@ -253,12 +346,13 @@ function generateSignal(candles, symbol, assetType, name) {
     target = support.length >= 1 ? r(support[0] - atr * 1.5) : r(price - atr * 3)
   }
 
-  // Stop loss
+  // Stop loss — volatility-adjusted
+  const volMultiplier = atrPctile > 80 ? 1.5 : atrPctile > 60 ? 1.2 : 1.0
   let stopLoss
   if (direction === 'long') {
-    stopLoss = support.length > 0 ? r(support[0] - atr * 0.5) : r(price - atr * 2)
+    stopLoss = support.length > 0 ? r(support[0] - atr * 0.5 * volMultiplier) : r(price - atr * 2 * volMultiplier)
   } else {
-    stopLoss = resistance.length > 0 ? r(resistance[0] + atr * 0.5) : r(price + atr * 2)
+    stopLoss = resistance.length > 0 ? r(resistance[0] + atr * 0.5 * volMultiplier) : r(price + atr * 2 * volMultiplier)
   }
 
   // Sanity: ensure stop is on the right side
@@ -330,11 +424,11 @@ function generateSignal(candles, symbol, assetType, name) {
   const devFromMA = (Math.abs(price - ma50) / (atr || 1)).toFixed(1)
   let thesis
   if (strategy === 'mean-reversion') {
-    thesis = `${name} (${symbol}) shows RSI at ${r(rsi, 1)} in ${rsi < 30 ? 'deeply oversold' : 'overbought'} territory. Price is ${devFromMA}x ATR from the 50-day MA ($${fmt(ma50)}). Similar extremes historically resolve with ${rsi < 30 ? '8-12% bounces' : '6-10% pullbacks'} within 1-2 weeks.`
+    thesis = `${name} (${symbol}) shows RSI at ${r(rsi, 1)} in ${rsi < 30 ? 'deeply oversold' : 'overbought'} territory. Price is ${devFromMA}x ATR from the 50-day MA ($${fmt(ma50)}). Similar extremes historically resolve with ${rsi < 30 ? '8-12% bounces' : '6-10% pullbacks'} within 1-2 weeks. Volume ${vol.trend}${vol.ratio > 1.3 ? ' ('+vol.ratio+'x avg)' : ''}.`
   } else if (strategy === 'momentum') {
-    thesis = `${name} (${symbol}) is in confirmed ${direction === 'long' ? 'uptrend' : 'downtrend'} with price ${price > ma50 ? 'above' : 'below'} major MAs. MA50 ($${fmt(ma50)}) is ${ma50 > ma200 ? 'above' : 'below'} MA200 ($${fmt(ma200)}), confirming ${direction === 'long' ? 'bullish' : 'bearish'} regime.`
+    thesis = `${name} (${symbol}) is in confirmed ${direction === 'long' ? 'uptrend' : 'downtrend'} with price ${price > ma50 ? 'above' : 'below'} major MAs. MA50 ($${fmt(ma50)}) is ${ma50 > ma200 ? 'above' : 'below'} MA200 ($${fmt(ma200)}), confirming ${direction === 'long' ? 'bullish' : 'bearish'} regime. Volume ${vol.trend}${vol.ratio > 1.3 ? ' ('+vol.ratio+'x avg)' : ''}.`
   } else {
-    thesis = `${name} (${symbol}) presents a ${direction === 'long' ? 'bullish' : 'bearish'} breakout setup. Price at $${fmt(price)} near key ${direction === 'long' ? 'resistance' : 'support'}. ATR of $${fmt(atr)} implies target at $${fmt(target)}.`
+    thesis = `${name} (${symbol}) presents a ${direction === 'long' ? 'bullish' : 'bearish'} breakout setup. Price at $${fmt(price)} near key ${direction === 'long' ? 'resistance' : 'support'}. ATR of $${fmt(atr)} implies target at $${fmt(target)}.${bb ? ' ' + (price > bb.upper ? 'At upper BB.' : price < bb.lower ? 'At lower BB.' : 'Within BB bands.') : ''}`
   }
 
   // Catalyst — describe what's driving the confidence score
@@ -345,6 +439,7 @@ function generateSignal(candles, symbol, assetType, name) {
   if (factors.macd * dirSign > 0) agreeParts.push(`MACD ${direction === 'long' ? 'positive' : 'negative'}`)
   if (factors.rsi * dirSign > 0) agreeParts.push(`RSI ${rsi < 40 ? 'oversold' : rsi > 60 ? 'overbought' : 'neutral'} at ${r(rsi, 1)}`)
   if (factors.momentum5d * dirSign > 0) agreeParts.push('5-day momentum')
+  if (factors.volume * dirSign > 0) agreeParts.push('volume confirming')
 
   let catalyst = `${confLevel[0].toUpperCase() + confLevel.slice(1)}-confidence (${confidence}%) — `
   if (agreeParts.length > 0) catalyst += `supported by ${agreeParts.join(', ')}. `
@@ -405,6 +500,10 @@ function generateSignal(candles, symbol, assetType, name) {
     entryBy, expiresAt, entryWindow,
     holdReason, thesis, catalyst,
     confidence,
+    bollingerBands: bb ? { upper: r(bb.upper), lower: r(bb.lower), bandwidth: r(bb.bandwidth, 4) } : null,
+    volumeProfile: vol,
+    atrPercentile: atrPctile,
+    volMultiplier,
     dataPacket: {
       historicalContext, bondCorrelation, globalMacro, newsDrivers,
       technicalLevels,
@@ -416,7 +515,7 @@ function generateSignal(candles, symbol, assetType, name) {
 
 // Default watchlist
 const WATCHLIST = {
-  long: [
+  equities: [
     { symbol: 'MSFT', name: 'Microsoft Corp', asset: 'equity' },
     { symbol: 'AAPL', name: 'Apple Inc', asset: 'equity' },
     { symbol: 'NVDA', name: 'NVIDIA Corp', asset: 'equity' },
@@ -429,8 +528,6 @@ const WATCHLIST = {
     { symbol: 'LMT', name: 'Lockheed Martin', asset: 'equity' },
     { symbol: 'GC=F', name: 'Gold Futures', asset: 'commodity' },
     { symbol: 'CL=F', name: 'WTI Crude Oil Futures', asset: 'commodity' },
-  ],
-  short: [
     { symbol: 'XLF', name: 'Financial Select SPDR', asset: 'equity' },
     { symbol: 'IWM', name: 'Russell 2000 ETF', asset: 'equity' },
     { symbol: 'HYG', name: 'High Yield Corp Bond', asset: 'equity' },
@@ -458,8 +555,8 @@ const WATCHLIST = {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
-  const category = searchParams.get('category') || 'all' // long, short, forex, all
-  const singleSymbol = searchParams.get('symbol') // optional: generate for one symbol
+  const category = searchParams.get('category') || 'all'
+  const singleSymbol = searchParams.get('symbol')
 
   try {
     if (singleSymbol) {
@@ -470,24 +567,16 @@ export async function GET(request) {
       return NextResponse.json({ signals: signal ? [signal] : [], errors: [] })
     }
 
-    // Generate signals for watchlist
-    const categories = category === 'all' ? ['long', 'short', 'forex'] : [category]
     const signals = { long: [], short: [], forex: [] }
     const errors = []
 
-    // Merge all non-forex watchlists for signal generation
-    const allEquities = [...(WATCHLIST.long || []), ...(WATCHLIST.short || [])]
-    // Deduplicate by symbol
-    const seen = new Set()
-    const uniqueEquities = allEquities.filter(item => {
-      if (seen.has(item.symbol)) return false
-      seen.add(item.symbol)
-      return true
-    })
-
     const lists = []
-    if (categories.includes('long') || categories.includes('short')) lists.push({ items: uniqueEquities, isForex: false })
-    if (categories.includes('forex')) lists.push({ items: WATCHLIST.forex || [], isForex: true })
+    if (category === 'all' || category === 'long' || category === 'short') {
+      lists.push({ items: WATCHLIST.equities, isForex: false })
+    }
+    if (category === 'all' || category === 'forex') {
+      lists.push({ items: WATCHLIST.forex, isForex: true })
+    }
 
     for (const { items, isForex } of lists) {
       for (let batch = 0; batch < items.length; batch += 4) {
@@ -504,9 +593,7 @@ export async function GET(request) {
             if (isForex) {
               signals.forex.push(sig)
             } else {
-              // Categorize by actual computed direction
-              if (sig.direction === 'long') signals.long.push(sig)
-              else signals.short.push(sig)
+              signals[sig.direction === 'long' ? 'long' : 'short'].push(sig)
             }
           } else {
             errors.push({ symbol: batchItems[j].symbol, error: results[j].reason?.message || 'Failed' })
