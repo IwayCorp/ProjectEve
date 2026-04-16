@@ -91,6 +91,8 @@ function TradeCard({ trade, quote, direction, onOpen }) {
             {inZone && !isExpired && <span className="badge-blue animate-pulse-gentle text-2xs">IN ZONE</span>}
             {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse-gentle text-2xs">TARGET</span>}
             {alert === 'STOP_HIT' && <span className="badge-red animate-pulse-gentle text-2xs">STOP</span>}
+            {trade.regimeAnalysis && <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-400 border border-purple-500/15" title={`HMM: ${trade.regimeAnalysis.currentRegime}`}>AI</span>}
+            {trade.ensemble?.conflictDetected && <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-nx-red-muted text-nx-red border border-nx-red/15" title="Strategy conflict detected">⚠</span>}
           </div>
           <span className="text-xs text-nx-text-muted mt-0.5 block">{trade.name}</span>
         </div>

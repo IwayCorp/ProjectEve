@@ -88,6 +88,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
     { id: 'overview', label: 'Overview' },
     { id: 'prediction', label: 'Prediction' },
     { id: 'chart', label: 'Chart' },
+    { id: 'ai-intel', label: 'AI Intelligence' },
     { id: 'bonds', label: 'Bond Correlation' },
     { id: 'macro', label: 'Global Macro' },
     { id: 'news', label: 'News & Catalysts' },
@@ -473,6 +474,217 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                     </ResponsiveContainer>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* AI INTELLIGENCE LAYERS */}
+            <div ref={setSectionRef('ai-intel')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">AI Intelligence Layers</span>
+              </div>
+              <div className="space-y-4">
+
+                {/* HMM Regime Detection */}
+                {idea.regimeAnalysis && (
+                  <div className="glass-solid p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full" style={{ background: idea.regimeAnalysis.currentRegime === 'trending-bull' ? 'rgb(var(--nx-green))' : idea.regimeAnalysis.currentRegime === 'trending-bear' ? 'rgb(var(--nx-red))' : 'rgb(var(--nx-accent))' }} />
+                      <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider">HMM Regime Detection</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Current Regime</div>
+                        <div className="text-sm font-semibold text-nx-accent capitalize">{idea.regimeAnalysis.currentRegime?.replace(/-/g, ' ')}</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Confidence</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{(idea.regimeAnalysis.confidence * 100).toFixed(0)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Transition Risk</div>
+                        <div className={`text-sm font-semibold ${idea.regimeAnalysis.transitionRisk > 0.5 ? 'text-nx-red' : 'text-nx-green'}`}>{(idea.regimeAnalysis.transitionRisk * 100).toFixed(0)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Rec. Strategy</div>
+                        <div className="text-sm font-semibold text-nx-text-strong capitalize">{idea.regimeAnalysis.recommendedStrategy?.replace(/-/g, ' ')}</div>
+                      </div>
+                    </div>
+                    {idea.regimeAnalysis.regimeProbabilities && (
+                      <div className="flex gap-1 h-3 rounded-full overflow-hidden mt-2">
+                        {Object.entries(idea.regimeAnalysis.regimeProbabilities).map(([regime, prob]) => (
+                          <div key={regime} className="h-full transition-all" title={`${regime}: ${(prob * 100).toFixed(1)}%`} style={{
+                            width: `${prob * 100}%`,
+                            background: regime === 'trending-bull' ? 'rgb(var(--nx-green))' : regime === 'trending-bear' ? 'rgb(var(--nx-red))' : regime === 'mean-reverting' ? 'rgb(var(--nx-accent))' : 'rgb(var(--nx-text-muted))',
+                            opacity: 0.7,
+                          }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Ensemble Strategy Engine */}
+                {idea.ensemble && (
+                  <div className="glass-solid p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider">Ensemble Strategy Engine</h4>
+                      {idea.ensemble.conflictDetected && (
+                        <span className="text-2xs px-2 py-0.5 rounded-md bg-nx-red-muted text-nx-red font-semibold">CONFLICT</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Ensemble Direction</div>
+                        <div className={`text-sm font-semibold ${idea.ensemble.direction === 'long' ? 'text-nx-green' : 'text-nx-red'} uppercase`}>{idea.ensemble.direction}</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Consensus</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{(idea.ensemble.confidence * 100).toFixed(0)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Dominant Strategy</div>
+                        <div className="text-sm font-semibold text-nx-accent capitalize">{idea.ensemble.dominantStrategy?.replace(/-/g, ' ')}</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Score</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{idea.ensemble.ensembleScore}</div>
+                      </div>
+                    </div>
+                    {idea.ensemble.weights && (
+                      <div className="flex gap-2 flex-wrap mt-1">
+                        {Object.entries(idea.ensemble.weights).filter(([, w]) => w > 0).map(([strat, weight]) => (
+                          <span key={strat} className="text-2xs px-2 py-1 rounded-md bg-nx-accent-muted/30 text-nx-text-muted font-medium">
+                            {strat}: {(weight * 100).toFixed(0)}%
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Alpha Factors */}
+                {idea.alphaFactors && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Alpha Factor Library</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Composite</div>
+                        <div className={`text-lg font-bold font-mono ${idea.alphaFactors.composite > 0 ? 'text-nx-green' : idea.alphaFactors.composite < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.alphaFactors.composite > 0 ? '+' : ''}{idea.alphaFactors.composite?.toFixed(1)}</div>
+                      </div>
+                      {['momentum', 'meanReversion', 'volatility', 'volume', 'trend'].map(cat => (
+                        idea.alphaFactors[cat]?.score != null && (
+                          <div key={cat}>
+                            <div className="text-2xs text-nx-text-muted uppercase">{cat.replace(/([A-Z])/g, ' $1')}</div>
+                            <div className={`text-sm font-semibold font-mono ${idea.alphaFactors[cat].score > 0 ? 'text-nx-green' : idea.alphaFactors[cat].score < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.alphaFactors[cat].score > 0 ? '+' : ''}{idea.alphaFactors[cat].score?.toFixed(1)}</div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Position Sizing */}
+                {idea.positionSizing && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Dynamic Position Sizing</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {idea.positionSizing.kelly != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Kelly Criterion</div>
+                          <div className="text-sm font-semibold text-nx-accent font-mono">{(idea.positionSizing.kelly * 100).toFixed(1)}%</div>
+                        </div>
+                      )}
+                      {idea.positionSizing.atrBased != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">ATR-Based</div>
+                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{(idea.positionSizing.atrBased * 100).toFixed(1)}%</div>
+                        </div>
+                      )}
+                      {idea.positionSizing.recommended != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Recommended</div>
+                          <div className="text-lg font-bold text-nx-accent font-mono">{(idea.positionSizing.recommended * 100).toFixed(1)}%</div>
+                        </div>
+                      )}
+                      {idea.positionSizing.regimeScalar != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Regime Scalar</div>
+                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{idea.positionSizing.regimeScalar?.toFixed(2)}x</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sentiment Analysis */}
+                {idea.sentiment && idea.sentiment.composite != null && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Sentiment Engine</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Composite</div>
+                        <div className={`text-lg font-bold font-mono ${idea.sentiment.composite > 0 ? 'text-nx-green' : idea.sentiment.composite < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.sentiment.composite > 0 ? '+' : ''}{idea.sentiment.composite?.toFixed(0)}</div>
+                      </div>
+                      {idea.sentiment.breakdown && Object.entries(idea.sentiment.breakdown).map(([key, val]) => (
+                        val != null && (
+                          <div key={key}>
+                            <div className="text-2xs text-nx-text-muted uppercase">{key.replace(/([A-Z])/g, ' $1')}</div>
+                            <div className={`text-sm font-semibold font-mono ${val > 0 ? 'text-nx-green' : val < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{val > 0 ? '+' : ''}{val.toFixed(0)}</div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cross-Asset Correlations */}
+                {idea.correlations && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Cross-Asset Correlations</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      {idea.beta != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Beta (SPY)</div>
+                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{idea.beta}</div>
+                        </div>
+                      )}
+                      {idea.diversificationScore != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Diversification</div>
+                          <div className={`text-sm font-semibold font-mono ${idea.diversificationScore > 60 ? 'text-nx-green' : idea.diversificationScore < 30 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.diversificationScore}</div>
+                        </div>
+                      )}
+                      {idea.correlations.riskOn != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Risk Regime</div>
+                          <div className={`text-sm font-semibold ${idea.correlations.riskOn ? 'text-nx-green' : 'text-nx-red'}`}>{idea.correlations.riskOn ? 'Risk-On' : 'Risk-Off'}</div>
+                        </div>
+                      )}
+                      {idea.correlations.bondCorrelation != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Bond Corr</div>
+                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{typeof idea.correlations.bondCorrelation === 'number' ? idea.correlations.bondCorrelation.toFixed(2) : idea.correlations.bondCorrelation}</div>
+                        </div>
+                      )}
+                    </div>
+                    {idea.correlations.correlations && (
+                      <div className="flex gap-2 flex-wrap mt-1">
+                        {Object.entries(idea.correlations.correlations).filter(([, v]) => v != null).map(([asset, corr]) => (
+                          <span key={asset} className={`text-2xs px-2 py-1 rounded-md font-medium font-mono ${corr > 0.5 ? 'bg-nx-green/10 text-nx-green' : corr < -0.3 ? 'bg-nx-red/10 text-nx-red' : 'bg-nx-accent-muted/30 text-nx-text-muted'}`}>
+                            {asset}: {typeof corr === 'number' ? corr.toFixed(2) : corr}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* No data fallback */}
+                {!idea.regimeAnalysis && !idea.ensemble && !idea.alphaFactors && !idea.sentiment && !idea.correlations && !idea.positionSizing && (
+                  <div className="glass-solid p-5 text-center">
+                    <p className="text-sm text-nx-text-muted">AI intelligence layers available on single-symbol deep analysis</p>
+                  </div>
+                )}
               </div>
             </div>
 
