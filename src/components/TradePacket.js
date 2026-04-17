@@ -498,11 +498,11 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                       </div>
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Confidence</div>
-                        <div className="text-sm font-semibold text-nx-text-strong">{(idea.regimeAnalysis.confidence * 100).toFixed(0)}%</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{Math.round(idea.regimeAnalysis.confidence)}%</div>
                       </div>
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Transition Risk</div>
-                        <div className={`text-sm font-semibold ${idea.regimeAnalysis.transitionRisk > 0.5 ? 'text-nx-red' : 'text-nx-green'}`}>{(idea.regimeAnalysis.transitionRisk * 100).toFixed(0)}%</div>
+                        <div className={`text-sm font-semibold ${idea.regimeAnalysis.transitionRisk > 50 ? 'text-nx-red' : 'text-nx-green'}`}>{Math.round(idea.regimeAnalysis.transitionRisk)}%</div>
                       </div>
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Rec. Strategy</div>
@@ -512,8 +512,8 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                     {idea.regimeAnalysis.regimeProbabilities && (
                       <div className="flex gap-1 h-3 rounded-full overflow-hidden mt-2">
                         {Object.entries(idea.regimeAnalysis.regimeProbabilities).map(([regime, prob]) => (
-                          <div key={regime} className="h-full transition-all" title={`${regime}: ${(prob * 100).toFixed(1)}%`} style={{
-                            width: `${prob * 100}%`,
+                          <div key={regime} className="h-full transition-all" title={`${regime}: ${Math.round(prob)}%`} style={{
+                            width: `${prob}%`,
                             background: regime === 'trending-bull' ? 'rgb(var(--nx-green))' : regime === 'trending-bear' ? 'rgb(var(--nx-red))' : regime === 'mean-reverting' ? 'rgb(var(--nx-accent))' : 'rgb(var(--nx-text-muted))',
                             opacity: 0.7,
                           }} />
@@ -539,7 +539,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                       </div>
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Consensus</div>
-                        <div className="text-sm font-semibold text-nx-text-strong">{(idea.ensemble.confidence * 100).toFixed(0)}%</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{Math.round(idea.ensemble.confidence)}%</div>
                       </div>
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Dominant Strategy</div>
@@ -569,16 +569,17 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                       <div>
                         <div className="text-2xs text-nx-text-muted uppercase">Composite</div>
-                        <div className={`text-lg font-bold font-mono ${idea.alphaFactors.composite > 0 ? 'text-nx-green' : idea.alphaFactors.composite < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.alphaFactors.composite > 0 ? '+' : ''}{idea.alphaFactors.composite?.toFixed(1)}</div>
+                        <div className={`text-lg font-bold font-mono ${(idea.alphaFactors.composite?.alpha_composite ?? 0) > 0 ? 'text-nx-green' : (idea.alphaFactors.composite?.alpha_composite ?? 0) < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{(idea.alphaFactors.composite?.alpha_composite ?? 0) > 0 ? '+' : ''}{(idea.alphaFactors.composite?.alpha_composite ?? 0).toFixed(1)}</div>
                       </div>
-                      {['momentum', 'meanReversion', 'volatility', 'volume', 'trend'].map(cat => (
-                        idea.alphaFactors[cat]?.score != null && (
-                          <div key={cat}>
-                            <div className="text-2xs text-nx-text-muted uppercase">{cat.replace(/([A-Z])/g, ' $1')}</div>
-                            <div className={`text-sm font-semibold font-mono ${idea.alphaFactors[cat].score > 0 ? 'text-nx-green' : idea.alphaFactors[cat].score < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{idea.alphaFactors[cat].score > 0 ? '+' : ''}{idea.alphaFactors[cat].score?.toFixed(1)}</div>
+                      {[['momentum', 'alpha_momentum'], ['meanReversion', 'alpha_meanReversion'], ['volatility', 'alpha_volatility'], ['volume', 'alpha_volume'], ['trend', 'alpha_trend']].map(([label, key]) => {
+                        const val = idea.alphaFactors.composite?.[key];
+                        return val != null ? (
+                          <div key={label}>
+                            <div className="text-2xs text-nx-text-muted uppercase">{label.replace(/([A-Z])/g, ' $1')}</div>
+                            <div className={`text-sm font-semibold font-mono ${val > 0 ? 'text-nx-green' : val < 0 ? 'text-nx-red' : 'text-nx-text-muted'}`}>{val > 0 ? '+' : ''}{val.toFixed(1)}</div>
                           </div>
-                        )
-                      ))}
+                        ) : null;
+                      })}
                     </div>
                   </div>
                 )}
@@ -588,28 +589,28 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                   <div className="glass-solid p-5">
                     <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Dynamic Position Sizing</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {idea.positionSizing.kelly != null && (
+                      {idea.positionSizing.kellyFraction != null && (
                         <div>
                           <div className="text-2xs text-nx-text-muted uppercase">Kelly Criterion</div>
-                          <div className="text-sm font-semibold text-nx-accent font-mono">{(idea.positionSizing.kelly * 100).toFixed(1)}%</div>
+                          <div className="text-sm font-semibold text-nx-accent font-mono">{(idea.positionSizing.kellyFraction * 100).toFixed(1)}%</div>
                         </div>
                       )}
-                      {idea.positionSizing.atrBased != null && (
+                      {idea.positionSizing.positionPctOfPortfolio != null && (
                         <div>
-                          <div className="text-2xs text-nx-text-muted uppercase">ATR-Based</div>
-                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{(idea.positionSizing.atrBased * 100).toFixed(1)}%</div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Portfolio %</div>
+                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{idea.positionSizing.positionPctOfPortfolio}%</div>
                         </div>
                       )}
-                      {idea.positionSizing.recommended != null && (
+                      {idea.positionSizing.recommendedSize != null && (
                         <div>
                           <div className="text-2xs text-nx-text-muted uppercase">Recommended</div>
-                          <div className="text-lg font-bold text-nx-accent font-mono">{(idea.positionSizing.recommended * 100).toFixed(1)}%</div>
+                          <div className="text-lg font-bold text-nx-accent font-mono">{idea.positionSizing.recommendedSize} shr</div>
                         </div>
                       )}
-                      {idea.positionSizing.regimeScalar != null && (
+                      {idea.positionSizing.sizing != null && (
                         <div>
-                          <div className="text-2xs text-nx-text-muted uppercase">Regime Scalar</div>
-                          <div className="text-sm font-semibold text-nx-text-strong font-mono">{idea.positionSizing.regimeScalar?.toFixed(2)}x</div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Sizing Class</div>
+                          <div className={`text-sm font-semibold font-mono capitalize ${idea.positionSizing.sizing === 'aggressive' ? 'text-nx-red' : idea.positionSizing.sizing === 'conservative' ? 'text-nx-green' : 'text-nx-text-strong'}`}>{idea.positionSizing.sizing}</div>
                         </div>
                       )}
                     </div>
