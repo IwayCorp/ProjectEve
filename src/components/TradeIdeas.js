@@ -1,18 +1,21 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { calcRR, isInEntryZone, checkAlerts, getTradeUrgency, formatCountdown } from '@/lib/tradeIdeas'
 import { formatPrice } from '@/lib/marketData'
 import { catalogSignal, updateTradeOutcomes, loadTradeHistory, calcHistoryStats } from '@/lib/tradeHistory'
+import { initAdaptiveEngine, scoreSignalQuality, getPerformanceReport, getStrategyRecommendation } from '@/lib/adaptiveEngine'
 import { Term, TermText } from './Tooltip'
 import TradePacket from './TradePacket'
 
+// ── Constants ──
+
 const STRATEGIES = {
-  'momentum': { icon: '⚡', name: 'Momentum' },
-  'mean-reversion': { icon: '↩', name: 'Mean Reversion' },
-  'breakout': { icon: '🔺', name: 'Breakout' },
-  'carry': { icon: '💰', name: 'Carry' },
-  'macro': { icon: '🌍', name: 'Macro' },
-  'relative-value': { icon: '⚖', name: 'Relative Value' },
+  'momentum': { icon: '\u26A1', name: 'Momentum' },
+  'mean-reversion': { icon: '\u21A9', name: 'Mean Reversion' },
+  'breakout': { icon: '\uD83D\uDD3A', name: 'Breakout' },
+  'carry': { icon: '\uD83D\uDCB0', name: 'Carry' },
+  'macro': { icon: '\uD83C\uDF0D', name: 'Macro' },
+  'relative-value': { icon: '\u2696', name: 'Relative Value' },
 }
 
 const URGENCY_CONFIG = {
@@ -27,10 +30,166 @@ const TICKER_MAP = {
   'AUDUSD': 'AUDUSD=X', 'USDMXN': 'MXN=X', 'EURGBP': 'EURGBP=X', 'NZDUSD': 'NZDUSD=X',
 }
 
-// Auto-refresh interval: regenerate signals every 20 minutes
 const SIGNAL_REFRESH_INTERVAL = 20 * 60 * 1000
 
-function TradeCard({ trade, quote, direction, onOpen }) {
+const TIMELINE_TABS = [
+  { id: 'scalp', label: 'Scalp/Day', icon: '\u23F1', desc: '4-24h signals' },
+  { id: 'swing', label: 'Swing', icon: '\uD83C\uDF0A', desc: '1-5 day lifecycle' },
+  { id: 'position', label: 'Position', icon: '\uD83D\uDCCA', desc: '1-4 week holds' },
+  { id: 'macro', label: 'Macro', icon: '\uD83C\uDF10', desc: 'Regime shifts' },
+]
+
+const DIRECTION_TABS = ['long', 'short', 'forex']
+
+const GRADE_CONFIG = {
+  A: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.25)', label: 'A' },
+  B: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.25)', label: 'B' },
+  C: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.25)', label: 'C' },
+  D: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.25)', label: 'D' },
+}
+
+const TIMELINE_BADGE_CONFIG = {
+  scalp: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.20)', icon: '\u23F1' },
+  swing: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.20)', icon: '\uD83C\uDF0A' },
+  position: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.10)', border: 'rgba(139, 92, 246, 0.20)', icon: '\uD83D\uDCCA' },
+  macro: { color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.10)', border: 'rgba(6, 182, 212, 0.20)', icon: '\uD83C\uDF10' },
+}
+
+// ── Timeframe Classification ──
+
+function classifyTimeframe(signal) {
+  if (!signal) return 'swing'
+
+  const strategy = (signal.strategy || '').toLowerCase()
+  const timeframe = (signal.timeframe || '').toLowerCase()
+  const atrPct = signal.atrPercentile ?? 50
+
+  // Macro signals: macro strategy, regime-based signals, correlation anomalies
+  if (strategy === 'macro' || strategy === 'relative-value') return 'macro'
+  if (signal.regimeAnalysis?.regimeShift) return 'macro'
+  if (signal.correlationAnomaly) return 'macro'
+
+  // Scalp/Day: tight timeframes with high ATR percentile
+  if (timeframe.includes('hour') || timeframe.includes('4h') || timeframe.includes('8h')) return 'scalp'
+  if (timeframe === '1 day' || timeframe === 'intraday') return 'scalp'
+  if (timeframe.includes('1-3 day') && atrPct > 60 && signal.entryBy) {
+    const entryByMs = new Date(signal.entryBy).getTime() - Date.now()
+    if (entryByMs > 0 && entryByMs < 24 * 60 * 60 * 1000) return 'scalp'
+  }
+
+  // Position: 1-2 week timeframes
+  if (timeframe.includes('week') || timeframe.includes('1-2 week') || timeframe.includes('2 week')) return 'position'
+  if (timeframe.includes('2-4 week') || timeframe.includes('1 month')) return 'position'
+
+  // Swing: default bucket - 1-5 day trades (Matt's primary focus)
+  return 'swing'
+}
+
+// ── Adaptive Signal Enrichment ──
+
+function enrichSignalWithAdaptive(signal) {
+  const quality = scoreSignalQuality(signal)
+  return {
+    ...signal,
+    _timeline: classifyTimeframe(signal),
+    _quality: quality,
+    _adaptiveConfidence: quality.pass
+      ? Math.round(Math.min(99, (signal.confidence || 50) * (1 + quality.expectedValue * 2)))
+      : Math.round(Math.max(20, (signal.confidence || 50) * 0.7)),
+    _expectedValue: quality.expectedValue,
+    _strategyRecord: {
+      winRate: quality.winRate,
+      avgWin: quality.avgWin,
+      avgLoss: quality.avgLoss,
+    },
+  }
+}
+
+// ── Sorting Logic ──
+
+const GRADE_ORDER = { A: 0, B: 1, C: 2, D: 3 }
+
+function sortSignals(signals) {
+  return [...signals].sort((a, b) => {
+    // 1. Quality grade (A first)
+    const gradeA = GRADE_ORDER[a._quality?.grade] ?? 2
+    const gradeB = GRADE_ORDER[b._quality?.grade] ?? 2
+    if (gradeA !== gradeB) return gradeA - gradeB
+
+    // 2. Adaptive confidence (highest first)
+    const confA = a._adaptiveConfidence ?? 50
+    const confB = b._adaptiveConfidence ?? 50
+    if (confA !== confB) return confB - confA
+
+    // 3. Expected value (highest first)
+    const evA = a._expectedValue ?? 0
+    const evB = b._expectedValue ?? 0
+    return evB - evA
+  })
+}
+
+// ── Sparkline Component ──
+
+function MiniSparkline({ values, width = 48, height = 16 }) {
+  if (!values || values.length < 2) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width
+    const y = height - ((v - min) / range) * height
+    return `${x},${y}`
+  }).join(' ')
+  const trend = values[values.length - 1] > values[0]
+  const color = trend ? '#34d399' : '#f87171'
+  return (
+    <svg width={width} height={height} className="inline-block ml-1">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// ── Quality Grade Badge ──
+
+function QualityBadge({ quality, isLearning }) {
+  if (!quality) return null
+  const grade = quality.grade || 'C'
+  const config = GRADE_CONFIG[grade]
+  const evPer1000 = (quality.expectedValue * 1000).toFixed(1)
+  const winPct = (quality.winRate * 100).toFixed(0)
+  const tooltipText = isLearning
+    ? 'Learning mode -- collecting data for grading'
+    : `EV: +$${evPer1000} per $1000 risked | Win rate: ${winPct}%`
+
+  return (
+    <span
+      className="text-2xs px-1.5 py-0.5 rounded-md font-bold"
+      style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}
+      title={tooltipText}
+    >
+      {isLearning ? `${config.label}*` : config.label}
+    </span>
+  )
+}
+
+// ── Timeline Badge ──
+
+function TimelineBadge({ timeline }) {
+  const config = TIMELINE_BADGE_CONFIG[timeline] || TIMELINE_BADGE_CONFIG.swing
+  const label = TIMELINE_TABS.find(t => t.id === timeline)?.label || 'Swing'
+  return (
+    <span
+      className="text-2xs px-1.5 py-0.5 rounded-md font-semibold"
+      style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}
+    >
+      {config.icon} {label}
+    </span>
+  )
+}
+
+// ── Trade Card ──
+
+function TradeCard({ trade, quote, direction, onOpen, isLearning }) {
   const price = quote?.regularMarketPrice
   const inZone = price ? isInEntryZone(price, trade.entryLow, trade.entryHigh) : false
   const midEntry = (trade.entryLow + trade.entryHigh) / 2
@@ -45,11 +204,25 @@ function TradeCard({ trade, quote, direction, onOpen }) {
   const expiresCountdown = formatCountdown(trade.expiresAt)
   const isExpired = urgency === 'expired'
 
+  const quality = trade._quality
+  const grade = quality?.grade || 'C'
+  const isDGrade = grade === 'D'
+  const adaptiveConf = trade._adaptiveConfidence
+  const ev = trade._expectedValue
+  const stratRecord = trade._strategyRecord
+
+  const evDisplay = ev != null ? (ev * 1000).toFixed(1) : null
+  const regime = trade.regimeAnalysis?.currentRegime || 'unknown'
+  const stratName = STRATEGIES[trade.strategy]?.name || trade.strategy?.replace('-', ' ') || 'Unknown'
+  const winCount = stratRecord ? Math.round(stratRecord.winRate * 25) : null
+  const totalCount = 25
+
   return (
     <div
       onClick={() => onOpen(trade, direction)}
       className={`nx-card p-4 cursor-pointer group transition-all duration-300 ${
         isExpired ? 'opacity-50' :
+        isDGrade ? 'opacity-60' :
         alert === 'TARGET_HIT' ? 'glow-green border-nx-green/20' : alert === 'STOP_HIT' ? 'glow-red border-nx-red/20' : ''
       } hover:border-nx-accent/20`}
     >
@@ -91,8 +264,15 @@ function TradeCard({ trade, quote, direction, onOpen }) {
             {inZone && !isExpired && <span className="badge-blue animate-pulse-gentle text-2xs">IN ZONE</span>}
             {alert === 'TARGET_HIT' && <span className="badge-green animate-pulse-gentle text-2xs">TARGET</span>}
             {alert === 'STOP_HIT' && <span className="badge-red animate-pulse-gentle text-2xs">STOP</span>}
-            {trade.regimeAnalysis && <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-400 border border-purple-500/15" title={`HMM: ${trade.regimeAnalysis.currentRegime}`}>AI</span>}
-            {trade.ensemble?.conflictDetected && <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-nx-red-muted text-nx-red border border-nx-red/15" title="Strategy conflict detected">⚠</span>}
+          </div>
+          {/* Badge row: AI, Timeline, Quality Grade */}
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {trade.regimeAnalysis && (
+              <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-400 border border-purple-500/15" title={`HMM: ${trade.regimeAnalysis.currentRegime}`}>AI</span>
+            )}
+            <TimelineBadge timeline={trade._timeline} />
+            <QualityBadge quality={quality} isLearning={isLearning} />
+            {trade.ensemble?.conflictDetected && <span className="text-2xs px-1.5 py-0.5 rounded-md font-medium bg-nx-red-muted text-nx-red border border-nx-red/15" title="Strategy conflict detected">{'\u26A0'}</span>}
           </div>
           <span className="text-xs text-nx-text-muted mt-0.5 block">{trade.name}</span>
         </div>
@@ -115,7 +295,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
       {/* Entry window guidance */}
       {trade.entryWindow && !isExpired && (
         <div className="flex items-start gap-2 mb-3 px-2.5 py-2 rounded-lg" style={{ background: 'rgba(91, 141, 238, 0.04)', border: '1px solid rgba(91, 141, 238, 0.08)' }}>
-          <span className="text-xs shrink-0 mt-px">⏱</span>
+          <span className="text-xs shrink-0 mt-px">{'\u23F1'}</span>
           <span className="text-2xs text-nx-accent leading-relaxed">{trade.entryWindow}</span>
         </div>
       )}
@@ -124,7 +304,7 @@ function TradeCard({ trade, quote, direction, onOpen }) {
       <div className="bg-nx-void/60 rounded-lg p-2.5 mb-3 border border-nx-border/30">
         <div className="flex justify-between text-2xs mb-1.5">
           <span className="text-nx-red font-medium"><Term>Stop Loss</Term> {formatPrice(trade.stopLoss, fmtType)}</span>
-          <span className="text-nx-accent font-medium"><Term>Entry Zone</Term> {formatPrice(trade.entryLow, fmtType)}–{formatPrice(trade.entryHigh, fmtType)}</span>
+          <span className="text-nx-accent font-medium"><Term>Entry Zone</Term> {formatPrice(trade.entryLow, fmtType)}{'\u2013'}{formatPrice(trade.entryHigh, fmtType)}</span>
           <span className="text-nx-green font-medium"><Term>Target</Term> {formatPrice(trade.target, fmtType)}</span>
         </div>
         {price && (
@@ -145,7 +325,8 @@ function TradeCard({ trade, quote, direction, onOpen }) {
         )}
       </div>
 
-      <div className="flex items-center gap-4 mb-2">
+      {/* Metrics row */}
+      <div className="flex items-center gap-4 mb-2 flex-wrap">
         <div className="flex items-center gap-1.5">
           <span className="text-2xs text-nx-text-muted"><Term>Risk:Reward</Term></span>
           <span className={`text-sm font-bold font-mono ${parseFloat(rr) >= 2 ? 'text-nx-green' : 'text-nx-orange'}`}>1:{rr}</span>
@@ -154,16 +335,34 @@ function TradeCard({ trade, quote, direction, onOpen }) {
           <span className="text-2xs text-nx-text-muted"><Term>RSI</Term></span>
           <span className={`text-sm font-bold font-mono ${trade.rsi < 30 ? 'text-nx-green' : trade.rsi > 70 ? 'text-nx-red' : 'text-nx-orange'}`}>{trade.rsi}</span>
         </div>
-        {trade.confidence && (
+        {adaptiveConf != null && (
           <div className="flex items-center gap-1.5">
-            <span className="text-2xs text-nx-text-muted">Conf</span>
-            <span className={`text-sm font-bold font-mono ${trade.confidence >= 65 ? 'text-nx-green' : 'text-nx-orange'}`}>{trade.confidence}%</span>
+            <span className="text-2xs text-nx-text-muted">Adj Conf</span>
+            <span className={`text-sm font-bold font-mono ${adaptiveConf >= 65 ? 'text-nx-green' : adaptiveConf >= 50 ? 'text-nx-orange' : 'text-nx-red'}`}>{adaptiveConf}%</span>
+          </div>
+        )}
+        {evDisplay != null && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">EV</span>
+            <span className={`text-2xs font-bold font-mono ${parseFloat(evDisplay) >= 0 ? 'text-nx-green' : 'text-nx-red'}`}>
+              {parseFloat(evDisplay) >= 0 ? '+' : ''}${evDisplay}/1k
+            </span>
           </div>
         )}
         <div className="ml-auto text-right shrink-0">
           <div className="text-2xs font-semibold text-nx-accent">{trade.timeframe || 'Variable'}</div>
         </div>
       </div>
+
+      {/* Strategy track record */}
+      {stratRecord && stratRecord.winRate > 0 && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-2xs text-nx-text-hint">
+            {stratName} in {regime.replace('trending-', '').replace('volatile-', '').replace('-', ' ')}: {(stratRecord.winRate * 100).toFixed(0)}% win rate
+            {winCount != null ? ` (${winCount}/${totalCount})` : ''}
+          </span>
+        </div>
+      )}
 
       <p className="text-xs text-nx-text-muted leading-relaxed mb-2 line-clamp-2"><TermText>{trade.thesis}</TermText></p>
       <div className="flex items-center justify-between">
@@ -174,11 +373,39 @@ function TradeCard({ trade, quote, direction, onOpen }) {
   )
 }
 
-// ── Mini Stats Bar ──
-function HistoryStatsBar({ stats }) {
-  if (stats.total === 0) return null
+// ── Enhanced Stats Bar ──
+
+function HistoryStatsBar({ stats, timelineCounts, activeTimeline, perfReport }) {
+  if (stats.total === 0 && (!perfReport || !perfReport.summary)) return null
+
+  const isLearning = perfReport?.summary?.isLearningMode
+  const learningPct = perfReport?.summary?.learningProgress
+    ? Math.round(perfReport.summary.learningProgress * 100)
+    : 0
+
+  // Build a simple sparkline from recent win/loss data if available
+  const recentValues = useMemo(() => {
+    if (!perfReport?.metrics?.overall?.allTime) return null
+    const wr = perfReport.metrics.overall
+    const vals = []
+    if (wr.last20?.winRate != null) vals.push(wr.last20.winRate)
+    if (wr.last50?.winRate != null) vals.push(wr.last50.winRate)
+    if (wr.last100?.winRate != null) vals.push(wr.last100.winRate)
+    if (wr.allTime?.winRate != null) vals.push(wr.allTime.winRate)
+    return vals.length >= 2 ? vals.reverse() : null
+  }, [perfReport])
+
   return (
-    <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-nx-border/30" style={{ background: 'var(--card-bg)' }}>
+    <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-nx-border/30 flex-wrap" style={{ background: 'var(--card-bg)' }}>
+      {isLearning && (
+        <>
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-nx-text-muted">Adaptive</span>
+            <span className="text-2xs font-bold font-mono text-amber-400">Learning {learningPct}%</span>
+          </div>
+          <div className="w-px h-4 bg-nx-border/30" />
+        </>
+      )}
       <div className="flex items-center gap-1.5">
         <span className="text-2xs text-nx-text-muted">Tracked</span>
         <span className="text-sm font-bold font-mono text-nx-text-strong">{stats.total}</span>
@@ -191,6 +418,7 @@ function HistoryStatsBar({ stats }) {
             <span className={`text-sm font-bold font-mono ${stats.winRate >= 50 ? 'text-nx-green' : 'text-nx-red'}`}>
               {stats.winRate.toFixed(0)}%
             </span>
+            {recentValues && <MiniSparkline values={recentValues} />}
           </div>
           <div className="w-px h-4 bg-nx-border/30" />
           <div className="flex items-center gap-1.5">
@@ -230,12 +458,28 @@ function HistoryStatsBar({ stats }) {
           </div>
         </>
       )}
+      {/* Per-timeline active counts */}
+      {timelineCounts && (
+        <>
+          <div className="w-px h-4 bg-nx-border/30" />
+          <div className="flex items-center gap-2">
+            {TIMELINE_TABS.map(t => (
+              <span key={t.id} className={`text-2xs font-mono ${activeTimeline === t.id ? 'text-nx-accent font-bold' : 'text-nx-text-hint'}`}>
+                {t.icon}{timelineCounts[t.id] || 0}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
+// ── Main Component ──
+
 export default function TradeIdeas({ quotes }) {
-  const [tab, setTab] = useState('long')
+  const [activeTimeline, setActiveTimeline] = useState('swing')
+  const [directionTab, setDirectionTab] = useState('long')
   const [selectedStrategy, setSelectedStrategy] = useState('all')
   const [openPacket, setOpenPacket] = useState(null)
   const [showExpired, setShowExpired] = useState(false)
@@ -243,23 +487,63 @@ export default function TradeIdeas({ quotes }) {
 
   // Signal engine state
   const [signals, setSignals] = useState({ long: [], short: [], forex: [] })
+  const [enrichedSignals, setEnrichedSignals] = useState({ long: [], short: [], forex: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastGenerated, setLastGenerated] = useState(null)
   const [nextRefresh, setNextRefresh] = useState(null)
   const [historyStats, setHistoryStats] = useState({ total: 0, resolved: 0, open: 0, wins: 0, losses: 0, winRate: 0, totalPnl: 0, avgPnl: 0, currentStreak: 0, streakType: null })
 
-  const catalogedRef = useRef(new Set())  // track which signals we've already cataloged this session
-  const quotesRef = useRef(quotes)
-  quotesRef.current = quotes  // always keep current
+  // Adaptive engine state
+  const [adaptiveReady, setAdaptiveReady] = useState(false)
+  const [isLearningMode, setIsLearningMode] = useState(true)
+  const [perfReport, setPerfReport] = useState(null)
 
-  // Countdown ticker — update every 1s for second-level countdown accuracy
+  const catalogedRef = useRef(new Set())
+  const quotesRef = useRef(quotes)
+  quotesRef.current = quotes
+
+  // Initialize adaptive engine on mount
+  useEffect(() => {
+    try {
+      const result = initAdaptiveEngine()
+      setAdaptiveReady(true)
+      setIsLearningMode(result.isLearningMode)
+      const report = getPerformanceReport()
+      setPerfReport(report)
+    } catch (err) {
+      console.warn('Adaptive engine init error:', err)
+      setAdaptiveReady(true)
+      setIsLearningMode(true)
+    }
+  }, [])
+
+  // Countdown ticker
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // Fetch signals from real signal engine, with localStorage caching for timestamps
+  // Enrich signals with adaptive scoring whenever signals or adaptive state changes
+  useEffect(() => {
+    if (!adaptiveReady) return
+    const enriched = { long: [], short: [], forex: [] }
+    for (const category of ['long', 'short', 'forex']) {
+      enriched[category] = (signals[category] || []).map(s => enrichSignalWithAdaptive(s))
+    }
+    setEnrichedSignals(enriched)
+
+    // Update perf report
+    try {
+      const report = getPerformanceReport()
+      setPerfReport(report)
+      setIsLearningMode(report.summary?.isLearningMode ?? true)
+    } catch (e) {
+      // non-fatal
+    }
+  }, [signals, adaptiveReady])
+
+  // Fetch signals from real signal engine, with localStorage caching
   const fetchSignals = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -280,39 +564,33 @@ export default function TradeIdeas({ quotes }) {
         console.warn('Error reading signal cache:', e)
       }
 
-      // Merge new signals with cached ones: keep old signals if they're still active
+      // Merge new signals with cached ones
       const mergedSignals = { long: [], short: [], forex: [] }
       const now = new Date().getTime()
 
-      // Helper to check if signal has expired
       const isExpired = (signal) => {
         const expiresAt = new Date(signal.expiresAt).getTime()
         return expiresAt <= now
       }
 
-      // Helper to find cached version of signal
       const findCached = (newSignal, category) => {
         return cachedSignals[category].find(
           cached => cached.ticker === newSignal.ticker && cached.direction === newSignal.direction
         )
       }
 
-      // Process each category
       for (const category of ['long', 'short', 'forex']) {
         const newSignals = (data.signals?.[category] || []).filter(s => s != null)
 
         for (const newSignal of newSignals) {
           const cached = findCached(newSignal, category)
           if (cached && !isExpired(cached)) {
-            // Keep the cached version with original timestamps
             mergedSignals[category].push(cached)
           } else {
-            // Add the new signal
             mergedSignals[category].push(newSignal)
           }
         }
 
-        // Also keep any expired cached signals (for cataloging)
         for (const cached of cachedSignals[category]) {
           const stillInNew = newSignals.some(
             ns => ns.ticker === cached.ticker && ns.direction === cached.direction
@@ -346,16 +624,13 @@ export default function TradeIdeas({ quotes }) {
   // Initial fetch
   useEffect(() => { fetchSignals() }, [fetchSignals])
 
-  // Auto-refresh signals every 20 minutes
+  // Auto-refresh
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchSignals()
-    }, SIGNAL_REFRESH_INTERVAL)
+    const interval = setInterval(() => { fetchSignals() }, SIGNAL_REFRESH_INTERVAL)
     return () => clearInterval(interval)
   }, [fetchSignals])
 
-  // ── AUTO-CATALOG EXPIRED SIGNALS ──
-  // When signals expire, snapshot them as executed trades
+  // Auto-catalog expired signals
   useEffect(() => {
     if (!quotes || Object.keys(quotes).length === 0) return
 
@@ -367,10 +642,7 @@ export default function TradeIdeas({ quotes }) {
       if (urgency !== 'expired') continue
       if (catalogedRef.current.has(signal.id)) continue
 
-      // Determine direction
       const direction = signal.direction || (signals.short?.includes(signal) ? 'short' : 'long')
-
-      // Get current price
       const sym = TICKER_MAP[signal.ticker] || signal.ticker
       const price = quotes[sym]?.regularMarketPrice || null
 
@@ -385,7 +657,7 @@ export default function TradeIdeas({ quotes }) {
     }
   }, [signals, quotes])
 
-  // ── UPDATE TRADE OUTCOMES on every quote refresh ──
+  // Update trade outcomes on quote refresh
   useEffect(() => {
     if (!quotes || Object.keys(quotes).length === 0) return
     const history = updateTradeOutcomes(quotes)
@@ -396,28 +668,55 @@ export default function TradeIdeas({ quotes }) {
   useEffect(() => {
     const history = loadTradeHistory()
     setHistoryStats(calcHistoryStats(history))
-    // Pre-populate cataloged set from existing history
     for (const t of history) catalogedRef.current.add(t.signalId)
   }, [])
 
+  // ── Compute filtered/sorted signals ──
+
   const allStrategies = ['all', ...Object.keys(STRATEGIES)]
-  const ideas = signals[tab] || []
-  const stratFiltered = selectedStrategy === 'all' ? ideas : ideas.filter(i => i.strategy === selectedStrategy)
 
-  // Sort by urgency: closing > urgent > active > expired
-  const urgencyOrder = { closing: 0, urgent: 1, active: 2, expired: 3 }
-  const sorted = [...stratFiltered].sort((a, b) => {
-    const ua = urgencyOrder[getTradeUrgency(a)] ?? 2
-    const ub = urgencyOrder[getTradeUrgency(b)] ?? 2
-    return ua - ub
-  })
+  // Count signals per direction tab per timeline
+  const timelineCounts = useMemo(() => {
+    const counts = { scalp: 0, swing: 0, position: 0, macro: 0 }
+    for (const category of ['long', 'short', 'forex']) {
+      for (const s of enrichedSignals[category] || []) {
+        const tl = s._timeline || 'swing'
+        if (counts[tl] != null) counts[tl]++
+      }
+    }
+    return counts
+  }, [enrichedSignals])
 
-  const filtered = showExpired ? sorted : sorted.filter(i => getTradeUrgency(i) !== 'expired')
-  const expiredCount = sorted.filter(i => getTradeUrgency(i) === 'expired').length
+  // Direction counts per timeline
+  const directionCounts = useMemo(() => {
+    const counts = { long: 0, short: 0, forex: 0 }
+    for (const category of DIRECTION_TABS) {
+      for (const s of enrichedSignals[category] || []) {
+        if ((s._timeline || 'swing') === activeTimeline) {
+          counts[category]++
+        }
+      }
+    }
+    return counts
+  }, [enrichedSignals, activeTimeline])
+
+  // Get ideas filtered by timeline + direction + strategy
+  const ideas = useMemo(() => {
+    const dirSignals = enrichedSignals[directionTab] || []
+    // Filter by timeline
+    const timelineFiltered = dirSignals.filter(s => (s._timeline || 'swing') === activeTimeline)
+    // Filter by strategy
+    const stratFiltered = selectedStrategy === 'all' ? timelineFiltered : timelineFiltered.filter(i => i.strategy === selectedStrategy)
+    // Sort by quality grade, adaptive confidence, EV
+    return sortSignals(stratFiltered)
+  }, [enrichedSignals, directionTab, activeTimeline, selectedStrategy])
+
+  const filtered = showExpired ? ideas : ideas.filter(i => getTradeUrgency(i) !== 'expired')
+  const expiredCount = ideas.filter(i => getTradeUrgency(i) === 'expired').length
 
   const getDirection = (idea) => {
-    if (tab === 'forex') return idea.direction || 'long'
-    if (tab === 'short') return idea.direction || 'short'
+    if (directionTab === 'forex') return idea.direction || 'long'
+    if (directionTab === 'short') return idea.direction || 'short'
     return idea.direction || 'long'
   }
 
@@ -426,7 +725,6 @@ export default function TradeIdeas({ quotes }) {
     return quotes[sym]
   }
 
-  // Format next refresh countdown
   const refreshCountdown = nextRefresh ? Math.max(0, Math.ceil((nextRefresh - Date.now()) / 60000)) : null
 
   return (
@@ -447,7 +745,7 @@ export default function TradeIdeas({ quotes }) {
           {lastGenerated && !loading && (
             <span className="text-2xs text-nx-text-hint">
               Generated {new Date(lastGenerated).toLocaleTimeString()}
-              {refreshCountdown !== null && ` · Next in ${refreshCountdown}m`}
+              {refreshCountdown !== null && ` \u00B7 Next in ${refreshCountdown}m`}
             </span>
           )}
         </div>
@@ -467,33 +765,69 @@ export default function TradeIdeas({ quotes }) {
         </div>
       )}
 
-      {/* Trade History Stats Bar */}
-      <HistoryStatsBar stats={historyStats} />
+      {/* Enhanced Stats Bar */}
+      <HistoryStatsBar
+        stats={historyStats}
+        timelineCounts={timelineCounts}
+        activeTimeline={activeTimeline}
+        perfReport={perfReport}
+      />
 
-      {/* Tab row */}
-      <div className="flex items-center gap-2.5 mb-4 flex-wrap">
-        <h3 className="text-md font-bold text-nx-text-strong mr-2">Trade Ideas</h3>
-        {[
-          { id: 'long', label: `LONG (${signals.long.length})`, color: 'green' },
-          { id: 'short', label: `SHORT (${signals.short.length})`, color: 'red' },
-          { id: 'forex', label: `FOREX (${signals.forex.length})`, color: 'blue' },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => { setTab(t.id); setSelectedStrategy('all') }}
-            aria-label={`Show ${t.id} trade ideas`}
-            aria-pressed={tab === t.id}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
-              tab === t.id
-                ? t.color === 'green' ? 'bg-nx-green-muted text-nx-green border border-nx-green/20'
-                  : t.color === 'red' ? 'bg-nx-red-muted text-nx-red border border-nx-red/20'
-                  : 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
-                : 'text-nx-text-muted hover:text-nx-text-strong bg-nx-surface border border-nx-border'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Level 1: Timeline Tabs */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h3 className="text-md font-bold text-nx-text-strong mr-2">Trade Ideas</h3>
+          {TIMELINE_TABS.map(t => {
+            const count = timelineCounts[t.id] || 0
+            const isActive = activeTimeline === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setActiveTimeline(t.id); setSelectedStrategy('all') }}
+                aria-label={`Show ${t.label} trade ideas`}
+                aria-pressed={isActive}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-nx-accent-muted text-nx-accent border border-nx-accent/25 shadow-sm'
+                    : 'text-nx-text-muted hover:text-nx-text-strong bg-nx-surface border border-nx-border hover:border-nx-border/60'
+                }`}
+                title={t.desc}
+              >
+                <span className="mr-1">{t.icon}</span>
+                {t.label}
+                <span className={`ml-1.5 text-2xs font-mono ${isActive ? 'text-nx-accent' : 'text-nx-text-hint'}`}>({count})</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Level 2: Direction Tabs */}
+        <div className="flex items-center gap-2 pl-1">
+          {[
+            { id: 'long', label: 'LONG', color: 'green' },
+            { id: 'short', label: 'SHORT', color: 'red' },
+            { id: 'forex', label: 'FOREX', color: 'blue' },
+          ].map(t => {
+            const count = directionCounts[t.id] || 0
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setDirectionTab(t.id); setSelectedStrategy('all') }}
+                aria-label={`Show ${t.id} trade ideas`}
+                aria-pressed={directionTab === t.id}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
+                  directionTab === t.id
+                    ? t.color === 'green' ? 'bg-nx-green-muted text-nx-green border border-nx-green/20'
+                      : t.color === 'red' ? 'bg-nx-red-muted text-nx-red border border-nx-red/20'
+                      : 'bg-nx-accent-muted text-nx-accent border border-nx-accent/20'
+                    : 'text-nx-text-muted hover:text-nx-text-strong bg-nx-surface border border-nx-border'
+                }`}
+              >
+                {t.label} ({count})
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Strategy filter + expired toggle */}
@@ -532,7 +866,7 @@ export default function TradeIdeas({ quotes }) {
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <div className="w-8 h-8 border-2 border-nx-accent border-t-transparent rounded-full animate-spin" />
-          <div className="text-sm text-nx-text-muted">Running signal engine across {tab === 'forex' ? '8 forex pairs' : tab === 'long' ? '12 long candidates' : '12 short candidates'}...</div>
+          <div className="text-sm text-nx-text-muted">Running signal engine across {directionTab === 'forex' ? '8 forex pairs' : directionTab === 'long' ? '12 long candidates' : '12 short candidates'}...</div>
           <div className="text-xs text-nx-text-hint">Analyzing RSI, MACD, Bollinger Bands, Support/Resistance</div>
         </div>
       )}
@@ -547,6 +881,7 @@ export default function TradeIdeas({ quotes }) {
               quote={getQuote(idea)}
               direction={getDirection(idea)}
               onOpen={(idea, dir) => setOpenPacket({ idea, direction: dir })}
+              isLearning={isLearningMode}
             />
           ))}
         </div>
@@ -554,7 +889,10 @@ export default function TradeIdeas({ quotes }) {
 
       {!loading && filtered.length === 0 && !error && (
         <div className="text-center py-16 text-nx-text-muted">
-          No trade ideas match the selected strategy filter.
+          <div className="text-lg mb-2">{TIMELINE_TABS.find(t => t.id === activeTimeline)?.icon}</div>
+          No {activeTimeline} trade ideas match the selected filters.
+          {activeTimeline === 'scalp' && <div className="text-2xs mt-2 text-nx-text-hint">Scalp signals require tight entry windows and high ATR percentile.</div>}
+          {activeTimeline === 'macro' && <div className="text-2xs mt-2 text-nx-text-hint">Macro signals are generated from regime shifts and correlation anomalies.</div>}
         </div>
       )}
 

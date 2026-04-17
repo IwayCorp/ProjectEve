@@ -5,6 +5,7 @@ import { computeEnsemble } from '@/lib/ensembleEngine'
 import { computePositionSize } from '@/lib/positionSizer'
 import { analyzeSentiment } from '@/lib/sentimentEngine'
 import { computeCorrelations } from '@/lib/correlationEngine'
+import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights } from '@/lib/adaptiveEngine'
 
 export const runtime = 'edge'
 
@@ -494,22 +495,35 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     }
   } else { factors.macd = 0 }
 
-  // Factor 7: RSI — CONTEXT-DEPENDENT (this was the biggest flaw)
-  // In trending markets: RSI 50-70 = bullish momentum, NOT overbought
-  // Only use extreme RSI (>80/<20) for actual mean reversion signals
+  // Factor 7: RSI — CONTEXT-DEPENDENT with rate-of-change exhaustion check
+  // RSI rate-of-change: if RSI rose >15 points in 5 bars, flag momentum exhaustion risk
+  let rsiRoC = 0
+  let rsiExhaustionRisk = false
+  if (closes.length >= 6) {
+    const rsiSlice5 = closes.slice(-6, -1)
+    const rsi5ago = calcRSI(closes.slice(0, closes.length - 5)) || 50
+    rsiRoC = rsi - rsi5ago
+    if (Math.abs(rsiRoC) > 15) rsiExhaustionRisk = true
+  }
+
   if (isTrending || isStrongTrend) {
-    // Trending: RSI confirms direction, extremes only at 80/20
-    if (rsi > 80) { dirScore -= 0.5; factors.rsi = -0.5 } // genuinely overbought
-    else if (rsi > 55) { dirScore += 0.5; factors.rsi = 0.5 } // healthy bullish momentum
-    else if (rsi < 20) { dirScore += 0.5; factors.rsi = 0.5 } // genuinely oversold
-    else if (rsi < 45) { dirScore -= 0.5; factors.rsi = -0.5 } // bearish momentum
+    // Trending (Hurst > 0.52): refined RSI zones
+    // RSI 50-60 = healthy momentum (+2), RSI 60-70 = extended (+1), RSI >70 = exhaustion (-2)
+    if (rsi > 70) { dirScore -= 2.0; factors.rsi = -2.0 } // exhaustion warning
+    else if (rsi > 60) { dirScore += 1.0; factors.rsi = 1.0 } // extended — still ok but watch
+    else if (rsi > 50) { dirScore += 2.0; factors.rsi = 2.0 } // healthy bullish momentum
+    else if (rsi < 30) { dirScore += 1.0; factors.rsi = 1.0 } // oversold bounce in trend
+    else if (rsi < 40) { dirScore -= 1.0; factors.rsi = -1.0 } // bearish momentum in trend
     else { factors.rsi = 0 }
+    // Apply RSI exhaustion penalty in trends
+    if (rsiExhaustionRisk && rsiRoC > 15) { dirScore -= 1.0; factors.rsi = (factors.rsi || 0) - 1.0 }
+    else if (rsiExhaustionRisk && rsiRoC < -15) { dirScore += 0.5; factors.rsi = (factors.rsi || 0) + 0.5 }
   } else if (isMeanReverting) {
-    // Mean-reverting: RSI extremes are actionable
-    if (rsi < 25) { dirScore += 1.5; factors.rsi = 1.5 }
-    else if (rsi < 35) { dirScore += 0.75; factors.rsi = 0.75 }
-    else if (rsi > 75) { dirScore -= 1.5; factors.rsi = -1.5 }
-    else if (rsi > 65) { dirScore -= 0.75; factors.rsi = -0.75 }
+    // Mean-reverting (Hurst < 0.45): extremes are strongly actionable
+    if (rsi < 30) { dirScore += 2.0; factors.rsi = 2.0 } // strong buy
+    else if (rsi < 35) { dirScore += 1.0; factors.rsi = 1.0 }
+    else if (rsi > 70) { dirScore -= 2.0; factors.rsi = -2.0 } // strong sell
+    else if (rsi > 65) { dirScore -= 1.0; factors.rsi = -1.0 }
     else { factors.rsi = 0 }
   } else {
     // Neutral: moderate RSI sensitivity
@@ -618,6 +632,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
 
   // ================================================================
   // STEP 6: Confidence scoring — now regime-adjusted
+  // Uses diminishing returns to prevent inflation from stacked bonuses
   // ================================================================
   const dirSign = direction === 'long' ? 1 : -1
   const factorValues = Object.values(factors)
@@ -627,42 +642,52 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
 
   let confidence = 35 + Math.round(agreementRatio * 35)
 
+  // Diminishing returns on confidence boosts
+  // First 3 boosts apply at 100%, next 2 at 60%, anything beyond at 30%
+  let boostCount = 0
+  function applyBoost(amount) {
+    boostCount++
+    if (boostCount <= 3) return amount
+    if (boostCount <= 5) return amount * 0.6
+    return amount * 0.3
+  }
+
   const absScore = Math.abs(dirScore)
-  if (absScore >= 8) confidence += 20
-  else if (absScore >= 6) confidence += 15
-  else if (absScore >= 4) confidence += 10
-  else if (absScore >= 2) confidence += 5
+  if (absScore >= 8) confidence += applyBoost(20)
+  else if (absScore >= 6) confidence += applyBoost(15)
+  else if (absScore >= 4) confidence += applyBoost(10)
+  else if (absScore >= 2) confidence += applyBoost(5)
 
   // REGIME BONUS: trading with the market regime = higher confidence
   if (!isForex && marketRegime) {
     if ((marketRegime.trend === 'bullish' && direction === 'long') ||
         (marketRegime.trend === 'bearish' && direction === 'short')) {
-      confidence += 10 // aligned with broad market
+      confidence += applyBoost(10) // aligned with broad market
     } else if (marketRegime.trend !== 'flat') {
-      confidence -= 12 // fighting the market
+      confidence -= 12 // fighting the market — penalties always apply in full
     }
   }
 
   // ADX bonus: strong trend + aligned direction
   if (adx.adx > 30 && ((adx.plusDI > adx.minusDI && direction === 'long') || (adx.minusDI > adx.plusDI && direction === 'short'))) {
-    confidence += 8
+    confidence += applyBoost(8)
   }
 
   // Hurst bonus: trending regime + momentum strategy
-  if (hurst > 0.55 && strategy === 'momentum') confidence += 5
-  if (hurst < 0.45 && strategy === 'mean-reversion') confidence += 5
+  if (hurst > 0.55 && strategy === 'momentum') confidence += applyBoost(5)
+  if (hurst < 0.45 && strategy === 'mean-reversion') confidence += applyBoost(5)
 
   // Price action confirmation
   if ((priceActionUp && direction === 'long') || (priceActionDown && direction === 'short')) {
-    confidence += 7
+    confidence += applyBoost(7)
   }
 
   // Clean MA stacking
   if ((ma20 > ma50 && ma50 > ma200 && direction === 'long') || (ma20 < ma50 && ma50 < ma200 && direction === 'short')) {
-    confidence += 8
+    confidence += applyBoost(8)
   }
 
-  // Penalties
+  // Penalties — always apply in full (no diminishing returns on penalties)
   const conflicting = factorValues.filter(f => (f * dirSign) < 0).length
   if (conflicting >= 4) confidence -= 12
   else if (conflicting >= 3) confidence -= 8
@@ -672,7 +697,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   else if (atrPctile > 60) confidence -= 3
 
   if (vol.trend === 'declining') confidence -= 5
-  else if (vol.ratio > 1.5) confidence += 3
+  else if (vol.ratio > 1.5) confidence += applyBoost(3)
 
   if (bb && bb.bandwidth < 0.03) confidence -= 6
 
@@ -881,10 +906,27 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       breakout: (strategy === 'breakout' ? 1 : 0) * (direction === 'long' ? 1 : -1) * (confidence / 100),
       carry: (strategy === 'carry' ? 1 : 0) * (direction === 'long' ? 1 : -1) * (confidence / 100),
     }
+    // Get adaptive performance data for track record weighting
+    let adaptivePerformanceData = null
+    try {
+      const currentRegimeKey = regimeAnalysis?.currentRegime || 'volatile-transition'
+      const adaptiveW = getAdaptiveWeights(currentRegimeKey)
+      if (adaptiveW) {
+        // Convert adaptive weights into performanceData format for ensemble
+        // Higher weight implies higher historical win rate in this regime
+        adaptivePerformanceData = {
+          momentum: { winRate: Math.min(0.8, 0.4 + (adaptiveW.momentum || 0.33) * 0.6) },
+          meanReversion: { winRate: Math.min(0.8, 0.4 + (adaptiveW.meanReversion || 0.33) * 0.6) },
+          breakout: { winRate: Math.min(0.8, 0.4 + (adaptiveW.breakout || 0.33) * 0.6) },
+        }
+      }
+    } catch (e) { /* adaptive data is non-critical */ }
+
     ensembleData = computeEnsemble(
       strategyScores,
       regimeAnalysis || { currentRegime: 'unknown', confidence: 0.5 },
-      alphaFactorData || {}
+      alphaFactorData || {},
+      adaptivePerformanceData
     )
     if (ensembleData) {
       // Ensemble conflict detection penalty
@@ -901,7 +943,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // ================================================================
   // MINIMUM CONFIDENCE GATE — don't take garbage trades
   // ================================================================
-  const minConfidence = isForex ? 50 : 55
+  const minConfidence = isForex ? 58 : 60
   if (confidence < minConfidence) return null
 
   // ================================================================
@@ -927,8 +969,10 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     target = support.length >= 1 ? r(Math.max(support[0] - atr * 1.0, price - atr * targetMultiplier)) : r(price - atr * targetMultiplier)
   }
 
-  // Stop loss — volatility-adjusted with tighter default
-  const volMultiplier = atrPctile > 80 ? 1.5 : atrPctile > 60 ? 1.2 : 1.0
+  // Stop loss — dynamic ATR percentile-based (rolling 10-day ATR percentile)
+  // High vol (>75th pctile): widen stops by 20% to avoid noise hits
+  // Low vol (<25th pctile): tighten stops by 15% to capture moves efficiently
+  const volMultiplier = atrPctile > 75 ? 1.2 : atrPctile < 25 ? 0.85 : 1.0
   let stopLoss
   if (direction === 'long') {
     stopLoss = support.length > 0 ? r(Math.max(support[0] - atr * 0.3 * volMultiplier, price - atr * 1.5 * volMultiplier)) : r(price - atr * 1.5 * volMultiplier)
@@ -983,29 +1027,59 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     })
   } catch (e) { /* position sizing is non-critical */ }
 
-  // Trailing stop levels (NEW — AutoPilot-style)
+  // Trailing stop levels — dynamic ATR with "never trail tighter than breakeven" rule
+  // ATR multiples scale with volatility percentile
+  const trailATR = atr * volMultiplier
+  const beLevel = direction === 'long' ? r(price + trailATR * 0.8) : r(price - trailATR * 0.8)
+  const t1At = direction === 'long' ? r(price + trailATR * 1.5) : r(price - trailATR * 1.5)
+  const t1StopRaw = direction === 'long' ? r(price + trailATR * 0.5) : r(price - trailATR * 0.5)
+  const t2At = direction === 'long' ? r(price + trailATR * 2.5) : r(price - trailATR * 2.5)
+  const t2StopRaw = direction === 'long' ? r(price + trailATR * 1.5) : r(price - trailATR * 1.5)
+  // Never trail tighter than breakeven (entry price)
+  const t1Stop = direction === 'long' ? r(Math.max(t1StopRaw, price)) : r(Math.min(t1StopRaw, price))
+  const t2Stop = direction === 'long' ? r(Math.max(t2StopRaw, price)) : r(Math.min(t2StopRaw, price))
   const trailingStop = {
-    breakEvenAt: direction === 'long' ? r(price + atr * 0.8) : r(price - atr * 0.8),
-    trail1At: direction === 'long' ? r(price + atr * 1.5) : r(price - atr * 1.5),
-    trail1Stop: direction === 'long' ? r(price + atr * 0.5) : r(price - atr * 0.5),
-    trail2At: direction === 'long' ? r(price + atr * 2.5) : r(price - atr * 2.5),
-    trail2Stop: direction === 'long' ? r(price + atr * 1.5) : r(price - atr * 1.5),
+    breakEvenAt: beLevel,
+    trail1At: t1At,
+    trail1Stop: t1Stop,
+    trail2At: t2At,
+    trail2Stop: t2Stop,
+    atrMultiplier: r(volMultiplier, 2),
+    note: atrPctile > 75 ? 'Stops widened 20% for high volatility' : atrPctile < 25 ? 'Stops tightened 15% for low volatility' : 'Normal volatility stops',
   }
 
   // Timeframe
   const daysEst = Math.max(1, Math.round(Math.abs(target - price) / atr))
   const timeframe = daysEst <= 3 ? '1-3 days' : daysEst <= 7 ? '3-7 days' : daysEst <= 14 ? '5-14 days' : '10-21 days'
 
-  // Timing
+  // Timing — tighter entry windows to reduce staleness
+  // Day/Scalp: max 12h, Swing: max 36h, Position: max 72h
   const now = new Date()
-  let entryHours = strategy === 'mean-reversion' ? 36 : strategy === 'momentum' ? 72 : strategy === 'carry' ? 96 : 48
   const atrPct = (atr / price) * 100
-  if (atrPct > 3) entryHours *= 0.6
-  else if (atrPct > 2) entryHours *= 0.8
-  else if (atrPct < 1) entryHours *= 1.3
+  const isDayScalp = daysEst <= 3
+  const isSwing = daysEst <= 14 && !isDayScalp
+  const isPosition = daysEst > 14
+
+  let entryHours
+  if (isDayScalp) {
+    entryHours = strategy === 'mean-reversion' ? 8 : 10
+  } else if (isSwing) {
+    entryHours = strategy === 'mean-reversion' ? 18 : strategy === 'momentum' ? 24 : 30
+  } else {
+    entryHours = strategy === 'momentum' ? 48 : strategy === 'carry' ? 60 : 42
+  }
+
+  // Volatility adjustments
+  if (atrPct > 3) entryHours *= 0.7
+  else if (atrPct > 2) entryHours *= 0.85
   if (confidence >= 70) entryHours *= 0.85
-  else if (confidence < 50) entryHours *= 1.2
-  entryHours = Math.max(8, Math.min(168, Math.round(entryHours)))
+
+  // Clamp to max per signal type
+  const maxEntryHours = isDayScalp ? 12 : isSwing ? 36 : 72
+  entryHours = Math.max(4, Math.min(maxEntryHours, Math.round(entryHours)))
+
+  // Entry freshness score: confidence decays 2% per 6 hours after generation
+  const entryFreshnessDecayPerHour = 2 / 6 // 0.333% per hour
 
   let holdHours = daysEst * 24
   if (strategy === 'mean-reversion') holdHours = Math.max(48, Math.min(168, holdHours))
@@ -1145,6 +1219,15 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       ensembleScore: r(ensembleData.ensembleScore, 2),
     } : null,
     positionSizing,
+    // Entry freshness metadata
+    entryFreshness: {
+      generatedAt: now.toISOString(),
+      maxEntryHours: entryHours,
+      decayRatePerHour: r(entryFreshnessDecayPerHour, 3),
+      note: `Confidence decays ~2% per 6 hours. At ${entryHours}h, confidence would be ~${Math.max(25, Math.round(confidence - entryFreshnessDecayPerHour * entryHours))}%.`,
+    },
+    rsiRateOfChange: r(rsiRoC, 1),
+    rsiExhaustionRisk,
     dataPacket: {
       historicalContext, bondCorrelation, globalMacro, newsDrivers,
       technicalLevels,
@@ -1201,6 +1284,14 @@ export async function GET(request) {
 
   try {
     // ================================================================
+    // Initialize adaptive engine for quality scoring and adaptive weights
+    // ================================================================
+    let adaptiveEngineStatus = null
+    try {
+      adaptiveEngineStatus = initAdaptiveEngine()
+    } catch (e) { /* adaptive engine init is non-critical */ }
+
+    // ================================================================
     // FIRST: Fetch SPY to determine broad market regime
     // This is the single most impactful change — knowing which way the market is going
     // ================================================================
@@ -1230,8 +1321,22 @@ export async function GET(request) {
           .catch(() => null),
       ])
       const signal = generateSignal(candles, singleSymbol, asset, name, marketRegime, smartMoneyRes)
-      // Attach sentiment and correlations to the signal (these are async, can't be inside generateSignal which is sync)
+      // Attach sentiment, correlations, and adaptive quality scoring
       if (signal) {
+        // Adaptive engine quality scoring
+        try {
+          const quality = scoreSignalQuality({
+            strategy: signal.strategy,
+            regime: signal.regimeAnalysis?.currentRegime || 'volatile-transition',
+            confidence: signal.confidence,
+            ticker: signal.ticker,
+          })
+          signal.qualityGrade = quality.grade
+          signal.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
+          signal.expectedValue = quality.expectedValue
+          signal.qualityRecommendation = quality.recommendation
+        } catch (e) { /* quality scoring is non-critical */ }
+
         signal.sentiment = sentimentRes
         signal.correlations = correlationsRes
         // Sentiment alignment bonus/penalty
@@ -1275,6 +1380,20 @@ export async function GET(request) {
         for (let j = 0; j < results.length; j++) {
           if (results[j].status === 'fulfilled' && results[j].value) {
             const sig = results[j].value
+            // Attach adaptive quality scoring to batch signals
+            try {
+              const quality = scoreSignalQuality({
+                strategy: sig.strategy,
+                regime: sig.regimeAnalysis?.currentRegime || 'volatile-transition',
+                confidence: sig.confidence,
+                ticker: sig.ticker,
+              })
+              sig.qualityGrade = quality.grade
+              sig.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
+              sig.expectedValue = quality.expectedValue
+              sig.qualityRecommendation = quality.recommendation
+            } catch (e) { /* quality scoring is non-critical */ }
+
             if (isForex) {
               signals.forex.push(sig)
             } else {

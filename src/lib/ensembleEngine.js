@@ -84,7 +84,7 @@ function detectConflict(strategyScores) {
   };
 }
 
-export function computeEnsemble(strategyScores, regime, alphaFactors = {}) {
+export function computeEnsemble(strategyScores, regime, alphaFactors = {}, performanceData = null) {
   // Validate inputs
   if (!strategyScores || !regime) {
     return {
@@ -103,7 +103,43 @@ export function computeEnsemble(strategyScores, regime, alphaFactors = {}) {
   const baseWeights = getRegimeWeights(regime.currentRegime);
 
   // Step 2: Apply Sharpe / alpha-based adjustments
-  const adjustedWeights = applySharpeAdjustment(baseWeights, alphaFactors);
+  let adjustedWeights = applySharpeAdjustment(baseWeights, alphaFactors);
+
+  // Step 2b: Apply track record weighting if performanceData is provided
+  // performanceData format: { momentum: { winRate: 0.7 }, meanReversion: { winRate: 0.4 }, breakout: { winRate: 0.55 } }
+  if (performanceData && typeof performanceData === 'object') {
+    const trackRecordAdjusted = { ...adjustedWeights };
+    const trackAdjustments = [];
+
+    for (const strat of ['momentum', 'meanReversion', 'breakout']) {
+      const perf = performanceData[strat];
+      if (perf && typeof perf.winRate === 'number') {
+        if (perf.winRate >= 0.6) {
+          // High win rate in current regime: boost weight by 15%
+          const boost = trackRecordAdjusted[strat] * 0.15;
+          trackRecordAdjusted[strat] = Math.min(trackRecordAdjusted[strat] + boost, 0.75);
+          trackAdjustments.push(`${strat} boosted +15% (${(perf.winRate * 100).toFixed(0)}% win rate)`);
+        } else if (perf.winRate < 0.45) {
+          // Low win rate in current regime: reduce weight by 20%
+          const reduction = trackRecordAdjusted[strat] * 0.20;
+          trackRecordAdjusted[strat] = Math.max(trackRecordAdjusted[strat] - reduction, 0.05);
+          trackAdjustments.push(`${strat} reduced -20% (${(perf.winRate * 100).toFixed(0)}% win rate)`);
+        }
+      }
+    }
+
+    // Re-normalize to sum to 1
+    const trSum = Object.values(trackRecordAdjusted).reduce((a, b) => a + b, 0);
+    if (trSum > 0) {
+      for (const strat in trackRecordAdjusted) {
+        trackRecordAdjusted[strat] = trackRecordAdjusted[strat] / trSum;
+      }
+    }
+
+    adjustedWeights = trackRecordAdjusted;
+    // Store adjustments for logging (attached later)
+    adjustedWeights._trackAdjustments = trackAdjustments;
+  }
 
   // Step 3: Extract strategy scores and confidences
   const momentumScore = strategyScores.momentum?.score || 0;
@@ -170,6 +206,13 @@ export function computeEnsemble(strategyScores, regime, alphaFactors = {}) {
   if (Math.abs(ensembleScore) < 20) {
     adjustments.push('weak signal: wait for clearer setup');
   }
+  // Track record adjustments
+  if (adjustedWeights._trackAdjustments && adjustedWeights._trackAdjustments.length > 0) {
+    adjustments.push(...adjustedWeights._trackAdjustments);
+  }
+
+  // Clean internal tracking property before returning
+  delete adjustedWeights._trackAdjustments;
 
   return {
     direction,

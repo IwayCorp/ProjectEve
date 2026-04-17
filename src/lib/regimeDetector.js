@@ -249,9 +249,40 @@ export function detectRegime(candles, closes, marketRegime = {}) {
   // Regime age: track how long we've been in this regime (simplified: use marketRegime.regimeAge if available)
   const regimeAge = marketRegime?.regimeAge || 0;
 
+  // ================================================================
+  // LEADING REGIME INDICATORS — detect regime shifts 1-2 bars earlier
+  // The HMM lags by 2-3 bars; these forward-looking signals compensate.
+  // Blended regime = 30% leading + 70% lagging (HMM)
+  // ================================================================
+  const leadingIndicators = computeLeadingIndicators(candles, closes, realizedVol);
+
+  // Blend leading signal with lagging HMM regime
+  let blendedRegime = currentRegime;
+  let blendedConfidence = confidence;
+
+  if (leadingIndicators.signalStrength > 0.4) {
+    // Leading indicator is strong enough to influence the regime call
+    const leadWeight = 0.3;
+    const lagWeight = 0.7;
+
+    // If leading indicator suggests a different regime, blend toward it
+    if (leadingIndicators.suggestedRegime !== currentRegime) {
+      // Reduce confidence in current regime when leading disagrees
+      blendedConfidence = Math.round(confidence * lagWeight + leadingIndicators.confidence * leadWeight);
+
+      // If leading signal is very strong and HMM confidence is weak, shift regime
+      if (leadingIndicators.signalStrength > 0.6 && confidence < 50) {
+        blendedRegime = leadingIndicators.suggestedRegime;
+      }
+    } else {
+      // Leading confirms lagging — boost confidence
+      blendedConfidence = Math.min(95, Math.round(confidence * lagWeight + leadingIndicators.confidence * leadWeight + 10));
+    }
+  }
+
   return {
-    currentRegime,
-    confidence,
+    currentRegime: blendedRegime,
+    confidence: blendedConfidence,
     regimeProbabilities: {
       trendingBull: regimeProbabilities['trending-bull'],
       trendingBear: regimeProbabilities['trending-bear'],
@@ -261,6 +292,7 @@ export function detectRegime(candles, closes, marketRegime = {}) {
     transitionRisk,
     regimeAge,
     recommendedStrategy,
+    leadingIndicators,
     observations: {
       adx: Math.round(adxValue * 10) / 10,
       hurst: Math.round(hurstValue * 100) / 100,
@@ -269,4 +301,112 @@ export function detectRegime(candles, closes, marketRegime = {}) {
       maAlignment
     }
   };
+}
+
+// ============ LEADING REGIME INDICATORS ============
+// Uses VIX rate-of-change, sector rotation proxy, and credit spread proxy
+// to detect regime shifts 1-2 bars before the HMM catches up.
+
+function computeLeadingIndicators(candles, closes, realizedVol) {
+  const result = {
+    vixMomentum: 0,
+    sectorRotation: 0,
+    creditProxy: 0,
+    composite: 0,
+    signalStrength: 0,
+    suggestedRegime: 'mean-reverting',
+    confidence: 50,
+    details: {}
+  };
+
+  if (!candles || candles.length < 30) return result;
+
+  // --- 1. VIX Rate-of-Change Proxy ---
+  // Use realized volatility change as a VIX proxy (actual VIX not available in edge)
+  // Rising vol = risk-off transition, falling vol = risk-on continuation
+  const recentReturns = [];
+  const priorReturns = [];
+  for (let i = Math.max(1, closes.length - 5); i < closes.length; i++) {
+    recentReturns.push(Math.log(closes[i] / closes[i - 1]));
+  }
+  for (let i = Math.max(1, closes.length - 15); i < closes.length - 5; i++) {
+    priorReturns.push(Math.log(closes[i] / closes[i - 1]));
+  }
+
+  const recentVolatility = recentReturns.length > 0
+    ? Math.sqrt(recentReturns.reduce((a, b) => a + b * b, 0) / recentReturns.length) * 100
+    : realizedVol;
+  const priorVolatility = priorReturns.length > 0
+    ? Math.sqrt(priorReturns.reduce((a, b) => a + b * b, 0) / priorReturns.length) * 100
+    : realizedVol;
+
+  const volRoC = priorVolatility > 0 ? (recentVolatility - priorVolatility) / priorVolatility : 0;
+  result.vixMomentum = Math.max(-1, Math.min(1, volRoC * 2)); // normalized -1 to 1
+  result.details.recentVol = Math.round(recentVolatility * 100) / 100;
+  result.details.priorVol = Math.round(priorVolatility * 100) / 100;
+  result.details.volRoC = Math.round(volRoC * 1000) / 1000;
+
+  // --- 2. Sector Rotation Proxy (cyclicals vs defensives) ---
+  // Without separate sector data, use high-beta behavior: if recent returns
+  // are more extreme than prior (higher kurtosis), risk appetite is shifting
+  const recentAbsReturns = recentReturns.map(Math.abs);
+  const priorAbsReturns = priorReturns.map(Math.abs);
+  const recentAvgMove = recentAbsReturns.length > 0 ? recentAbsReturns.reduce((a, b) => a + b, 0) / recentAbsReturns.length : 0;
+  const priorAvgMove = priorAbsReturns.length > 0 ? priorAbsReturns.reduce((a, b) => a + b, 0) / priorAbsReturns.length : 0;
+  const moveRatio = priorAvgMove > 0 ? recentAvgMove / priorAvgMove : 1;
+
+  // Also check directional skew: are recent returns skewed negative? (risk-off rotation)
+  const recentMean = recentReturns.length > 0 ? recentReturns.reduce((a, b) => a + b, 0) / recentReturns.length : 0;
+  result.sectorRotation = recentMean > 0.005 ? 0.5 : recentMean < -0.005 ? -0.5 : 0;
+  if (moveRatio > 1.5) result.sectorRotation -= 0.3; // increased dispersion = rotation
+  result.sectorRotation = Math.max(-1, Math.min(1, result.sectorRotation));
+  result.details.moveRatio = Math.round(moveRatio * 100) / 100;
+
+  // --- 3. Credit Spread Proxy (HYG/TLT behavior) ---
+  // Without HYG/TLT data directly, infer from price behavior:
+  // Sharp drops with expanding volume = credit stress (risk-off)
+  // Steady gains with normal volume = credit easing (risk-on)
+  const last5 = candles.slice(-5);
+  const last5Return = closes.length >= 6 ? (closes[closes.length - 1] - closes[closes.length - 6]) / closes[closes.length - 6] : 0;
+  const last5AvgVol = last5.reduce((a, c) => a + (c.volume || 0), 0) / 5;
+  const prior5AvgVol = candles.length >= 10 ? candles.slice(-10, -5).reduce((a, c) => a + (c.volume || 0), 0) / 5 : last5AvgVol;
+  const volExpansion = prior5AvgVol > 0 ? last5AvgVol / prior5AvgVol : 1;
+
+  if (last5Return < -0.02 && volExpansion > 1.3) {
+    result.creditProxy = -0.8; // credit stress signal
+  } else if (last5Return > 0.01 && volExpansion < 1.1) {
+    result.creditProxy = 0.5; // credit easing
+  } else if (last5Return < -0.01) {
+    result.creditProxy = -0.3;
+  } else {
+    result.creditProxy = 0.1;
+  }
+  result.details.last5Return = Math.round(last5Return * 10000) / 10000;
+  result.details.volExpansion = Math.round(volExpansion * 100) / 100;
+
+  // --- COMPOSITE LEADING SCORE ---
+  // Weighted blend: VIX momentum 40%, sector rotation 30%, credit proxy 30%
+  result.composite = result.vixMomentum * 0.4 + result.sectorRotation * 0.3 + result.creditProxy * 0.3;
+  result.composite = Math.max(-1, Math.min(1, result.composite));
+  result.signalStrength = Math.abs(result.composite);
+
+  // Map composite to suggested regime
+  if (result.composite > 0.3) {
+    result.suggestedRegime = 'trending-bull';
+    result.confidence = Math.round(50 + result.composite * 40);
+  } else if (result.composite < -0.3) {
+    // Distinguish between trending-bear and volatile-transition
+    if (result.vixMomentum > 0.5) {
+      result.suggestedRegime = 'volatile-transition'; // vol spike = transition
+      result.confidence = Math.round(50 + Math.abs(result.composite) * 30);
+    } else {
+      result.suggestedRegime = 'trending-bear';
+      result.confidence = Math.round(50 + Math.abs(result.composite) * 35);
+    }
+  } else {
+    result.suggestedRegime = 'mean-reverting';
+    result.confidence = 45;
+  }
+
+  return result;
 }

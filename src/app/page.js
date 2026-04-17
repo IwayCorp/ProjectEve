@@ -38,7 +38,9 @@ import Optimization from '@/components/Optimization'
 import LiveTrading from '@/components/LiveTrading'
 import MultiAssetPortfolio from '@/components/MultiAssetPortfolio'
 import LivePerformance from '@/components/LivePerformance'
+import PerformanceAudit from '@/components/PerformanceAudit'
 import TradingGuide from '@/components/TradingGuide'
+import SmartMoney from '@/components/SmartMoney'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -57,6 +59,7 @@ const TICKER_SYMBOLS = {
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'trades', label: 'Trade Ideas' },
+  { id: 'smartmoney', label: 'Smart Money' },
   { id: 'research', label: 'Research' },
   { id: 'news', label: 'News' },
   { id: 'backtest', label: 'Backtesting' },
@@ -261,6 +264,10 @@ export default function Dashboard() {
             <TradeIdeas quotes={quotes} />
           )}
 
+          {activeTab === 'smartmoney' && (
+            <SmartMoney quotes={quotes} />
+          )}
+
           {activeTab === 'research' && (
             <CloudResearch />
           )}
@@ -305,7 +312,10 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'performance' && (
-            <LivePerformance />
+            <div className="space-y-6">
+              <PerformanceAudit />
+              <LivePerformance />
+            </div>
           )}
 
           {activeTab === 'academy' && (
