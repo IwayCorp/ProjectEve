@@ -73,6 +73,16 @@ function getDefaultGenome() {
     volume_declining_threshold: { value: 0.7, default: 0.7, min: 0.5, max: 0.85, step: 0.05, category: 'volume' },
     volume_divergence_lookback: { value: 10, default: 10, min: 5, max: 20, step: 2, category: 'volume' },
     volume_divergence_vol_threshold: { value: 0.80, default: 0.80, min: 0.65, max: 0.92, step: 0.04, category: 'volume' },
+
+    // === INSTITUTIONAL STRATEGY LIBRARY ===
+    strat_trend_boost: { value: 7, default: 7, min: 3, max: 14, step: 2, category: 'strategy_lib' },
+    strat_trend_penalty: { value: 8, default: 8, min: 4, max: 15, step: 2, category: 'strategy_lib' },
+    strat_seasonal_boost: { value: 4, default: 4, min: 1, max: 8, step: 1, category: 'strategy_lib' },
+    strat_pead_boost: { value: 10, default: 10, min: 5, max: 18, step: 2, category: 'strategy_lib' },
+    strat_trend_min_score: { value: 40, default: 40, min: 20, max: 60, step: 5, category: 'strategy_lib' },
+    strat_trend_conflict_min: { value: 50, default: 50, min: 30, max: 70, step: 5, category: 'strategy_lib' },
+    strat_vrp_calm_boost: { value: 3, default: 3, min: 1, max: 7, step: 1, category: 'strategy_lib' },
+    strat_vrp_turbulent_penalty: { value: 4, default: 4, min: 2, max: 8, step: 1, category: 'strategy_lib' },
   };
 }
 
@@ -89,6 +99,7 @@ const FAILURE_CATEGORIES = {
   CONFIDENCE_DEFLATED: 'confidence_deflated', // Low confidence signal that would have won big
   VOLUME_MISSED: 'volume_missed',            // Volume divergence was present but not detected
   EXPIRED_WINNER: 'expired_winner',          // Position expired but was profitable after
+  STRAT_LIB_IGNORED: 'strat_lib_ignored',   // Institutional strategy library signal was ignored
 };
 
 function attributeFailure(trade) {
@@ -167,6 +178,20 @@ function attributeFailure(trade) {
       detail: `Expired with +${(trade.actualReturn * 100).toFixed(1)}% unrealized — target wasn't reached in time`,
       paramHint: ['target_atr_trending', 'target_atr_normal'],
     });
+  }
+
+  // Strategy library signal was available but we traded against it
+  if (lost && trade.strategyLibSignal && trade.strategyLibSignal !== 'neutral') {
+    const slConflict = (trade.strategyLibSignal === 'long' && trade.direction === 'short') ||
+                       (trade.strategyLibSignal === 'short' && trade.direction === 'long')
+    if (slConflict) {
+      reasons.push({
+        category: FAILURE_CATEGORIES.STRAT_LIB_IGNORED,
+        severity: 'warning',
+        detail: `Institutional strategy library signaled ${trade.strategyLibSignal}, we went ${trade.direction}`,
+        paramHint: ['strat_trend_boost', 'strat_trend_penalty', 'strat_pead_boost'],
+      });
+    }
   }
 
   return reasons.length > 0 ? {

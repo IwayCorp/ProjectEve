@@ -426,6 +426,112 @@ export default function AIAssistant({ quotes = {} }) {
         </div>
       </div>
 
+      {/* ============ INSTITUTIONAL STRATEGY LIBRARY ============ */}
+      <div className="space-y-3">
+        <div className="nx-section-header">
+          <div className="nx-accent-bar" style={{ background: '#06b6d4' }} />
+          <h3>Institutional Strategy Library</h3>
+        </div>
+        {(() => {
+          // Extract strategy lib data from top signals or market-level data
+          const msl = signals?.marketStrategyLib
+          const topSig = topSignals?.[0]
+          const stratLib = topSig?.strategyLibrary || msl
+          if (!stratLib || stratLib.activeCount === 0) {
+            return (
+              <GlassCard>
+                <div className="text-center py-4">
+                  <div className="text-2xl mb-1">{'\u{1F3E6}'}</div>
+                  <div className="text-xs text-nx-text-muted">Strategy library data loading...</div>
+                  <div className="text-2xs text-nx-text-hint mt-1">15 institutional strategies from RenTech, AQR, Bridgewater, Man AHL, DE Shaw</div>
+                </div>
+              </GlassCard>
+            )
+          }
+
+          const STRAT_LABELS = {
+            trendFollowing: { label: 'Trend Following', firm: 'Man AHL', icon: '\u2191', color: '#22c55e' },
+            volRiskPremium: { label: 'Vol Risk Premium', firm: 'Susquehanna', icon: '\u{1F4C9}', color: '#f59e0b' },
+            bondEquityRegime: { label: 'Bond-Equity Regime', firm: 'Bridgewater', icon: '\u{1F3E6}', color: '#06b6d4' },
+            seasonal: { label: 'Seasonal Patterns', firm: 'Quant Consensus', icon: '\u{1F4C5}', color: '#a855f7' },
+            pead: { label: 'Post-Earnings Drift', firm: 'AQR', icon: '\u{1F4CA}', color: '#ef4444' },
+            shortTermReversal: { label: 'Short-Term Reversal', firm: 'DE Shaw', icon: '\u21C4', color: '#ec4899' },
+            pairsMeanReversion: { label: 'Pairs Reversion', firm: 'RenTech', icon: '\u{1F504}', color: '#8b5cf6' },
+            crossSectionalMomentum: { label: 'Cross-Sectional Momentum', firm: 'WorldQuant', icon: '\u{1F680}', color: '#10b981' },
+            carrySignal: { label: 'Carry Trade', firm: 'PIMCO', icon: '\u{1F4B1}', color: '#f97316' },
+            riskParity: { label: 'Risk Parity', firm: 'Bridgewater', icon: '\u2696', color: '#06b6d4' },
+            goldRealYield: { label: 'Gold-Real Yield', firm: 'Cross-Asset', icon: '\u{1F947}', color: '#eab308' },
+            orderFlowImbalance: { label: 'Order Flow', firm: 'Citadel', icon: '\u{1F4CA}', color: '#14b8a6' },
+            factorTiming: { label: 'Factor Timing', firm: 'BlackRock', icon: '\u{1F4CA}', color: '#6366f1' },
+          }
+
+          const stratEntries = Object.entries(stratLib.strategies || {})
+          const signalColorMap = { long: '#22c55e', short: '#ef4444', long_spread: '#22c55e', short_spread: '#ef4444', sell_vol: '#f59e0b', buy_vol: '#8b5cf6', bullish: '#22c55e', cautious: '#f59e0b', risk_off: '#ef4444', risk_on: '#22c55e', neutral: '#64748b' }
+
+          return (
+            <div className="space-y-3">
+              {/* Summary bar */}
+              <GlassCard style={{ borderLeft: '3px solid #06b6d4' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-nx-text-strong">
+                      {stratLib.activeCount} Active Strategies
+                    </div>
+                    <div className="text-2xs text-nx-text-muted mt-0.5">
+                      Avg confidence: {stratLib.avgConfidence}% across institutional models
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold" style={{ color: stratLib.avgConfidence >= 60 ? '#22c55e' : stratLib.avgConfidence >= 40 ? '#f59e0b' : '#ef4444' }}>
+                    {stratLib.avgConfidence}%
+                  </div>
+                </div>
+              </GlassCard>
+
+              {/* Strategy grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                {stratEntries.map(([key, strat]) => {
+                  const meta = STRAT_LABELS[key] || { label: key, firm: 'Quant', icon: '\u{1F4CA}', color: '#64748b' }
+                  const sigColor = signalColorMap[strat.signal] || '#64748b'
+                  return (
+                    <div key={key} className="px-3 py-2.5 rounded-lg" style={{
+                      background: `${meta.color}06`,
+                      border: `1px solid ${meta.color}20`,
+                    }}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">{meta.icon}</span>
+                          <span className="text-2xs font-bold text-nx-text-strong">{meta.label}</span>
+                        </div>
+                        <span className="text-2xs px-1.5 py-0.5 rounded font-bold" style={{
+                          background: `${sigColor}15`,
+                          color: sigColor,
+                          border: `1px solid ${sigColor}30`,
+                        }}>
+                          {(strat.signal || 'neutral').toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-2xs">
+                        <span className="text-nx-text-hint">{meta.firm}</span>
+                        <span className="font-bold" style={{ color: meta.color }}>{strat.score}%</span>
+                      </div>
+                      {strat.agreement && (
+                        <div className="text-2xs text-nx-text-hint mt-0.5">{strat.agreement} speeds agree</div>
+                      )}
+                      {strat.vrp && (
+                        <div className="text-2xs text-nx-text-hint mt-0.5">VRP: {strat.vrp}</div>
+                      )}
+                      {strat.optimalHold && (
+                        <div className="text-2xs text-nx-text-hint mt-0.5">Hold: {strat.optimalHold}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
       {/* ============ EVOLUTION ENGINE PANEL ============ */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">

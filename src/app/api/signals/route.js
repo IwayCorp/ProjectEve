@@ -7,6 +7,7 @@ import { analyzeSentiment } from '@/lib/sentimentEngine'
 import { computeCorrelations } from '@/lib/correlationEngine'
 import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
 import { initEvolutionEngine, getParam, recordTradeOutcome } from '@/lib/evolutionEngine'
+import { runStrategyLibrary, timeSeriesMomentum, seasonalSignal, peadSignal, shortTermReversal, volRiskPremium, bondEquityRegime } from '@/lib/strategyLibrary'
 
 export const runtime = 'edge'
 
@@ -1027,6 +1028,69 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     }
   } catch (e) { /* ensemble is non-critical */ }
 
+  // ================================================================
+  // INSTITUTIONAL STRATEGY LIBRARY — 15 strategies from top quant firms
+  // RenTech, AQR, Bridgewater, Man AHL, DE Shaw, Two Sigma, WorldQuant
+  // ================================================================
+  let strategyLibData = null
+  try {
+    const slData = { closes }
+
+    // Provide implied vol estimate from Bollinger bandwidth as IV proxy
+    if (bb) slData.impliedVol = bb.bandwidth * 2.5 // rough IV proxy from BB width
+
+    strategyLibData = runStrategyLibrary(slData)
+
+    if (strategyLibData && strategyLibData.activeCount > 0) {
+      const libStrats = strategyLibData.strategies
+
+      // --- Trend Following (Man AHL / Winton) ---
+      if (libStrats.trendFollowing) {
+        const tf = libStrats.trendFollowing
+        const tfAligned = (tf.signal === 'long' && direction === 'long') || (tf.signal === 'short' && direction === 'short')
+        const tfConflict = (tf.signal === 'long' && direction === 'short') || (tf.signal === 'short' && direction === 'long')
+        if (tfAligned && tf.score > 40) {
+          confidence += applyBoost(getParam('strat_trend_boost') ?? 7)
+          factors.trendFollowing = direction === 'long' ? 1.5 : -1.5
+        } else if (tfConflict && tf.score > 50) {
+          confidence -= (getParam('strat_trend_penalty') ?? 8)
+          factors.trendFollowing = direction === 'long' ? -1.5 : 1.5
+        }
+      }
+
+      // --- Vol Risk Premium (Susquehanna / Wolverine) ---
+      if (libStrats.volRiskPremium && libStrats.volRiskPremium.score > 30) {
+        const vrp = libStrats.volRiskPremium
+        // Rich premium = sell vol environment = market complacent = cautious on longs
+        if (vrp.signal === 'sell_vol' && direction === 'long') {
+          confidence += applyBoost(3) // calm markets favor longs
+        } else if (vrp.signal === 'buy_vol' && direction === 'long') {
+          confidence -= 4 // turbulent, RV > IV
+        }
+      }
+
+      // --- Seasonal Patterns ---
+      if (libStrats.seasonal && libStrats.seasonal.score > 0) {
+        const sea = libStrats.seasonal
+        if (sea.compositeDirection === 'bullish' && direction === 'long') {
+          confidence += applyBoost(getParam('strat_seasonal_boost') ?? 4)
+        } else if (sea.compositeDirection === 'cautious' && direction === 'long') {
+          confidence -= 2
+        }
+      }
+
+      // --- PEAD (Post-Earnings Drift) --- optimal for 4-day lifecycle
+      if (libStrats.pead && libStrats.pead.score > 30) {
+        const pead = libStrats.pead
+        const peadAligned = (pead.signal === 'long' && direction === 'long') || (pead.signal === 'short' && direction === 'short')
+        if (peadAligned) {
+          confidence += applyBoost(getParam('strat_pead_boost') ?? 10)
+          factors.pead = direction === 'long' ? 2.0 : -2.0
+        }
+      }
+    }
+  } catch (e) { /* strategy library is non-critical */ }
+
   // Clamp
   confidence = Math.max(25, Math.min(95, confidence))
 
@@ -1230,6 +1294,12 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   if (vol.divergence === 'bearish' && direction === 'short') agreeParts.push('bearish volume divergence (new highs on declining volume)')
   if (vol.divergence === 'bullish' && direction === 'long') agreeParts.push('bullish volume divergence (accumulation at lows)')
 
+  // Strategy library reasons
+  if (factors.trendFollowing && factors.trendFollowing * dirSign > 0) agreeParts.push('multi-speed trend following (Man AHL)')
+  if (factors.pead && factors.pead * dirSign > 0) agreeParts.push('post-earnings drift (PEAD)')
+  if (strategyLibData?.strategies?.seasonal?.compositeDirection === 'bullish' && direction === 'long') agreeParts.push('seasonal tailwind')
+  if (strategyLibData?.strategies?.volRiskPremium?.signal === 'sell_vol') agreeParts.push('vol risk premium (calm market)')
+
   // Smart Money reasons injected into catalyst
   if (smartMoneySignal?.smReasons?.length > 0) {
     agreeParts.push(...smartMoneySignal.smReasons.slice(0, 3))
@@ -1270,6 +1340,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     `MAs: ${price > ma50 ? 'above' : 'below'} MA50, ${ma50 > ma200 ? 'golden cross' : 'death cross'}`,
     `${strategy} strategy at ${confidence}% confidence`,
     ...(vol.divergence !== 'none' ? [`Volume divergence: ${vol.divergence} \u2014 ${vol.divergence === 'bearish' ? 'price making new highs on declining volume (distribution)' : 'price making new lows on rising volume (accumulation)'}`] : []),
+    ...(strategyLibData ? [`Institutional strategies: ${strategyLibData.activeCount} active, avg confidence ${strategyLibData.avgConfidence}%`] : []),
+    ...(strategyLibData?.strategies?.trendFollowing ? [`Trend following: ${strategyLibData.strategies.trendFollowing.signal} (${strategyLibData.strategies.trendFollowing.agreement} speeds agree)`] : []),
   ]
 
   // Technical levels
@@ -1331,6 +1403,23 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       ensembleScore: r(ensembleData.ensembleScore, 2),
     } : null,
     positionSizing,
+    // Institutional strategy library
+    strategyLibrary: strategyLibData ? {
+      activeCount: strategyLibData.activeCount,
+      avgConfidence: strategyLibData.avgConfidence,
+      strategies: Object.fromEntries(
+        Object.entries(strategyLibData.strategies).map(([k, v]) => [k, {
+          signal: v.signal || v.compositeDirection || 'neutral',
+          score: v.score || 0,
+          ...(v.composite != null ? { composite: v.composite } : {}),
+          ...(v.agreement ? { agreement: v.agreement } : {}),
+          ...(v.vrp ? { vrp: v.vrp } : {}),
+          ...(v.regime ? { regime: v.regime } : {}),
+          ...(v.signals ? { subSignals: v.signals.length || 0 } : {}),
+          ...(v.optimalHold ? { optimalHold: v.optimalHold } : {}),
+        }])
+      ),
+    } : null,
     // Entry freshness metadata
     entryFreshness: {
       generatedAt: now.toISOString(),
@@ -1849,7 +1938,17 @@ export async function GET(request) {
     signals.forex.sort((a, b) => b.confidence - a.confidence)
     signals.macro.sort((a, b) => b.confidence - a.confidence)
 
-    return NextResponse.json({ signals, errors, marketRegime, generatedAt: new Date().toISOString() })
+    // Run market-level institutional strategy library for global context
+    let marketStrategyLib = null
+    try {
+      if (marketRegime) {
+        const { candles: spyCandles } = await fetchCandles('SPY', '1y', '1d')
+        const spyCloses = spyCandles.map(c => c.close)
+        marketStrategyLib = runStrategyLibrary({ closes: spyCloses })
+      }
+    } catch (e) { /* market strategy lib is non-critical */ }
+
+    return NextResponse.json({ signals, errors, marketRegime, marketStrategyLib, generatedAt: new Date().toISOString() })
   } catch (error) {
     return NextResponse.json({ error: error.message, signals: { long: [], short: [], forex: [], macro: [] } }, { status: 500 })
   }
