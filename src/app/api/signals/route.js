@@ -117,14 +117,43 @@ function calcBollingerBands(closes, period = 20, mult = 2) {
 }
 
 function analyzeVolume(candles, lookback = 20) {
-  if (candles.length < lookback + 5) return { ratio: 1, trend: 'flat' }
+  if (candles.length < lookback + 5) return { ratio: 1, trend: 'flat', divergence: 'none' }
   const recent5 = candles.slice(-5)
   const prior = candles.slice(-(lookback + 5), -5)
   const avgRecent = recent5.reduce((a, c) => a + (c.volume || 0), 0) / 5
   const avgPrior = prior.reduce((a, c) => a + (c.volume || 0), 0) / prior.length
   const ratio = avgPrior > 0 ? avgRecent / avgPrior : 1
   const trend = ratio > 1.3 ? 'rising' : ratio < 0.7 ? 'declining' : 'flat'
-  return { ratio: r(ratio, 2), trend, avgRecent: Math.round(avgRecent), avgPrior: Math.round(avgPrior) }
+
+  // Volume-price divergence detection
+  // Bearish divergence: price making new highs but volume declining
+  // Bullish divergence: price making new lows but volume rising
+  let divergence = 'none'
+  if (candles.length >= lookback + 10) {
+    const recent10 = candles.slice(-10)
+    const prior10 = candles.slice(-20, -10)
+    const recentHighs = recent10.map(c => c.high)
+    const priorHighs = prior10.map(c => c.high)
+    const recentLows = recent10.map(c => c.low)
+    const priorLows = prior10.map(c => c.low)
+    const recentMaxHigh = Math.max(...recentHighs)
+    const priorMaxHigh = Math.max(...priorHighs)
+    const recentMinLow = Math.min(...recentLows)
+    const priorMinLow = Math.min(...priorLows)
+    const recentAvgVol = recent10.reduce((a, c) => a + (c.volume || 0), 0) / 10
+    const priorAvgVol = prior10.reduce((a, c) => a + (c.volume || 0), 0) / 10
+
+    // Price new high + volume declining = bearish divergence (smart money exiting)
+    if (recentMaxHigh > priorMaxHigh && priorAvgVol > 0 && recentAvgVol < priorAvgVol * 0.80) {
+      divergence = 'bearish'
+    }
+    // Price new low + volume rising = bullish divergence (accumulation at lows)
+    else if (recentMinLow < priorMinLow && priorAvgVol > 0 && recentAvgVol > priorAvgVol * 1.20) {
+      divergence = 'bullish'
+    }
+  }
+
+  return { ratio: r(ratio, 2), trend, avgRecent: Math.round(avgRecent), avgPrior: Math.round(avgPrior), divergence }
 }
 
 function calcATRPercentile(candles, period = 14) {
@@ -738,6 +767,17 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   if (vol.trend === 'declining') confidence -= 5
   else if (vol.ratio > 1.5) confidence += applyBoost(3)
 
+  // Volume-price divergence penalty — strongest volume signal
+  // Bearish divergence (new highs on declining volume) penalizes longs, confirms shorts
+  // Bullish divergence (new lows on rising volume) penalizes shorts, confirms longs
+  if (vol.divergence === 'bearish') {
+    if (direction === 'long') confidence -= 18  // Strong penalty: smart money exiting at highs
+    else confidence += applyBoost(6)             // Confirms short thesis
+  } else if (vol.divergence === 'bullish') {
+    if (direction === 'short') confidence -= 15  // Accumulation at lows — don't short into it
+    else confidence += applyBoost(6)             // Confirms long thesis
+  }
+
   if (bb && bb.bandwidth < 0.03) confidence -= 6
 
   if (regimeOverride) confidence -= 10 // forced direction = lower conviction
@@ -1057,15 +1097,16 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   let positionSizing = null
   try {
     positionSizing = computePositionSize({
-      confidence: confidence / 100,
+      confidence,
       atr,
       price,
       stopDistance: Math.abs(price - stopLoss),
+      direction,
       winRate: confidence > 70 ? 0.6 : confidence > 55 ? 0.52 : 0.48,
-      avgWin: Math.abs(target - price),
-      avgLoss: Math.abs(price - stopLoss),
-      regime: regimeAnalysis ? regimeAnalysis.currentRegime : 'unknown',
-      volatilityPercentile: atrPctile,
+      avgWinLoss: riskAmt > 0 ? Math.abs(target - price) / riskAmt : 1.5,
+      regime: regimeAnalysis || { currentRegime: 'unknown' },
+      volatilityRegime: atrPctile > 70 ? 'high' : atrPctile < 30 ? 'low' : 'normal',
+      atrPercentile: atrPctile,
     })
   } catch (e) { /* position sizing is non-critical */ }
 
@@ -1173,6 +1214,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   if (factors.emaCross * dirSign > 0) agreeParts.push('EMA9/21 aligned')
   if (factors.mtfMomentum * dirSign > 0) agreeParts.push('multi-TF momentum')
   if (factors.volume * dirSign > 0) agreeParts.push('volume confirming')
+  if (vol.divergence === 'bearish' && direction === 'short') agreeParts.push('bearish volume divergence (new highs on declining volume)')
+  if (vol.divergence === 'bullish' && direction === 'long') agreeParts.push('bullish volume divergence (accumulation at lows)')
 
   // Smart Money reasons injected into catalyst
   if (smartMoneySignal?.smReasons?.length > 0) {
@@ -1213,6 +1256,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     `RSI at ${r(rsi, 1)} \u2014 ${rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : 'neutral'}`,
     `MAs: ${price > ma50 ? 'above' : 'below'} MA50, ${ma50 > ma200 ? 'golden cross' : 'death cross'}`,
     `${strategy} strategy at ${confidence}% confidence`,
+    ...(vol.divergence !== 'none' ? [`Volume divergence: ${vol.divergence} \u2014 ${vol.divergence === 'bearish' ? 'price making new highs on declining volume (distribution)' : 'price making new lows on rising volume (accumulation)'}`] : []),
   ]
 
   // Technical levels

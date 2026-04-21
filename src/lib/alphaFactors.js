@@ -44,37 +44,49 @@ export function computeAlphaFactors(candles, closes) {
     return denom1 === 0 || denom2 === 0 ? 0 : numerator / Math.sqrt(denom1 * denom2);
   };
 
-  // Helper: RSI
+  // Helper: RSI (Wilder's smoothing)
   const rsi = (prices, period) => {
     if (prices.length < period + 1) return null;
-    let avgGain = 0, avgLoss = 0;
-    for (let i = prices.length - period; i < prices.length; i++) {
-      const change = prices[i] - prices[i - 1];
-      if (change > 0) avgGain += change;
-      else avgLoss -= change;
+    let avgGain = 0, avgLoss = 0, result = null;
+    for (let i = 1; i < prices.length; i++) {
+      const g = prices[i] > prices[i - 1] ? prices[i] - prices[i - 1] : 0;
+      const l = prices[i] < prices[i - 1] ? prices[i - 1] - prices[i] : 0;
+      if (i <= period) {
+        avgGain += g; avgLoss += l;
+        if (i === period) {
+          avgGain /= period; avgLoss /= period;
+          result = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+        }
+      } else {
+        avgGain = (avgGain * (period - 1) + g) / period;
+        avgLoss = (avgLoss * (period - 1) + l) / period;
+        result = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+      }
     }
-    avgGain /= period;
-    avgLoss /= period;
-    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-    return 100 - (100 / (1 + rs));
+    return result;
   };
 
-  // Helper: ATR
+  // Helper: ATR (Wilder's smoothing)
   const atr = (candles, period) => {
-    if (candles.length < period) return null;
-    let trSum = 0;
-    const slice = candles.slice(-period);
-    for (let i = 0; i < slice.length; i++) {
-      const c = slice[i];
-      const prevClose = i === 0 ? (candles[candles.length - period - 1]?.close || c.close) : slice[i - 1].close;
-      const tr = Math.max(
-        c.high - c.low,
-        Math.abs(c.high - prevClose),
-        Math.abs(c.low - prevClose)
+    if (candles.length < period + 1) return null;
+    let atrVal = 0;
+    for (let i = 1; i <= period; i++) {
+      atrVal += Math.max(
+        candles[i].high - candles[i].low,
+        Math.abs(candles[i].high - candles[i - 1].close),
+        Math.abs(candles[i].low - candles[i - 1].close)
       );
-      trSum += tr;
     }
-    return trSum / period;
+    atrVal /= period;
+    for (let i = period + 1; i < candles.length; i++) {
+      const tr = Math.max(
+        candles[i].high - candles[i].low,
+        Math.abs(candles[i].high - candles[i - 1].close),
+        Math.abs(candles[i].low - candles[i - 1].close)
+      );
+      atrVal = (atrVal * (period - 1) + tr) / period;
+    }
+    return atrVal;
   };
 
   const lastCandle = candles[candles.length - 1];

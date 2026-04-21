@@ -28,28 +28,48 @@ function stdev(values, period) {
 }
 
 function atr(candles, period = 14) {
-  if (candles.length < period) return null;
-  const tr = candles.map((c, i) => {
-    if (i === 0) return c.high - c.low;
-    const prev = candles[i - 1].close;
-    return Math.max(c.high - c.low, Math.abs(c.high - prev), Math.abs(c.low - prev));
-  });
-  return sma(tr, period);
+  if (candles.length < period + 1) return null;
+  // Wilder's smoothed ATR (not SMA)
+  let atrVal = 0;
+  for (let i = 1; i <= period; i++) {
+    atrVal += Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close)
+    );
+  }
+  atrVal /= period;
+  for (let i = period + 1; i < candles.length; i++) {
+    const tr = Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close)
+    );
+    atrVal = (atrVal * (period - 1) + tr) / period;
+  }
+  return atrVal;
 }
 
 function rsi(closes, period = 14) {
   if (closes.length < period + 1) return null;
-  const deltas = [];
+  // Wilder's smoothed RSI
+  let avgGain = 0, avgLoss = 0, result = null;
   for (let i = 1; i < closes.length; i++) {
-    deltas.push(closes[i] - closes[i - 1]);
+    const g = closes[i] > closes[i - 1] ? closes[i] - closes[i - 1] : 0;
+    const l = closes[i] < closes[i - 1] ? closes[i - 1] - closes[i] : 0;
+    if (i <= period) {
+      avgGain += g; avgLoss += l;
+      if (i === period) {
+        avgGain /= period; avgLoss /= period;
+        result = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+      }
+    } else {
+      avgGain = (avgGain * (period - 1) + g) / period;
+      avgLoss = (avgLoss * (period - 1) + l) / period;
+      result = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+    }
   }
-  const gains = deltas.map(d => Math.max(d, 0));
-  const losses = deltas.map(d => Math.max(-d, 0));
-  const avgGain = gains.slice(-period).reduce((a, b) => a + b, 0) / period;
-  const avgLoss = losses.slice(-period).reduce((a, b) => a + b, 0) / period;
-  if (avgLoss === 0) return avgGain > 0 ? 100 : 0;
-  const rs = avgGain / avgLoss;
-  return 100 - 100 / (1 + rs);
+  return result;
 }
 
 function adx(candles, period = 14) {
@@ -83,32 +103,63 @@ function adx(candles, period = 14) {
   return Math.max(0, Math.min(100, sma([dx], period) || dx));
 }
 
-function hurst(closes, lag = 20) {
-  if (closes.length < lag * 2) return 0.5;
+function hurst(closes, maxWindow = 100) {
+  // Proper R/S (Rescaled Range) multi-scale Hurst exponent
+  // H > 0.55 = trending, H < 0.45 = mean-reverting, 0.45-0.55 = random walk
+  const n = Math.min(closes.length, maxWindow);
+  if (n < 20) return 0.5;
 
+  const series = closes.slice(-n);
   const returns = [];
-  for (let i = 1; i < closes.length; i++) {
-    returns.push(Math.log(closes[i] / closes[i - 1]));
+  for (let i = 1; i < series.length; i++) {
+    returns.push(Math.log(series[i] / series[i - 1]));
   }
 
-  const lags = [lag];
-  const tau = [];
+  const scales = [];
+  const rsValues = [];
 
-  for (const L of lags) {
-    if (returns.length < L) continue;
-    let sum = 0;
-    for (let i = L; i < returns.length; i++) {
-      const meanRet = returns.slice(i - L, i).reduce((a, b) => a + b, 0) / L;
-      const devSum = returns.slice(i - L, i).reduce((a, b) => a + (b - meanRet), 0);
-      sum += devSum * devSum;
+  for (let scale = 4; scale <= Math.floor(returns.length / 2); scale = Math.floor(scale * 1.5)) {
+    const numBlocks = Math.floor(returns.length / scale);
+    if (numBlocks < 1) continue;
+
+    let rsSum = 0;
+    let validBlocks = 0;
+
+    for (let b = 0; b < numBlocks; b++) {
+      const block = returns.slice(b * scale, (b + 1) * scale);
+      const mean = block.reduce((a, v) => a + v, 0) / block.length;
+      const std = Math.sqrt(block.reduce((a, v) => a + (v - mean) ** 2, 0) / block.length);
+      if (std < 1e-10) continue;
+
+      // Cumulative deviation from mean
+      let cumDev = 0, maxCum = -Infinity, minCum = Infinity;
+      for (const val of block) {
+        cumDev += val - mean;
+        maxCum = Math.max(maxCum, cumDev);
+        minCum = Math.min(minCum, cumDev);
+      }
+
+      rsSum += (maxCum - minCum) / std;
+      validBlocks++;
     }
-    const variance = sum / (returns.length - L);
-    tau.push(Math.sqrt(variance * L));
+
+    if (validBlocks > 0) {
+      scales.push(Math.log(scale));
+      rsValues.push(Math.log(rsSum / validBlocks));
+    }
   }
 
-  // Hurst exponent approximation: log(tau) vs log(lag) slope
-  const h = Math.log(tau[0]) / Math.log(lag);
-  return Math.min(1, Math.max(0, h));
+  if (scales.length < 3) return 0.5;
+
+  // Linear regression: log(R/S) = H * log(n) + c
+  const nPts = scales.length;
+  const sumX = scales.reduce((a, v) => a + v, 0);
+  const sumY = rsValues.reduce((a, v) => a + v, 0);
+  const sumXY = scales.reduce((a, v, i) => a + v * rsValues[i], 0);
+  const sumX2 = scales.reduce((a, v) => a + v * v, 0);
+
+  const H = (nPts * sumXY - sumX * sumY) / (nPts * sumX2 - sumX * sumX);
+  return Math.max(0.01, Math.min(0.99, parseFloat(H.toFixed(3))));
 }
 
 function getRSIZone(rsiValue) {
@@ -167,6 +218,8 @@ export function detectRegime(candles, closes, marketRegime = {}) {
     : 20; // default VIX ~20
 
   // Compute emission probabilities (observable likelihood per regime)
+  // Calibrated thresholds: ADX 25 (not 30) for trend detection,
+  // Hurst 0.55/0.45 boundaries (not 0.5 +/- 0.15), vol percentile-based
   const emissions = {
     'trending-bull': 0,
     'trending-bear': 0,
@@ -174,24 +227,37 @@ export function detectRegime(candles, closes, marketRegime = {}) {
     'volatile-transition': 0
   };
 
-  // trending-bull: high ADX, positive MA alignment, RSI not overbought, low realized vol
-  if (adxValue > 30 && maAlignment > 0 && rsiValue < 80 && realizedVol < 40) {
-    emissions['trending-bull'] += 0.35;
+  // trending-bull: ADX shows directional movement, positive MA alignment, Hurst > 0.55 (persistent)
+  if (adxValue > 25 && maAlignment > 0 && hurstValue > 0.55 && rsiValue < 80) {
+    emissions['trending-bull'] += 0.30 + (adxValue > 35 ? 0.10 : 0) + (hurstValue > 0.65 ? 0.05 : 0);
+  }
+  // Weaker bull: price above MAs even without strong ADX
+  if (maAlignment > 0 && hurstValue > 0.52 && rsiValue > 40 && rsiValue < 75) {
+    emissions['trending-bull'] += 0.15;
   }
 
-  // trending-bear: high ADX, negative MA alignment, RSI not oversold, low realized vol
-  if (adxValue > 30 && maAlignment < 0 && rsiValue > 20 && realizedVol < 40) {
-    emissions['trending-bear'] += 0.35;
+  // trending-bear: ADX shows directional movement, negative MA alignment, Hurst > 0.55 (persistent)
+  if (adxValue > 25 && maAlignment < 0 && hurstValue > 0.55 && rsiValue > 20) {
+    emissions['trending-bear'] += 0.30 + (adxValue > 35 ? 0.10 : 0) + (hurstValue > 0.65 ? 0.05 : 0);
+  }
+  if (maAlignment < 0 && hurstValue > 0.52 && rsiValue < 60 && rsiValue > 25) {
+    emissions['trending-bear'] += 0.15;
   }
 
-  // mean-reverting: low ADX, hurst near 0.5, RSI extreme (setup for reversal), volume neutral
-  if (adxValue < 25 && Math.abs(hurstValue - 0.5) < 0.15 && (rsiZone === 'oversold' || rsiZone === 'overbought')) {
-    emissions['mean-reverting'] += 0.40;
+  // mean-reverting: Hurst < 0.45 (anti-persistent), low ADX, RSI extremes
+  if (hurstValue < 0.45 && adxValue < 25) {
+    emissions['mean-reverting'] += 0.30 + (hurstValue < 0.35 ? 0.10 : 0);
+  }
+  if (adxValue < 20 && (rsiZone === 'oversold' || rsiZone === 'overbought')) {
+    emissions['mean-reverting'] += 0.15;
   }
 
-  // volatile-transition: high realized vol, ADX declining, hurst > 0.6 or < 0.4, volume expanding
-  if (realizedVol > 50 || (adxValue > 20 && adxValue < 40 && Math.abs(hurstValue - 0.5) > 0.2)) {
-    emissions['volatile-transition'] += 0.30;
+  // volatile-transition: high realized vol OR Hurst crossing 0.5 boundary, ADX mid-range
+  if (realizedVol > 40) {
+    emissions['volatile-transition'] += 0.25 + (realizedVol > 60 ? 0.15 : 0);
+  }
+  if (hurstValue > 0.45 && hurstValue < 0.55 && adxValue > 15 && adxValue < 35) {
+    emissions['volatile-transition'] += 0.15; // random walk zone
   }
 
   // Normalize emissions

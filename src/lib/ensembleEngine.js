@@ -154,7 +154,34 @@ export function computeEnsemble(strategyScores, regime, alphaFactors = {}, perfo
   // Step 4: Detect conflicts
   const conflict = detectConflict(strategyScores);
 
-  // Step 5: Compute weighted ensemble score
+  // Step 5: Apply cross-strategy correlation penalty
+  // Momentum and breakout are highly correlated (~0.7) in trending markets.
+  // When both fire in the same direction, the portfolio thinks it has diversification
+  // but it doesn't. Penalize overlapping directional weight.
+  const momSign = Math.sign(momentumScore);
+  const boSign = Math.sign(boScore);
+  const momBoSameDir = momSign !== 0 && momSign === boSign;
+
+  if (momBoSameDir) {
+    // Both agree on direction: cap their combined weight contribution
+    // Effective correlation penalty: reduce the smaller signal's weight by 30%
+    const momAbs = Math.abs(momentumScore);
+    const boAbs = Math.abs(boScore);
+    if (momAbs >= boAbs) {
+      adjustedWeights.breakout = adjustedWeights.breakout * 0.70;
+    } else {
+      adjustedWeights.momentum = adjustedWeights.momentum * 0.70;
+    }
+    // Re-normalize
+    const penaltySum = adjustedWeights.momentum + adjustedWeights.meanReversion + adjustedWeights.breakout;
+    if (penaltySum > 0) {
+      adjustedWeights.momentum /= penaltySum;
+      adjustedWeights.meanReversion /= penaltySum;
+      adjustedWeights.breakout /= penaltySum;
+    }
+  }
+
+  // Compute weighted ensemble score (correlation-adjusted)
   // Score normalized to [-100, +100]
   const weightedMomentum = (momentumScore / 100) * adjustedWeights.momentum;
   const weightedMR = (mrScore / 100) * adjustedWeights.meanReversion;
