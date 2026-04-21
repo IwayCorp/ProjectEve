@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-brief?type=pre-market",
+      "schedule": "30 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/daily-brief?type=midday",
+      "schedule": "30 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/daily-brief?type=post-close",
+      "schedule": "30 21 * * 1-5"
+    }
+  ]
+}

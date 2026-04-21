@@ -41,6 +41,7 @@ import LivePerformance from '@/components/LivePerformance'
 import PerformanceAudit from '@/components/PerformanceAudit'
 import TradingGuide from '@/components/TradingGuide'
 import SmartMoney from '@/components/SmartMoney'
+import DailyBriefPanel from '@/components/DailyBriefPanel'
 import { useQuotes, useCorrelation } from '@/hooks/useMarketData'
 import { getAllSymbols } from '@/lib/marketData'
 
@@ -255,6 +256,9 @@ export default function Dashboard() {
               </div>
 
               <CorrelationHeatmap correlations={correlations} loading={corrLoading} />
+
+              <DailyBriefPanel />
+
               <RiskCalendar quotes={quotes} />
               <ScenarioAnalysis />
             </>
