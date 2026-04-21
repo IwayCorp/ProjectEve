@@ -1,62 +1,89 @@
-// adaptiveEngine.js — Adaptive learning engine for Noctis
-// Learns from past signal outcomes and self-corrects strategy weights,
-// confidence thresholds, and factor importance in real time.
+// adaptiveEngine.js — Per-Asset-Class Adaptive Learning Engine for Noctis
+// Each asset class (equity, forex, crypto, commodity, macro) gets its own
+// independent learning model with separate signal history, strategy weights,
+// factor weights, confidence thresholds, anomalies, and corrections.
 // Pure JavaScript — runs in Vercel Edge Runtime, no external dependencies.
 
 // ============ CONSTANTS ============
 
-const STORAGE_KEY = 'noctis_adaptive_engine';
-const MAX_SIGNALS = 500;
-const LEARNING_MODE_THRESHOLD = 20;
+const STORAGE_KEY = 'noctis_adaptive_engine_v2';
+const LEGACY_STORAGE_KEY = 'noctis_adaptive_engine';
+const MAX_SIGNALS_PER_CLASS = 300;
+const LEARNING_MODE_THRESHOLD = 12; // per-class threshold (lower since data is split)
 const ROLLING_WINDOWS = [20, 50, 100];
 const ANNUALIZATION_FACTOR = Math.sqrt(252);
 
-const STRATEGIES = ['momentum', 'meanReversion', 'breakout'];
+const STRATEGIES = ['momentum', 'meanReversion', 'breakout', 'macro'];
 const REGIMES = ['trending-bull', 'trending-bear', 'mean-reverting', 'volatile-transition'];
 const TIMEFRAMES = ['dayTrade', 'swing', 'position'];
 const CONFIDENCE_BUCKETS = ['50-60', '60-70', '70-80', '80+'];
-const ASSET_CLASSES = ['equity', 'forex', 'crypto', 'futures'];
+const ASSET_CLASSES = ['equity', 'forex', 'crypto', 'commodity', 'macro'];
 const QUALITY_GRADES = ['A', 'B', 'C', 'D'];
 
-const DEFAULT_WEIGHTS = {
-  'trending-bull':        { momentum: 0.50, meanReversion: 0.20, breakout: 0.30 },
-  'trending-bear':        { momentum: 0.45, meanReversion: 0.30, breakout: 0.25 },
-  'mean-reverting':       { momentum: 0.25, meanReversion: 0.55, breakout: 0.20 },
-  'volatile-transition':  { momentum: 0.30, meanReversion: 0.35, breakout: 0.35 },
+// Per-class default weights — each asset class has different optimal strategy mixes
+const DEFAULT_WEIGHTS_BY_CLASS = {
+  equity: {
+    'trending-bull':        { momentum: 0.50, meanReversion: 0.20, breakout: 0.30, macro: 0.00 },
+    'trending-bear':        { momentum: 0.45, meanReversion: 0.30, breakout: 0.20, macro: 0.05 },
+    'mean-reverting':       { momentum: 0.20, meanReversion: 0.55, breakout: 0.20, macro: 0.05 },
+    'volatile-transition':  { momentum: 0.25, meanReversion: 0.30, breakout: 0.30, macro: 0.15 },
+  },
+  forex: {
+    'trending-bull':        { momentum: 0.40, meanReversion: 0.15, breakout: 0.25, macro: 0.20 },
+    'trending-bear':        { momentum: 0.40, meanReversion: 0.15, breakout: 0.25, macro: 0.20 },
+    'mean-reverting':       { momentum: 0.15, meanReversion: 0.50, breakout: 0.15, macro: 0.20 },
+    'volatile-transition':  { momentum: 0.20, meanReversion: 0.20, breakout: 0.30, macro: 0.30 },
+  },
+  crypto: {
+    'trending-bull':        { momentum: 0.55, meanReversion: 0.10, breakout: 0.30, macro: 0.05 },
+    'trending-bear':        { momentum: 0.40, meanReversion: 0.25, breakout: 0.25, macro: 0.10 },
+    'mean-reverting':       { momentum: 0.20, meanReversion: 0.50, breakout: 0.25, macro: 0.05 },
+    'volatile-transition':  { momentum: 0.30, meanReversion: 0.20, breakout: 0.35, macro: 0.15 },
+  },
+  commodity: {
+    'trending-bull':        { momentum: 0.45, meanReversion: 0.15, breakout: 0.25, macro: 0.15 },
+    'trending-bear':        { momentum: 0.40, meanReversion: 0.20, breakout: 0.20, macro: 0.20 },
+    'mean-reverting':       { momentum: 0.15, meanReversion: 0.50, breakout: 0.15, macro: 0.20 },
+    'volatile-transition':  { momentum: 0.20, meanReversion: 0.20, breakout: 0.25, macro: 0.35 },
+  },
+  macro: {
+    'trending-bull':        { momentum: 0.30, meanReversion: 0.10, breakout: 0.15, macro: 0.45 },
+    'trending-bear':        { momentum: 0.25, meanReversion: 0.15, breakout: 0.15, macro: 0.45 },
+    'mean-reverting':       { momentum: 0.10, meanReversion: 0.30, breakout: 0.10, macro: 0.50 },
+    'volatile-transition':  { momentum: 0.15, meanReversion: 0.15, breakout: 0.20, macro: 0.50 },
+  },
 };
 
-const DEFAULT_FACTOR_WEIGHTS = {
-  rsi: 0.15,
-  adx: 0.15,
-  hurst: 0.10,
-  alphaComposite: 0.20,
-  ensembleScore: 0.20,
-  sentiment: 0.10,
-  regimeConfidence: 0.10,
+// Per-class default factor weights — different factors matter for different asset classes
+const DEFAULT_FACTOR_WEIGHTS_BY_CLASS = {
+  equity: { rsi: 0.14, adx: 0.16, hurst: 0.10, alphaComposite: 0.22, ensembleScore: 0.20, sentiment: 0.10, regimeConfidence: 0.08 },
+  forex:  { rsi: 0.12, adx: 0.14, hurst: 0.08, alphaComposite: 0.15, ensembleScore: 0.15, sentiment: 0.06, regimeConfidence: 0.30 },
+  crypto: { rsi: 0.18, adx: 0.14, hurst: 0.12, alphaComposite: 0.18, ensembleScore: 0.18, sentiment: 0.12, regimeConfidence: 0.08 },
+  commodity: { rsi: 0.12, adx: 0.15, hurst: 0.10, alphaComposite: 0.18, ensembleScore: 0.15, sentiment: 0.08, regimeConfidence: 0.22 },
+  macro:  { rsi: 0.08, adx: 0.10, hurst: 0.08, alphaComposite: 0.12, ensembleScore: 0.12, sentiment: 0.10, regimeConfidence: 0.40 },
 };
+
+// Backward-compat: legacy DEFAULT_WEIGHTS (equity defaults)
+const DEFAULT_WEIGHTS = DEFAULT_WEIGHTS_BY_CLASS.equity;
+const DEFAULT_FACTOR_WEIGHTS = DEFAULT_FACTOR_WEIGHTS_BY_CLASS.equity;
 
 // ============ STATE ============
 
-/** @type {{ signals: Array, metrics: Object, corrections: Array, anomalies: Array, adaptiveWeights: Object, factorWeights: Object, minimumConfidence: number }} */
+/**
+ * @type {{
+ *   assetModels: Object<string, { signals, metrics, corrections, anomalies, adaptiveWeights, factorWeights, minimumConfidence, lastAuditAt }>,
+ *   version: number
+ * }}
+ */
 let state = null;
 
 // ============ HELPERS: MATH ============
 
-/**
- * Calculate arithmetic mean of an array.
- * @param {number[]} arr
- * @returns {number}
- */
 function mean(arr) {
   if (!arr || arr.length === 0) return 0;
   return arr.reduce((s, v) => s + v, 0) / arr.length;
 }
 
-/**
- * Calculate population standard deviation.
- * @param {number[]} arr
- * @returns {number}
- */
 function stddev(arr) {
   if (!arr || arr.length < 2) return 0;
   const m = mean(arr);
@@ -64,11 +91,6 @@ function stddev(arr) {
   return Math.sqrt(variance);
 }
 
-/**
- * Annualized Sharpe Ratio.
- * @param {number[]} returns - array of per-trade returns (decimal, e.g. 0.02 = 2%)
- * @returns {number}
- */
 function sharpeRatio(returns) {
   if (!returns || returns.length < 2) return 0;
   const sd = stddev(returns);
@@ -76,11 +98,6 @@ function sharpeRatio(returns) {
   return (mean(returns) / sd) * ANNUALIZATION_FACTOR;
 }
 
-/**
- * Profit Factor: gross wins / |gross losses|.
- * @param {number[]} returns
- * @returns {number}
- */
 function profitFactor(returns) {
   if (!returns || returns.length === 0) return 0;
   const wins = returns.filter(r => r > 0).reduce((s, v) => s + v, 0);
@@ -89,12 +106,6 @@ function profitFactor(returns) {
   return wins / losses;
 }
 
-/**
- * Maximum drawdown over a sequence of returns.
- * Builds an equity curve from the returns and finds the max peak-to-trough decline.
- * @param {number[]} returns - per-trade returns (decimal)
- * @returns {number} - drawdown as a positive decimal (e.g. 0.12 = 12% drawdown)
- */
 function maxDrawdown(returns) {
   if (!returns || returns.length === 0) return 0;
   let equity = 1;
@@ -109,45 +120,22 @@ function maxDrawdown(returns) {
   return maxDD;
 }
 
-/**
- * Kelly Fraction: (winRate * avgWin - lossRate * avgLoss) / avgWin
- * @param {number} winRate
- * @param {number} avgWin - positive decimal
- * @param {number} avgLoss - positive decimal (magnitude)
- * @returns {number}
- */
 function kellyFraction(winRate, avgWin, avgLoss) {
   if (avgWin === 0) return 0;
   const lossRate = 1 - winRate;
   return (winRate * avgWin - lossRate * avgLoss) / avgWin;
 }
 
-/**
- * Expected value per trade.
- * @param {number} winRate
- * @param {number} avgWin - positive
- * @param {number} avgLoss - positive (magnitude)
- * @returns {number}
- */
 function expectedValue(winRate, avgWin, avgLoss) {
   return winRate * avgWin - (1 - winRate) * avgLoss;
 }
 
-/**
- * Generate a short unique id.
- * @returns {string}
- */
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 // ============ HELPERS: BUCKET / CLASSIFICATION ============
 
-/**
- * Map a confidence value (0-100) to a bucket key.
- * @param {number} confidence
- * @returns {string}
- */
 function confidenceBucket(confidence) {
   if (confidence >= 80) return '80+';
   if (confidence >= 70) return '70-80';
@@ -155,46 +143,58 @@ function confidenceBucket(confidence) {
   return '50-60';
 }
 
-/**
- * Classify hold duration (hours) into a timeframe bucket.
- * @param {number} hours
- * @returns {string}
- */
 function timeframeBucket(hours) {
   if (hours <= 8) return 'dayTrade';
-  if (hours <= 120) return 'swing'; // up to ~5 days
+  if (hours <= 120) return 'swing';
   return 'position';
 }
 
 /**
- * Determine asset class from ticker string.
- * Heuristic: pairs like EUR/USD -> forex, BTC/ETH -> crypto, /ES -> futures, else equity.
- * @param {string} ticker
- * @returns {string}
+ * Determine asset class from ticker string or explicit asset type.
+ * Enhanced to detect commodities and macro signals.
  */
-function classifyAsset(ticker) {
+export function classifyAsset(ticker, assetType) {
+  // If explicitly provided, normalize it
+  if (assetType) {
+    const at = assetType.toLowerCase();
+    if (at === 'forex') return 'forex';
+    if (at === 'crypto') return 'crypto';
+    if (at === 'commodity' || at === 'commodities') return 'commodity';
+    if (at === 'macro') return 'macro';
+    if (at === 'futures') return 'commodity'; // futures → commodity class
+    if (at === 'equity') return 'equity';
+  }
+
   if (!ticker) return 'equity';
   const t = ticker.toUpperCase();
-  const forexPairs = [
-    'EUR', 'USD', 'GBP', 'JPY', 'AUD', 'NZD', 'CAD', 'CHF',
-  ];
-  if (t.includes('/')) {
-    const [base] = t.split('/');
-    if (['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'ADA', 'DOT', 'AVAX', 'MATIC', 'LINK'].includes(base)) return 'crypto';
-    if (forexPairs.includes(base)) return 'forex';
+
+  // Forex detection
+  const forexPairs = ['EUR', 'USD', 'GBP', 'JPY', 'AUD', 'NZD', 'CAD', 'CHF'];
+  if (t.includes('=X') || t.includes('/')) {
+    const parts = t.replace('=X', '').split('/');
+    if (forexPairs.some(p => t.includes(p)) && !t.startsWith('BTC')) return 'forex';
   }
-  if (t.startsWith('/') || t.startsWith('MES') || t.startsWith('MNQ') || t.startsWith('ES') || t.startsWith('NQ')) return 'futures';
-  if (['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'].some(c => t.startsWith(c))) return 'crypto';
+  if (['USDJPY', 'EURUSD', 'GBPUSD', 'USDCHF', 'AUDUSD', 'USDMXN', 'EURGBP', 'NZDUSD'].includes(t)) return 'forex';
+  if (['JPY=X', 'EURUSD=X', 'GBPUSD=X', 'CHF=X', 'AUDUSD=X', 'MXN=X', 'EURGBP=X', 'NZDUSD=X', 'DX-Y.NYB'].includes(t)) return 'forex';
+
+  // Crypto detection
+  if (['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'DOT-USD', 'AVAX-USD', 'MATIC-USD', 'LINK-USD'].includes(t)) return 'crypto';
+  if (['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'].some(c => t.startsWith(c) && t.includes('-'))) return 'crypto';
+
+  // Commodity / Futures detection
+  if (['GC=F', 'CL=F', 'SI=F', 'NG=F', 'HG=F', 'PL=F', 'ZC=F', 'ZW=F', 'ZS=F'].includes(t)) return 'commodity';
+  if (t.endsWith('=F')) return 'commodity';
+  if (['GLD', 'SLV', 'USO', 'UNG', 'DBA', 'DBC', 'PDBC', 'CORN', 'WEAT', 'SOYB'].includes(t)) return 'commodity';
+  if (t.startsWith('/') || t.startsWith('MES') || t.startsWith('MNQ') || t.startsWith('ES=') || t.startsWith('NQ=')) return 'commodity';
+
+  // Macro signals
+  if (['TLT', 'IEF', 'SHY', 'TIP', 'UUP', 'FXI', 'EEM', 'EFA', 'VWO', 'HYG', 'LQD', 'JNK', 'AGG'].includes(t)) return 'macro';
+
   return 'equity';
 }
 
 // ============ METRICS CALCULATION ============
 
-/**
- * Build a performance metrics object from a list of resolved signals.
- * @param {Array} signals - resolved signals (outcome !== 'OPEN')
- * @returns {{ winRate: number, avgReturn: number, sharpeRatio: number, maxDrawdown: number, profitFactor: number, kellyFraction: number, expectedValue: number, tradeCount: number }}
- */
 function computeMetrics(signals) {
   const empty = {
     winRate: 0, avgReturn: 0, sharpeRatio: 0,
@@ -222,12 +222,6 @@ function computeMetrics(signals) {
   };
 }
 
-/**
- * Compute rolling-window metrics for a set of resolved signals.
- * Returns { last20: metrics, last50: metrics, last100: metrics, allTime: metrics }.
- * @param {Array} signals
- * @returns {Object}
- */
 function computeRollingMetrics(signals) {
   const sorted = [...signals].sort((a, b) => (b.resolvedAt || b.timestamp) - (a.resolvedAt || a.timestamp));
   return {
@@ -238,12 +232,6 @@ function computeRollingMetrics(signals) {
   };
 }
 
-/**
- * Group signals by a key extractor and compute metrics per group.
- * @param {Array} signals
- * @param {function} keyFn - extracts a grouping key from a signal
- * @returns {Object<string, Object>}
- */
 function metricsByGroup(signals, keyFn) {
   const groups = {};
   for (const s of signals) {
@@ -261,24 +249,56 @@ function metricsByGroup(signals, keyFn) {
 
 // ============ PERSISTENCE ============
 
-/**
- * Attempt to load state from localStorage.
- * @returns {Object|null}
- */
 function loadFromStorage() {
   try {
     if (typeof localStorage === 'undefined') return null;
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    if (raw) return JSON.parse(raw);
+    return null;
   } catch {
     return null;
   }
 }
 
 /**
- * Persist current state to localStorage.
+ * Migrate legacy single-model state to per-asset-class state.
+ * Distributes existing signals to their respective asset classes.
  */
+function migrateLegacyState() {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return null;
+    const legacy = JSON.parse(raw);
+    if (!legacy || !Array.isArray(legacy.signals)) return null;
+
+    // Distribute legacy signals by asset class
+    const newState = { assetModels: {}, version: 2 };
+    for (const ac of ASSET_CLASSES) {
+      newState.assetModels[ac] = freshModel(ac);
+    }
+
+    for (const signal of legacy.signals) {
+      const ac = classifyAsset(signal.ticker);
+      if (newState.assetModels[ac]) {
+        newState.assetModels[ac].signals.push(signal);
+      }
+    }
+
+    // Trim each class
+    for (const ac of ASSET_CLASSES) {
+      const model = newState.assetModels[ac];
+      if (model.signals.length > MAX_SIGNALS_PER_CLASS) {
+        model.signals = model.signals.slice(model.signals.length - MAX_SIGNALS_PER_CLASS);
+      }
+    }
+
+    return newState;
+  } catch {
+    return null;
+  }
+}
+
 function saveToStorage() {
   try {
     if (typeof localStorage === 'undefined') return;
@@ -288,14 +308,16 @@ function saveToStorage() {
   }
 }
 
-// ============ INITIALIZATION ============
+// ============ PER-CLASS MODEL ============
 
 /**
- * Create a blank engine state.
- * @returns {Object}
+ * Create a blank model for a single asset class.
  */
-function freshState() {
+function freshModel(assetClass) {
+  const defaultWeights = DEFAULT_WEIGHTS_BY_CLASS[assetClass] || DEFAULT_WEIGHTS_BY_CLASS.equity;
+  const defaultFactors = DEFAULT_FACTOR_WEIGHTS_BY_CLASS[assetClass] || DEFAULT_FACTOR_WEIGHTS_BY_CLASS.equity;
   return {
+    assetClass,
     signals: [],
     metrics: {
       overall: computeMetrics([]),
@@ -303,71 +325,136 @@ function freshState() {
       byRegime: {},
       byTimeframe: {},
       byConfidenceBucket: {},
-      byAssetClass: {},
     },
     corrections: [],
     anomalies: [],
-    adaptiveWeights: JSON.parse(JSON.stringify(DEFAULT_WEIGHTS)),
-    factorWeights: { ...DEFAULT_FACTOR_WEIGHTS },
+    adaptiveWeights: JSON.parse(JSON.stringify(defaultWeights)),
+    factorWeights: { ...defaultFactors },
     minimumConfidence: 50,
     lastAuditAt: null,
   };
 }
 
+function freshState() {
+  const s = { assetModels: {}, version: 2 };
+  for (const ac of ASSET_CLASSES) {
+    s.assetModels[ac] = freshModel(ac);
+  }
+  return s;
+}
+
 /**
- * Initialise the adaptive engine. Loads persisted state from localStorage
- * or creates a fresh state if none exists.
- * @returns {{ signalCount: number, isLearningMode: boolean }}
+ * Get the model for a specific asset class, creating it if needed.
+ */
+function getModel(assetClass) {
+  if (!state) initAdaptiveEngine();
+  const ac = assetClass || 'equity';
+  if (!state.assetModels[ac]) {
+    state.assetModels[ac] = freshModel(ac);
+  }
+  return state.assetModels[ac];
+}
+
+/**
+ * Get all signals across all asset classes.
+ */
+function allSignals() {
+  if (!state) return [];
+  let all = [];
+  for (const ac of ASSET_CLASSES) {
+    if (state.assetModels[ac]) {
+      all = all.concat(state.assetModels[ac].signals);
+    }
+  }
+  return all;
+}
+
+/**
+ * Get resolved signals for a model (or all models if no model provided).
+ */
+function resolvedSignalsForModel(model) {
+  const signals = model ? model.signals : allSignals();
+  return signals.filter(s => s.outcome && s.outcome !== 'OPEN');
+}
+
+// ============ INITIALIZATION ============
+
+/**
+ * Initialise the adaptive engine. Loads persisted per-class state from localStorage,
+ * migrates legacy single-model state, or creates fresh state.
+ * @returns {{ signalCount: number, isLearningMode: boolean, assetClasses: Object }}
  */
 export function initAdaptiveEngine() {
+  // Try loading v2 state
   const loaded = loadFromStorage();
-  if (loaded && Array.isArray(loaded.signals)) {
+  if (loaded && loaded.version === 2 && loaded.assetModels) {
     state = loaded;
-    // Ensure all required keys exist (forward-compat)
-    if (!state.corrections) state.corrections = [];
-    if (!state.anomalies) state.anomalies = [];
-    if (!state.adaptiveWeights) state.adaptiveWeights = JSON.parse(JSON.stringify(DEFAULT_WEIGHTS));
-    if (!state.factorWeights) state.factorWeights = { ...DEFAULT_FACTOR_WEIGHTS };
-    if (!state.minimumConfidence) state.minimumConfidence = 50;
+    // Ensure all asset classes exist
+    for (const ac of ASSET_CLASSES) {
+      if (!state.assetModels[ac]) {
+        state.assetModels[ac] = freshModel(ac);
+      }
+      const m = state.assetModels[ac];
+      if (!m.corrections) m.corrections = [];
+      if (!m.anomalies) m.anomalies = [];
+      if (!m.adaptiveWeights) m.adaptiveWeights = JSON.parse(JSON.stringify(DEFAULT_WEIGHTS_BY_CLASS[ac] || DEFAULT_WEIGHTS_BY_CLASS.equity));
+      if (!m.factorWeights) m.factorWeights = { ...(DEFAULT_FACTOR_WEIGHTS_BY_CLASS[ac] || DEFAULT_FACTOR_WEIGHTS_BY_CLASS.equity) };
+      if (!m.minimumConfidence) m.minimumConfidence = 50;
+    }
   } else {
-    state = freshState();
+    // Try migrating legacy state
+    const migrated = migrateLegacyState();
+    if (migrated) {
+      state = migrated;
+    } else {
+      state = freshState();
+    }
   }
   saveToStorage();
+
+  // Build per-class summary
+  const assetClasses = {};
+  let totalSignals = 0;
+  let globalLearning = true;
+  for (const ac of ASSET_CLASSES) {
+    const m = state.assetModels[ac];
+    const resolved = resolvedSignalsForModel(m);
+    const learning = resolved.length < LEARNING_MODE_THRESHOLD;
+    assetClasses[ac] = {
+      signalCount: m.signals.length,
+      resolvedCount: resolved.length,
+      isLearningMode: learning,
+      learningProgress: Math.min(1, resolved.length / LEARNING_MODE_THRESHOLD),
+    };
+    totalSignals += m.signals.length;
+    if (!learning) globalLearning = false;
+  }
+
   return {
-    signalCount: state.signals.length,
-    isLearningMode: resolvedSignals().length < LEARNING_MODE_THRESHOLD,
+    signalCount: totalSignals,
+    isLearningMode: globalLearning,
+    assetClasses,
   };
 }
 
-/**
- * Get all resolved (non-OPEN) signals.
- * @returns {Array}
- */
-function resolvedSignals() {
-  if (!state) return [];
-  return state.signals.filter(s => s.outcome && s.outcome !== 'OPEN');
-}
-
-/**
- * Ensure the engine is initialised before use.
- */
 function ensureInit() {
   if (!state) initAdaptiveEngine();
+}
+
+// Backward-compat helpers
+function resolvedSignals() {
+  ensureInit();
+  return resolvedSignalsForModel(null);
 }
 
 // ============ RECORD SIGNAL OUTCOME ============
 
 /**
- * Record a resolved (or new) signal outcome into the performance database.
+ * Record a resolved (or new) signal outcome into the appropriate asset class model.
  *
  * @param {Object} signal - Signal object with at minimum: ticker, direction, strategy, confidence, regime.
- *   Optional enrichment fields: entryPrice, targetPrice, stopPrice, factors { rsiAtEntry, adxAtEntry, ... }
  * @param {Object} outcome - Resolution details.
- * @param {'TARGET_HIT'|'STOP_HIT'|'EXPIRED'|'OPEN'} outcome.result
- * @param {number} outcome.actualReturn - Realised return as a decimal (e.g. 0.03 = +3%).
- * @param {number} [outcome.holdDuration] - Duration in hours.
- * @param {number} [outcome.resolvedAt] - Epoch ms when outcome was determined.
- * @returns {{ id: string, totalSignals: number }}
+ * @returns {{ id: string, totalSignals: number, assetClass: string }}
  */
 export function recordSignalOutcome(signal, outcome) {
   ensureInit();
@@ -376,10 +463,24 @@ export function recordSignalOutcome(signal, outcome) {
     throw new Error('recordSignalOutcome requires both a signal object and an outcome object');
   }
 
+  const assetClass = classifyAsset(signal.ticker, signal.asset || signal.assetType);
+  const model = getModel(assetClass);
+
   // Check if this signal already exists (by id) and update it
   let existing = null;
   if (signal.id) {
-    existing = state.signals.find(s => s.id === signal.id);
+    existing = model.signals.find(s => s.id === signal.id);
+    // Also check other models in case asset classification changed
+    if (!existing) {
+      for (const ac of ASSET_CLASSES) {
+        if (ac === assetClass) continue;
+        const otherModel = state.assetModels[ac];
+        if (otherModel) {
+          existing = otherModel.signals.find(s => s.id === signal.id);
+          if (existing) break;
+        }
+      }
+    }
   }
 
   if (existing) {
@@ -388,7 +489,7 @@ export function recordSignalOutcome(signal, outcome) {
     existing.holdDuration = outcome.holdDuration ?? existing.holdDuration ?? 0;
     existing.resolvedAt = outcome.resolvedAt || Date.now();
     saveToStorage();
-    return { id: existing.id, totalSignals: state.signals.length };
+    return { id: existing.id, totalSignals: model.signals.length, assetClass };
   }
 
   // New signal entry
@@ -399,6 +500,7 @@ export function recordSignalOutcome(signal, outcome) {
     strategy: signal.strategy || 'momentum',
     confidence: signal.confidence ?? 50,
     regime: signal.regime || 'volatile-transition',
+    assetClass,
     entryPrice: signal.entryPrice ?? null,
     targetPrice: signal.targetPrice ?? null,
     stopPrice: signal.stopPrice ?? null,
@@ -410,35 +512,44 @@ export function recordSignalOutcome(signal, outcome) {
     factors: signal.factors ? { ...signal.factors } : {},
   };
 
-  state.signals.push(entry);
+  model.signals.push(entry);
 
   // FIFO eviction when over capacity
-  if (state.signals.length > MAX_SIGNALS) {
-    state.signals = state.signals.slice(state.signals.length - MAX_SIGNALS);
+  if (model.signals.length > MAX_SIGNALS_PER_CLASS) {
+    model.signals = model.signals.slice(model.signals.length - MAX_SIGNALS_PER_CLASS);
   }
 
   saveToStorage();
-  return { id: entry.id, totalSignals: state.signals.length };
+  return { id: entry.id, totalSignals: model.signals.length, assetClass };
 }
 
-// ============ ADAPTIVE WEIGHTS ============
+// ============ NORMALISE STRATEGY ============
 
-/**
- * Recalculate adaptive strategy weights based on historical performance.
- * In learning mode (< 20 resolved signals) returns default weights.
- */
-function recalculateAdaptiveWeights() {
-  const resolved = resolvedSignals();
+function normaliseStrategy(strat) {
+  if (!strat) return 'momentum';
+  const s = strat.toLowerCase().replace(/[^a-z]/g, '');
+  if (s.includes('meanrev') || s.includes('reversion')) return 'meanReversion';
+  if (s.includes('breakout')) return 'breakout';
+  if (s.includes('macro') || s.includes('relative')) return 'macro';
+  return 'momentum';
+}
+
+// ============ ADAPTIVE WEIGHTS (PER CLASS) ============
+
+function recalculateAdaptiveWeightsForModel(model) {
+  const ac = model.assetClass || 'equity';
+  const defaultWeights = DEFAULT_WEIGHTS_BY_CLASS[ac] || DEFAULT_WEIGHTS_BY_CLASS.equity;
+  const resolved = resolvedSignalsForModel(model);
+
   if (resolved.length < LEARNING_MODE_THRESHOLD) {
-    state.adaptiveWeights = JSON.parse(JSON.stringify(DEFAULT_WEIGHTS));
+    model.adaptiveWeights = JSON.parse(JSON.stringify(defaultWeights));
     return;
   }
 
   for (const regime of REGIMES) {
     const regimeSignals = resolved.filter(s => s.regime === regime);
     if (regimeSignals.length < 5) {
-      // Not enough data for this regime, keep defaults
-      state.adaptiveWeights[regime] = { ...DEFAULT_WEIGHTS[regime] };
+      model.adaptiveWeights[regime] = { ...(defaultWeights[regime] || {}) };
       continue;
     }
 
@@ -454,86 +565,61 @@ function recalculateAdaptiveWeights() {
         const wr = wins.length / returns.length;
         const avgW = wins.length > 0 ? mean(wins) : 0;
         const avgL = losses.length > 0 ? Math.abs(mean(losses)) : 0;
-        stratPerf[strat] = {
-          winRate: wr,
-          ev: expectedValue(wr, avgW, avgL),
-          count: stratSignals.length,
-        };
+        stratPerf[strat] = { winRate: wr, ev: expectedValue(wr, avgW, avgL), count: stratSignals.length };
       }
     }
 
-    // Weight by expected value, floored at 0.05 per strategy
     const evs = STRATEGIES.map(s => Math.max(stratPerf[s].ev, 0.001));
     const total = evs.reduce((a, b) => a + b, 0);
     const raw = {};
-    STRATEGIES.forEach((s, i) => {
-      raw[s] = evs[i] / total;
-    });
+    STRATEGIES.forEach((s, i) => { raw[s] = evs[i] / total; });
 
-    // Blend: 60% data-driven, 40% default (dampen swings)
+    // Blend: 60% data-driven, 40% default
     const blended = {};
-    const base = DEFAULT_WEIGHTS[regime];
+    const base = defaultWeights[regime] || {};
     for (const strat of STRATEGIES) {
-      blended[strat] = Math.max(0.05, raw[strat] * 0.6 + (base[strat] || 0.33) * 0.4);
+      blended[strat] = Math.max(0.03, (raw[strat] || 0) * 0.6 + (base[strat] || 0.25) * 0.4);
     }
 
-    // Re-normalise to sum to 1
-    const bTotal = STRATEGIES.reduce((s, k) => s + blended[k], 0);
+    const bTotal = STRATEGIES.reduce((s, k) => s + (blended[k] || 0), 0);
     for (const strat of STRATEGIES) {
-      blended[strat] = blended[strat] / bTotal;
+      blended[strat] = (blended[strat] || 0) / bTotal;
     }
 
-    state.adaptiveWeights[regime] = blended;
+    model.adaptiveWeights[regime] = blended;
   }
 }
 
 /**
- * Normalise strategy names to canonical form.
- * @param {string} strat
- * @returns {string}
- */
-function normaliseStrategy(strat) {
-  if (!strat) return 'momentum';
-  const s = strat.toLowerCase().replace(/[^a-z]/g, '');
-  if (s.includes('meanrev') || s.includes('reversion')) return 'meanReversion';
-  if (s.includes('breakout')) return 'breakout';
-  return 'momentum';
-}
-
-/**
- * Get current adaptive weights for a regime and optionally a specific strategy.
- * Returns the full weight map for the regime, or a single weight if strategy is provided.
- *
- * @param {string} regime - e.g. 'trending-bull'
- * @param {string} [strategy] - optional specific strategy
+ * Get adaptive weights for a regime, optionally scoped to an asset class.
+ * @param {string} regime
+ * @param {string} [strategy]
+ * @param {string} [assetClass]
  * @returns {Object|number}
  */
-export function getAdaptiveWeights(regime, strategy) {
+export function getAdaptiveWeights(regime, strategy, assetClass) {
   ensureInit();
-  const weights = state.adaptiveWeights[regime] || state.adaptiveWeights['volatile-transition'] || DEFAULT_WEIGHTS['volatile-transition'];
+  const ac = assetClass || 'equity';
+  const model = getModel(ac);
+  const weights = model.adaptiveWeights[regime] || model.adaptiveWeights['volatile-transition'] || DEFAULT_WEIGHTS_BY_CLASS[ac]?.['volatile-transition'] || DEFAULT_WEIGHTS.equity?.['volatile-transition'];
   if (strategy) {
-    return weights[normaliseStrategy(strategy)] ?? 0.33;
+    return weights?.[normaliseStrategy(strategy)] ?? 0.25;
   }
-  return { ...weights };
+  return { ...(weights || {}) };
 }
 
-// ============ SIGNAL QUALITY SCORER ============
+// ============ SIGNAL QUALITY SCORER (PER CLASS) ============
 
 /**
- * Score a proposed signal's quality before emission.
- * Returns a quality grade (A-D) and the expected value.
- *
- * Grade thresholds (on expected value per trade):
- *   A: EV >= 1.5%   (strong positive edge)
- *   B: EV >= 0.5%   (moderate edge)
- *   C: EV >= 0%     (break-even or marginal)
- *   D: EV < 0%      (negative expectancy — suppress)
- *
- * @param {Object} signal - Proposed signal with: strategy, regime, confidence, ticker
- * @returns {{ grade: string, expectedValue: number, winRate: number, avgWin: number, avgLoss: number, recommendation: string, pass: boolean }}
+ * Score a proposed signal's quality using the appropriate asset-class model.
+ * @param {Object} signal - { strategy, regime, confidence, ticker, asset }
+ * @returns {{ grade, expectedValue, winRate, avgWin, avgLoss, recommendation, pass, assetClass }}
  */
 export function scoreSignalQuality(signal) {
   ensureInit();
+
+  const assetClass = classifyAsset(signal.ticker, signal.asset || signal.assetType);
+  const model = getModel(assetClass);
 
   const defaults = {
     grade: 'C',
@@ -543,11 +629,12 @@ export function scoreSignalQuality(signal) {
     avgLoss: 0,
     recommendation: 'LEARNING_MODE',
     pass: true,
+    assetClass,
+    adjustedConfidence: signal.confidence ?? 50,
   };
 
-  const resolved = resolvedSignals();
+  const resolved = resolvedSignalsForModel(model);
   if (resolved.length < LEARNING_MODE_THRESHOLD) {
-    // In learning mode — pass everything but mark it
     return defaults;
   }
 
@@ -555,17 +642,24 @@ export function scoreSignalQuality(signal) {
   const regime = signal.regime || 'volatile-transition';
   const confidence = signal.confidence ?? 50;
 
-  // Find historical signals matching this strategy + regime
+  // Find historical signals matching this strategy + regime in THIS asset class
   let pool = resolved.filter(s => normaliseStrategy(s.strategy) === strat && s.regime === regime);
 
-  // If insufficient data for this exact combo, widen to strategy-only
-  if (pool.length < 10) {
+  // Widen to strategy-only within this class
+  if (pool.length < 8) {
     pool = resolved.filter(s => normaliseStrategy(s.strategy) === strat);
   }
 
-  // Still insufficient — widen to all resolved
-  if (pool.length < 10) {
+  // Widen to all resolved in this class
+  if (pool.length < 8) {
     pool = resolved;
+  }
+
+  // If STILL not enough data in this class, cross-reference the global pool
+  if (pool.length < 5) {
+    const globalResolved = resolvedSignals();
+    pool = globalResolved.filter(s => normaliseStrategy(s.strategy) === strat);
+    if (pool.length < 5) pool = globalResolved;
   }
 
   const returns = pool.map(s => s.actualReturn || 0);
@@ -576,59 +670,49 @@ export function scoreSignalQuality(signal) {
   const avgL = losses.length > 0 ? Math.abs(mean(losses)) : 0;
   const ev = expectedValue(wr, avgW, avgL);
 
-  // Confidence penalty: if this signal's confidence is below the minimum productive threshold, penalise
+  // Confidence penalty from per-class history
   const confBucket = confidenceBucket(confidence);
   const bucketSignals = resolved.filter(s => confidenceBucket(s.confidence) === confBucket);
   let confMultiplier = 1.0;
   if (bucketSignals.length >= 5) {
     const bucketReturns = bucketSignals.map(s => s.actualReturn || 0);
     const bucketAvg = mean(bucketReturns);
-    if (bucketAvg < 0) {
-      confMultiplier = 0.5; // heavily penalise historically losing confidence range
-    }
+    if (bucketAvg < 0) confMultiplier = 0.5;
   }
 
   const adjustedEV = ev * confMultiplier;
+  const adjustedConfidence = Math.max(25, Math.min(95, confidence * (1 + adjustedEV * 5)));
 
   let grade, recommendation;
-  if (adjustedEV >= 0.015) {
-    grade = 'A';
-    recommendation = 'STRONG_SIGNAL';
-  } else if (adjustedEV >= 0.005) {
-    grade = 'B';
-    recommendation = 'MODERATE_SIGNAL';
-  } else if (adjustedEV >= 0) {
-    grade = 'C';
-    recommendation = 'MARGINAL_SIGNAL';
-  } else {
-    grade = 'D';
-    recommendation = 'SUPPRESS';
-  }
+  if (adjustedEV >= 0.015) { grade = 'A'; recommendation = 'STRONG_SIGNAL'; }
+  else if (adjustedEV >= 0.005) { grade = 'B'; recommendation = 'MODERATE_SIGNAL'; }
+  else if (adjustedEV >= 0) { grade = 'C'; recommendation = 'MARGINAL_SIGNAL'; }
+  else { grade = 'D'; recommendation = 'SUPPRESS'; }
 
-  const pass = adjustedEV >= 0 && confidence >= state.minimumConfidence;
+  const pass = adjustedEV >= 0 && confidence >= model.minimumConfidence;
 
   return {
     grade,
     expectedValue: adjustedEV,
+    adjustedConfidence,
     winRate: wr,
     avgWin: avgW,
     avgLoss: avgL,
     recommendation,
     pass,
+    assetClass,
   };
 }
 
-// ============ FACTOR WEIGHT RECALCULATION ============
+// ============ FACTOR WEIGHT RECALCULATION (PER CLASS) ============
 
-/**
- * Recalculate factor importance weights based on correlation with positive outcomes.
- * Uses a simple rank-correlation heuristic: for each factor, compare its average value
- * in winning trades vs losing trades. Factors that discriminate better get more weight.
- */
-function recalculateFactorWeights() {
-  const resolved = resolvedSignals();
+function recalculateFactorWeightsForModel(model) {
+  const ac = model.assetClass || 'equity';
+  const defaults = DEFAULT_FACTOR_WEIGHTS_BY_CLASS[ac] || DEFAULT_FACTOR_WEIGHTS_BY_CLASS.equity;
+  const resolved = resolvedSignalsForModel(model);
+
   if (resolved.length < LEARNING_MODE_THRESHOLD) {
-    state.factorWeights = { ...DEFAULT_FACTOR_WEIGHTS };
+    model.factorWeights = { ...defaults };
     return;
   }
 
@@ -640,157 +724,137 @@ function recalculateFactorWeights() {
   for (let i = 0; i < factorKeys.length; i++) {
     const fk = factorKeys[i];
     const ck = canonicalKeys[i];
-
     const withFactor = resolved.filter(s => s.factors && s.factors[fk] != null);
-    if (withFactor.length < 10) {
-      discriminationScores[ck] = 1.0; // neutral if not enough data
+    if (withFactor.length < 8) {
+      discriminationScores[ck] = 1.0;
       continue;
     }
-
     const winVals = withFactor.filter(s => (s.actualReturn || 0) > 0).map(s => s.factors[fk]);
     const lossVals = withFactor.filter(s => (s.actualReturn || 0) <= 0).map(s => s.factors[fk]);
-
     if (winVals.length === 0 || lossVals.length === 0) {
       discriminationScores[ck] = 1.0;
       continue;
     }
-
-    // Discrimination = |mean(winVals) - mean(lossVals)| / pooled stddev
     const winMean = mean(winVals);
     const lossMean = mean(lossVals);
     const pooledStd = (stddev(winVals) + stddev(lossVals)) / 2 || 1;
-    const d = Math.abs(winMean - lossMean) / pooledStd;
-
-    discriminationScores[ck] = Math.max(0.1, d);
+    discriminationScores[ck] = Math.max(0.1, Math.abs(winMean - lossMean) / pooledStd);
   }
 
-  // Normalise to sum to 1
   const total = Object.values(discriminationScores).reduce((a, b) => a + b, 0);
   for (const key of canonicalKeys) {
-    state.factorWeights[key] = (discriminationScores[key] || 1) / total;
+    model.factorWeights[key] = (discriminationScores[key] || 1) / total;
   }
 }
 
-// ============ MINIMUM CONFIDENCE RECALCULATION ============
+// ============ MINIMUM CONFIDENCE RECALCULATION (PER CLASS) ============
 
-/**
- * Find the break-even confidence threshold: the lowest confidence bucket
- * where average return is positive. Set the minimum one bucket below that
- * to allow some exploration.
- */
-function recalculateMinimumConfidence() {
-  const resolved = resolvedSignals();
+function recalculateMinimumConfidenceForModel(model) {
+  const resolved = resolvedSignalsForModel(model);
   if (resolved.length < LEARNING_MODE_THRESHOLD) {
-    state.minimumConfidence = 50;
+    model.minimumConfidence = 50;
     return;
   }
 
   const bucketThresholds = [50, 60, 70, 80];
   let breakEvenBucket = 50;
-
   for (const threshold of bucketThresholds) {
     const bucket = resolved.filter(s => s.confidence >= threshold);
     if (bucket.length >= 5) {
       const avg = mean(bucket.map(s => s.actualReturn || 0));
-      if (avg > 0) {
-        breakEvenBucket = threshold;
-        break;
-      }
+      if (avg > 0) { breakEvenBucket = threshold; break; }
     }
   }
-
-  // Set minimum to 5 points below break-even for some exploration headroom
-  state.minimumConfidence = Math.max(50, breakEvenBucket - 5);
+  model.minimumConfidence = Math.max(50, breakEvenBucket - 5);
 }
 
-// ============ ANOMALY DETECTION ============
+// ============ ANOMALY DETECTION (PER CLASS) ============
 
-/**
- * Scan signal history for anomalies. Returns an array of anomaly objects.
- * @returns {Array<{ type: string, severity: string, message: string, detectedAt: number, data: Object }>}
- */
-function detectAnomalies() {
-  const resolved = resolvedSignals();
+function detectAnomaliesForModel(model) {
+  const resolved = resolvedSignalsForModel(model);
   const anomalies = [];
   const now = Date.now();
+  const label = (model.assetClass || 'unknown').toUpperCase();
 
-  if (resolved.length < 10) return anomalies;
+  if (resolved.length < 8) return anomalies;
 
-  // Sort most recent first
   const recent = [...resolved].sort((a, b) => (b.resolvedAt || b.timestamp) - (a.resolvedAt || a.timestamp));
-
-  // 1. Win rate below 45% over last 20
   const last20 = recent.slice(0, 20);
-  if (last20.length >= 20) {
+
+  // 1. Win rate below 45%
+  if (last20.length >= 12) {
     const wr = last20.filter(s => (s.actualReturn || 0) > 0).length / last20.length;
     if (wr < 0.45) {
       anomalies.push({
         type: 'LOW_WIN_RATE',
         severity: wr < 0.35 ? 'critical' : 'warning',
-        message: `Win rate over last 20 signals is ${(wr * 100).toFixed(1)}% (below 45% threshold)`,
+        message: `[${label}] Win rate over last ${last20.length} signals is ${(wr * 100).toFixed(1)}%`,
         detectedAt: now,
-        data: { winRate: wr, sampleSize: 20 },
+        data: { winRate: wr, sampleSize: last20.length, assetClass: model.assetClass },
       });
     }
   }
 
-  // 2. Average return negative over last 20
-  if (last20.length >= 10) {
+  // 2. Average return negative
+  if (last20.length >= 8) {
     const avgRet = mean(last20.map(s => s.actualReturn || 0));
     if (avgRet < 0) {
       anomalies.push({
         type: 'NEGATIVE_AVG_RETURN',
         severity: avgRet < -0.01 ? 'critical' : 'warning',
-        message: `Average return over last ${last20.length} signals is ${(avgRet * 100).toFixed(2)}%`,
+        message: `[${label}] Average return over last ${last20.length} signals is ${(avgRet * 100).toFixed(2)}%`,
         detectedAt: now,
-        data: { avgReturn: avgRet, sampleSize: last20.length },
+        data: { avgReturn: avgRet, sampleSize: last20.length, assetClass: model.assetClass },
       });
     }
   }
 
-  // 3. Strategy with 5+ consecutive losses
+  // 3. Strategy with consecutive losses
   for (const strat of STRATEGIES) {
     const stratSignals = recent.filter(s => normaliseStrategy(s.strategy) === strat);
     let consecutive = 0;
     for (const s of stratSignals) {
-      if ((s.actualReturn || 0) <= 0) {
-        consecutive++;
-      } else {
-        break;
-      }
+      if ((s.actualReturn || 0) <= 0) consecutive++;
+      else break;
     }
-    if (consecutive >= 5) {
+    if (consecutive >= 4) {
       anomalies.push({
         type: 'CONSECUTIVE_LOSSES',
-        severity: consecutive >= 8 ? 'critical' : 'warning',
-        message: `Strategy "${strat}" has ${consecutive} consecutive losses`,
+        severity: consecutive >= 7 ? 'critical' : 'warning',
+        message: `[${label}] Strategy "${strat}" has ${consecutive} consecutive losses`,
         detectedAt: now,
-        data: { strategy: strat, consecutiveLosses: consecutive },
+        data: { strategy: strat, consecutiveLosses: consecutive, assetClass: model.assetClass },
       });
     }
   }
 
-  // 4. Regime detector mismatch
-  //    If regime was bullish but actual return was strongly negative (>2% loss),
-  //    flag as a potential regime detection error.
-  const recentResolved = recent.slice(0, 10);
+  // 4. Regime mismatch
+  const recentResolved = recent.slice(0, 8);
   for (const s of recentResolved) {
     if (s.regime === 'trending-bull' && (s.actualReturn || 0) < -0.02) {
       anomalies.push({
         type: 'REGIME_MISMATCH',
         severity: 'warning',
-        message: `Signal ${s.id} detected "trending-bull" but saw ${(s.actualReturn * 100).toFixed(1)}% loss — possible regime error`,
+        message: `[${label}] Signal ${s.id} was "trending-bull" but saw ${(s.actualReturn * 100).toFixed(1)}% loss`,
         detectedAt: now,
-        data: { signalId: s.id, regime: s.regime, actualReturn: s.actualReturn },
+        data: { signalId: s.id, regime: s.regime, actualReturn: s.actualReturn, assetClass: model.assetClass },
       });
     }
-    if (s.regime === 'trending-bear' && (s.actualReturn || 0) > 0.02 && s.direction === 'short') {
+  }
+
+  // 5. Cross-class divergence: this class performing very differently from global average
+  const globalResolved = resolvedSignals();
+  if (globalResolved.length >= 20 && resolved.length >= 8) {
+    const globalAvg = mean(globalResolved.slice(-20).map(s => s.actualReturn || 0));
+    const classAvg = mean(resolved.slice(-Math.min(20, resolved.length)).map(s => s.actualReturn || 0));
+    const divergence = classAvg - globalAvg;
+    if (Math.abs(divergence) > 0.02) {
       anomalies.push({
-        type: 'REGIME_MISMATCH',
-        severity: 'info',
-        message: `Signal ${s.id} detected "trending-bear" but short gained ${(s.actualReturn * 100).toFixed(1)}% — potential regime misread`,
+        type: 'CLASS_DIVERGENCE',
+        severity: divergence < -0.02 ? 'warning' : 'info',
+        message: `[${label}] ${divergence > 0 ? 'Outperforming' : 'Underperforming'} global average by ${(divergence * 100).toFixed(2)}%`,
         detectedAt: now,
-        data: { signalId: s.id, regime: s.regime, actualReturn: s.actualReturn },
+        data: { classAvg, globalAvg, divergence, assetClass: model.assetClass },
       });
     }
   }
@@ -798,63 +862,60 @@ function detectAnomalies() {
   return anomalies;
 }
 
-// ============ CORRECTION GENERATION ============
+// ============ CORRECTION GENERATION (PER CLASS) ============
 
-/**
- * Generate correction factors based on current vs default weights.
- * Each correction describes a specific adjustment and its rationale.
- * @returns {Array<{ type: string, description: string, from: *, to: *, magnitude: number, generatedAt: number }>}
- */
-function generateCorrections() {
+function generateCorrectionsForModel(model) {
   const corrections = [];
   const now = Date.now();
+  const ac = model.assetClass || 'equity';
+  const defaultWeights = DEFAULT_WEIGHTS_BY_CLASS[ac] || DEFAULT_WEIGHTS_BY_CLASS.equity;
+  const defaultFactors = DEFAULT_FACTOR_WEIGHTS_BY_CLASS[ac] || DEFAULT_FACTOR_WEIGHTS_BY_CLASS.equity;
+  const label = ac.toUpperCase();
 
-  // Strategy weight corrections
   for (const regime of REGIMES) {
-    const current = state.adaptiveWeights[regime];
-    const base = DEFAULT_WEIGHTS[regime];
+    const current = model.adaptiveWeights[regime];
+    const base = defaultWeights[regime];
     if (!current || !base) continue;
-
     for (const strat of STRATEGIES) {
       const diff = (current[strat] || 0) - (base[strat] || 0);
       if (Math.abs(diff) > 0.05) {
         corrections.push({
           type: 'STRATEGY_WEIGHT',
-          description: `${strat} weight in ${regime}: ${(base[strat] * 100).toFixed(0)}% -> ${(current[strat] * 100).toFixed(0)}%`,
-          from: base[strat],
-          to: current[strat],
+          description: `[${label}] ${strat} weight in ${regime}: ${((base[strat] || 0) * 100).toFixed(0)}% → ${((current[strat] || 0) * 100).toFixed(0)}%`,
+          from: base[strat] || 0,
+          to: current[strat] || 0,
           magnitude: Math.abs(diff),
           generatedAt: now,
+          assetClass: ac,
         });
       }
     }
   }
 
-  // Confidence threshold correction
-  if (state.minimumConfidence !== 50) {
+  if (model.minimumConfidence !== 50) {
     corrections.push({
       type: 'CONFIDENCE_THRESHOLD',
-      description: `Minimum confidence raised from 50 to ${state.minimumConfidence}`,
+      description: `[${label}] Minimum confidence: 50 → ${model.minimumConfidence}`,
       from: 50,
-      to: state.minimumConfidence,
-      magnitude: state.minimumConfidence - 50,
+      to: model.minimumConfidence,
+      magnitude: model.minimumConfidence - 50,
       generatedAt: now,
+      assetClass: ac,
     });
   }
 
-  // Factor weight corrections
-  for (const key of Object.keys(DEFAULT_FACTOR_WEIGHTS)) {
-    const current = state.factorWeights[key] ?? DEFAULT_FACTOR_WEIGHTS[key];
-    const base = DEFAULT_FACTOR_WEIGHTS[key];
-    const diff = Math.abs(current - base);
-    if (diff > 0.03) {
+  for (const key of Object.keys(defaultFactors)) {
+    const current = model.factorWeights[key] ?? defaultFactors[key];
+    const base = defaultFactors[key];
+    if (Math.abs(current - base) > 0.03) {
       corrections.push({
         type: 'FACTOR_WEIGHT',
-        description: `Factor "${key}" weight: ${(base * 100).toFixed(1)}% -> ${(current * 100).toFixed(1)}%`,
+        description: `[${label}] Factor "${key}": ${(base * 100).toFixed(1)}% → ${(current * 100).toFixed(1)}%`,
         from: base,
         to: current,
-        magnitude: diff,
+        magnitude: Math.abs(current - base),
         generatedAt: now,
+        assetClass: ac,
       });
     }
   }
@@ -865,47 +926,70 @@ function generateCorrections() {
 // ============ PERFORMANCE AUDIT ============
 
 /**
- * Run a full performance audit: recalculate all metrics, adaptive weights,
- * factor importance, minimum confidence, anomalies, and corrections.
- * Should be called during post-market review.
- *
- * @returns {{ metrics: Object, anomalies: Array, corrections: Array, isLearningMode: boolean }}
+ * Run a full performance audit across all asset classes (or a single class).
+ * @param {string} [assetClass] - If provided, audit only this class. Otherwise audit all.
+ * @returns {{ metrics, anomalies, corrections, isLearningMode, perClass }}
  */
-export function runPerformanceAudit() {
+export function runPerformanceAudit(assetClass) {
   ensureInit();
 
-  const resolved = resolvedSignals();
-  const isLearningMode = resolved.length < LEARNING_MODE_THRESHOLD;
+  const classesToAudit = assetClass ? [assetClass] : ASSET_CLASSES;
+  const perClass = {};
+  let allAnomalies = [];
+  let allCorrections = [];
 
-  // Recalculate overall metrics with rolling windows
-  state.metrics.overall = computeRollingMetrics(resolved);
+  for (const ac of classesToAudit) {
+    const model = getModel(ac);
+    const resolved = resolvedSignalsForModel(model);
+    const isLearning = resolved.length < LEARNING_MODE_THRESHOLD;
 
-  // Grouped metrics
-  state.metrics.byStrategy = metricsByGroup(resolved, s => normaliseStrategy(s.strategy));
-  state.metrics.byRegime = metricsByGroup(resolved, s => s.regime);
-  state.metrics.byTimeframe = metricsByGroup(resolved, s => timeframeBucket(s.holdDuration || 0));
-  state.metrics.byConfidenceBucket = metricsByGroup(resolved, s => confidenceBucket(s.confidence));
-  state.metrics.byAssetClass = metricsByGroup(resolved, s => classifyAsset(s.ticker));
+    model.metrics.overall = computeRollingMetrics(resolved);
+    model.metrics.byStrategy = metricsByGroup(resolved, s => normaliseStrategy(s.strategy));
+    model.metrics.byRegime = metricsByGroup(resolved, s => s.regime);
+    model.metrics.byTimeframe = metricsByGroup(resolved, s => timeframeBucket(s.holdDuration || 0));
+    model.metrics.byConfidenceBucket = metricsByGroup(resolved, s => confidenceBucket(s.confidence));
 
-  // Adaptive recalculations
-  recalculateAdaptiveWeights();
-  recalculateFactorWeights();
-  recalculateMinimumConfidence();
+    recalculateAdaptiveWeightsForModel(model);
+    recalculateFactorWeightsForModel(model);
+    recalculateMinimumConfidenceForModel(model);
 
-  // Detect anomalies
-  state.anomalies = detectAnomalies();
+    model.anomalies = detectAnomaliesForModel(model);
+    model.corrections = generateCorrectionsForModel(model);
+    model.lastAuditAt = Date.now();
 
-  // Generate corrections
-  state.corrections = generateCorrections();
+    perClass[ac] = {
+      metrics: model.metrics,
+      anomalies: model.anomalies,
+      corrections: model.corrections,
+      isLearningMode: isLearning,
+      signalCount: model.signals.length,
+      resolvedCount: resolved.length,
+      adaptiveWeights: model.adaptiveWeights,
+      factorWeights: model.factorWeights,
+      minimumConfidence: model.minimumConfidence,
+    };
 
-  state.lastAuditAt = Date.now();
+    allAnomalies = allAnomalies.concat(model.anomalies);
+    allCorrections = allCorrections.concat(model.corrections);
+  }
+
   saveToStorage();
 
+  // Aggregate metrics across all classes
+  const globalResolved = resolvedSignals();
+  const globalMetrics = {
+    overall: computeRollingMetrics(globalResolved),
+    byStrategy: metricsByGroup(globalResolved, s => normaliseStrategy(s.strategy)),
+    byRegime: metricsByGroup(globalResolved, s => s.regime),
+    byAssetClass: metricsByGroup(globalResolved, s => classifyAsset(s.ticker, s.assetClass)),
+  };
+
   return {
-    metrics: state.metrics,
-    anomalies: state.anomalies,
-    corrections: state.corrections,
-    isLearningMode,
+    metrics: globalMetrics,
+    anomalies: allAnomalies,
+    corrections: allCorrections,
+    isLearningMode: globalResolved.length < LEARNING_MODE_THRESHOLD,
+    perClass,
   };
 }
 
@@ -913,93 +997,149 @@ export function runPerformanceAudit() {
 
 /**
  * Get a dashboard-ready performance report.
+ * @param {string} [assetClass] - If provided, report for this class only.
  * @returns {Object}
  */
-export function getPerformanceReport() {
+export function getPerformanceReport(assetClass) {
   ensureInit();
 
-  const resolved = resolvedSignals();
-  const open = state.signals.filter(s => s.outcome === 'OPEN' || !s.outcome);
+  if (assetClass) {
+    const model = getModel(assetClass);
+    const resolved = resolvedSignalsForModel(model);
+    const open = model.signals.filter(s => s.outcome === 'OPEN' || !s.outcome);
+    return {
+      summary: {
+        totalSignals: model.signals.length,
+        resolvedSignals: resolved.length,
+        openSignals: open.length,
+        isLearningMode: resolved.length < LEARNING_MODE_THRESHOLD,
+        learningProgress: Math.min(1, resolved.length / LEARNING_MODE_THRESHOLD),
+        lastAuditAt: model.lastAuditAt,
+        assetClass,
+      },
+      metrics: model.metrics,
+      adaptiveWeights: model.adaptiveWeights,
+      factorWeights: model.factorWeights,
+      minimumConfidence: model.minimumConfidence,
+      anomalies: model.anomalies,
+      corrections: model.corrections,
+    };
+  }
+
+  // Global report with per-class breakdown
+  const allSigs = allSignals();
+  const globalResolved = resolvedSignals();
+  const open = allSigs.filter(s => s.outcome === 'OPEN' || !s.outcome);
+
+  const perClass = {};
+  for (const ac of ASSET_CLASSES) {
+    const m = getModel(ac);
+    const r = resolvedSignalsForModel(m);
+    perClass[ac] = {
+      signalCount: m.signals.length,
+      resolvedCount: r.length,
+      isLearningMode: r.length < LEARNING_MODE_THRESHOLD,
+      learningProgress: Math.min(1, r.length / LEARNING_MODE_THRESHOLD),
+      winRate: r.length > 0 ? r.filter(s => (s.actualReturn || 0) > 0).length / r.length : 0,
+      avgReturn: r.length > 0 ? mean(r.map(s => s.actualReturn || 0)) : 0,
+      anomalyCount: (m.anomalies || []).length,
+      correctionCount: (m.corrections || []).length,
+      adaptiveWeights: m.adaptiveWeights,
+      factorWeights: m.factorWeights,
+      minimumConfidence: m.minimumConfidence,
+    };
+  }
+
+  // Collect all anomalies/corrections
+  let allAnomalies = [];
+  let allCorrections = [];
+  for (const ac of ASSET_CLASSES) {
+    const m = getModel(ac);
+    allAnomalies = allAnomalies.concat(m.anomalies || []);
+    allCorrections = allCorrections.concat(m.corrections || []);
+  }
 
   return {
     summary: {
-      totalSignals: state.signals.length,
-      resolvedSignals: resolved.length,
+      totalSignals: allSigs.length,
+      resolvedSignals: globalResolved.length,
       openSignals: open.length,
-      isLearningMode: resolved.length < LEARNING_MODE_THRESHOLD,
-      learningProgress: Math.min(1, resolved.length / LEARNING_MODE_THRESHOLD),
-      lastAuditAt: state.lastAuditAt,
+      isLearningMode: globalResolved.length < LEARNING_MODE_THRESHOLD,
+      learningProgress: Math.min(1, globalResolved.length / LEARNING_MODE_THRESHOLD),
+      lastAuditAt: Math.max(...ASSET_CLASSES.map(ac => getModel(ac).lastAuditAt || 0)),
     },
-    metrics: state.metrics,
-    adaptiveWeights: state.adaptiveWeights,
-    factorWeights: state.factorWeights,
-    minimumConfidence: state.minimumConfidence,
-    anomalies: state.anomalies,
-    corrections: state.corrections,
+    metrics: {
+      overall: computeRollingMetrics(globalResolved),
+      byStrategy: metricsByGroup(globalResolved, s => normaliseStrategy(s.strategy)),
+      byRegime: metricsByGroup(globalResolved, s => s.regime),
+      byTimeframe: metricsByGroup(globalResolved, s => timeframeBucket(s.holdDuration || 0)),
+      byConfidenceBucket: metricsByGroup(globalResolved, s => confidenceBucket(s.confidence)),
+      byAssetClass: metricsByGroup(globalResolved, s => classifyAsset(s.ticker, s.assetClass)),
+    },
+    perClass,
+    // Backward-compat: aggregate weights from equity model as default
+    adaptiveWeights: getModel('equity').adaptiveWeights,
+    factorWeights: getModel('equity').factorWeights,
+    minimumConfidence: getModel('equity').minimumConfidence,
+    anomalies: allAnomalies,
+    corrections: allCorrections,
   };
 }
 
-/**
- * Get the current list of active corrections.
- * @returns {Array}
- */
-export function getCorrections() {
+export function getCorrections(assetClass) {
   ensureInit();
-  return [...state.corrections];
+  if (assetClass) return [...(getModel(assetClass).corrections || [])];
+  let all = [];
+  for (const ac of ASSET_CLASSES) all = all.concat(getModel(ac).corrections || []);
+  return all;
 }
 
-/**
- * Get the current list of anomaly alerts.
- * @returns {Array}
- */
-export function getAnomalies() {
+export function getAnomalies(assetClass) {
   ensureInit();
-  return [...state.anomalies];
+  if (assetClass) return [...(getModel(assetClass).anomalies || [])];
+  let all = [];
+  for (const ac of ASSET_CLASSES) all = all.concat(getModel(ac).anomalies || []);
+  return all;
 }
 
 // ============ STRATEGY RECOMMENDATION ============
 
 /**
- * Given the current regime and timeframe, recommend the best strategy
- * based on historical performance data.
- *
- * @param {string} regime - Current market regime
- * @param {string} timeframe - 'dayTrade' | 'swing' | 'position'
- * @returns {{ strategy: string, confidence: number, expectedValue: number, reason: string, alternatives: Array }}
+ * Recommend the best strategy for a regime/timeframe, using per-class learning.
+ * @param {string} regime
+ * @param {string} [timeframe]
+ * @param {string} [assetClass]
+ * @returns {Object}
  */
-export function getStrategyRecommendation(regime, timeframe) {
+export function getStrategyRecommendation(regime, timeframe, assetClass) {
   ensureInit();
 
-  const resolved = resolvedSignals();
+  const ac = assetClass || 'equity';
+  const model = getModel(ac);
+  const resolved = resolvedSignalsForModel(model);
   const isLearning = resolved.length < LEARNING_MODE_THRESHOLD;
+  const defaultWeights = DEFAULT_WEIGHTS_BY_CLASS[ac] || DEFAULT_WEIGHTS_BY_CLASS.equity;
 
-  // Default recommendation based on static weights
   if (isLearning) {
-    const weights = DEFAULT_WEIGHTS[regime] || DEFAULT_WEIGHTS['volatile-transition'];
+    const weights = defaultWeights[regime] || defaultWeights['volatile-transition'];
     const best = Object.entries(weights).sort((a, b) => b[1] - a[1])[0];
     return {
       strategy: best[0],
       confidence: 50,
       expectedValue: 0,
-      reason: `Learning mode (${resolved.length}/${LEARNING_MODE_THRESHOLD} signals). Using default weights for ${regime}.`,
-      alternatives: Object.entries(weights)
-        .sort((a, b) => b[1] - a[1])
-        .slice(1)
-        .map(([s, w]) => ({ strategy: s, weight: w })),
+      reason: `[${ac.toUpperCase()}] Learning mode (${resolved.length}/${LEARNING_MODE_THRESHOLD} signals). Using default weights for ${regime}.`,
+      alternatives: Object.entries(weights).sort((a, b) => b[1] - a[1]).slice(1).map(([s, w]) => ({ strategy: s, weight: w })),
+      assetClass: ac,
     };
   }
 
-  // Filter signals by regime and timeframe
   let pool = resolved.filter(s => s.regime === regime);
   if (timeframe) {
     const tfPool = pool.filter(s => timeframeBucket(s.holdDuration || 0) === timeframe);
-    if (tfPool.length >= 10) pool = tfPool;
+    if (tfPool.length >= 8) pool = tfPool;
   }
+  if (pool.length < 8) pool = resolved;
 
-  // If too few signals for this regime, broaden
-  if (pool.length < 10) pool = resolved;
-
-  // Evaluate each strategy
   const stratEvals = [];
   for (const strat of STRATEGIES) {
     const stratPool = pool.filter(s => normaliseStrategy(s.strategy) === strat);
@@ -1013,12 +1153,7 @@ export function getStrategyRecommendation(regime, timeframe) {
     const wr = wins.length / returns.length;
     const avgW = wins.length > 0 ? mean(wins) : 0;
     const avgL = losses.length > 0 ? Math.abs(mean(losses)) : 0;
-    stratEvals.push({
-      strategy: strat,
-      ev: expectedValue(wr, avgW, avgL),
-      winRate: wr,
-      count: stratPool.length,
-    });
+    stratEvals.push({ strategy: strat, ev: expectedValue(wr, avgW, avgL), winRate: wr, count: stratPool.length });
   }
 
   stratEvals.sort((a, b) => b.ev - a.ev);
@@ -1028,83 +1163,101 @@ export function getStrategyRecommendation(regime, timeframe) {
     strategy: best.strategy,
     confidence: Math.min(95, 50 + best.count + best.winRate * 30),
     expectedValue: best.ev,
-    reason: `${best.strategy} has the highest EV (${(best.ev * 100).toFixed(2)}%) with ${(best.winRate * 100).toFixed(0)}% win rate over ${best.count} signals in ${regime}${timeframe ? ' / ' + timeframe : ''}.`,
-    alternatives: stratEvals.slice(1).map(e => ({
-      strategy: e.strategy,
-      expectedValue: e.ev,
-      winRate: e.winRate,
-      count: e.count,
-    })),
+    reason: `[${ac.toUpperCase()}] ${best.strategy} has highest EV (${(best.ev * 100).toFixed(2)}%) with ${(best.winRate * 100).toFixed(0)}% win rate over ${best.count} signals in ${regime}${timeframe ? ' / ' + timeframe : ''}.`,
+    alternatives: stratEvals.slice(1).map(e => ({ strategy: e.strategy, expectedValue: e.ev, winRate: e.winRate, count: e.count })),
+    assetClass: ac,
   };
 }
 
 // ============ UTILITY EXPORTS ============
 
-/**
- * Reset the engine to a blank state. Clears localStorage.
- * @returns {void}
- */
-export function resetAdaptiveEngine() {
-  state = freshState();
+export function resetAdaptiveEngine(assetClass) {
+  ensureInit();
+  if (assetClass) {
+    state.assetModels[assetClass] = freshModel(assetClass);
+  } else {
+    state = freshState();
+  }
   saveToStorage();
 }
 
-/**
- * Export raw signal history (for backup or external analysis).
- * @returns {Array}
- */
-export function exportSignals() {
+export function exportSignals(assetClass) {
   ensureInit();
-  return [...state.signals];
+  if (assetClass) return [...getModel(assetClass).signals];
+  return [...allSignals()];
 }
 
-/**
- * Import signals from an external source (e.g. restore from backup).
- * Merges by id, avoiding duplicates.
- * @param {Array} signals
- * @returns {{ imported: number, duplicates: number }}
- */
-export function importSignals(signals) {
+export function importSignals(signals, assetClass) {
   ensureInit();
   if (!Array.isArray(signals)) return { imported: 0, duplicates: 0 };
 
-  const existingIds = new Set(state.signals.map(s => s.id));
   let imported = 0;
   let duplicates = 0;
 
   for (const s of signals) {
+    const ac = assetClass || classifyAsset(s.ticker, s.assetClass);
+    const model = getModel(ac);
+    const existingIds = new Set(model.signals.map(sig => sig.id));
+
     if (existingIds.has(s.id)) {
       duplicates++;
       continue;
     }
-    state.signals.push(s);
-    existingIds.add(s.id);
-    imported++;
-  }
 
-  // FIFO trim
-  if (state.signals.length > MAX_SIGNALS) {
-    state.signals = state.signals.slice(state.signals.length - MAX_SIGNALS);
+    s.assetClass = ac;
+    model.signals.push(s);
+    imported++;
+
+    if (model.signals.length > MAX_SIGNALS_PER_CLASS) {
+      model.signals = model.signals.slice(model.signals.length - MAX_SIGNALS_PER_CLASS);
+    }
   }
 
   saveToStorage();
   return { imported, duplicates };
 }
 
-/**
- * Get the current factor weights (for display or use in signal generation).
- * @returns {Object}
- */
-export function getFactorWeights() {
+export function getFactorWeights(assetClass) {
   ensureInit();
-  return { ...state.factorWeights };
+  const model = getModel(assetClass || 'equity');
+  return { ...model.factorWeights };
+}
+
+export function isLearningMode(assetClass) {
+  ensureInit();
+  if (assetClass) {
+    return resolvedSignalsForModel(getModel(assetClass)).length < LEARNING_MODE_THRESHOLD;
+  }
+  return resolvedSignals().length < LEARNING_MODE_THRESHOLD;
 }
 
 /**
- * Check if the engine is in learning mode.
- * @returns {boolean}
+ * Get the list of supported asset classes.
+ * @returns {string[]}
  */
-export function isLearningMode() {
+export function getAssetClasses() {
+  return [...ASSET_CLASSES];
+}
+
+/**
+ * Get per-class learning status summary.
+ * @returns {Object}
+ */
+export function getClassStatus() {
   ensureInit();
-  return resolvedSignals().length < LEARNING_MODE_THRESHOLD;
+  const result = {};
+  for (const ac of ASSET_CLASSES) {
+    const m = getModel(ac);
+    const resolved = resolvedSignalsForModel(m);
+    result[ac] = {
+      signalCount: m.signals.length,
+      resolvedCount: resolved.length,
+      isLearningMode: resolved.length < LEARNING_MODE_THRESHOLD,
+      learningProgress: Math.min(1, resolved.length / LEARNING_MODE_THRESHOLD),
+      lastAuditAt: m.lastAuditAt,
+      anomalyCount: (m.anomalies || []).length,
+      minimumConfidence: m.minimumConfidence,
+    };
+  }
+  return result;
 }

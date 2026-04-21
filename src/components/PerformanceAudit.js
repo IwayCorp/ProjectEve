@@ -8,13 +8,33 @@ import DailyBrief from './DailyBrief'
 
 // ============ CONSTANTS ============
 
-const STRATEGIES = ['momentum', 'meanReversion', 'breakout']
+const STRATEGIES = ['momentum', 'meanReversion', 'breakout', 'macro']
 const REGIMES = ['trending-bull', 'trending-bear', 'mean-reverting', 'volatile-transition']
+const ASSET_CLASSES = ['all', 'equity', 'forex', 'crypto', 'commodity', 'macro']
+
+const ASSET_CLASS_LABELS = {
+  all: 'All Classes',
+  equity: 'Equities',
+  forex: 'ForEX',
+  crypto: 'Crypto',
+  commodity: 'Commodities',
+  macro: 'Macro',
+}
+
+const ASSET_CLASS_COLORS = {
+  all: '#5b8dee',
+  equity: '#22c55e',
+  forex: '#f59e0b',
+  crypto: '#a855f7',
+  commodity: '#ef4444',
+  macro: '#06b6d4',
+}
 
 const STRATEGY_LABELS = {
   momentum: 'Momentum',
   meanReversion: 'Mean Reversion',
   breakout: 'Breakout',
+  macro: 'Macro',
 }
 
 const REGIME_LABELS = {
@@ -241,6 +261,7 @@ export default function PerformanceAudit() {
   const [auditing, setAuditing] = useState(false)
   const [activeSubTab, setActiveSubTab] = useState('dashboard')
   const [correctionFilter, setCorrectionFilter] = useState('all')
+  const [selectedClass, setSelectedClass] = useState('all')
 
   // Fetch performance report
   const fetchReport = useCallback(async () => {
@@ -295,15 +316,40 @@ export default function PerformanceAudit() {
 
   useEffect(() => { fetchReport() }, [fetchReport])
 
-  // Derived data
+  // Derived data — filtered by selected asset class
   const metrics = useMemo(() => {
-    if (!report?.metrics?.overall) return null
-    return report.metrics.overall.allTime || report.metrics.overall
-  }, [report])
+    if (!report?.metrics) return null
+    if (selectedClass === 'all') {
+      return report.metrics.overall?.allTime || report.metrics.overall || null
+    }
+    const classData = report.metrics.byAssetClass?.[selectedClass]
+    return classData?.allTime || classData || null
+  }, [report, selectedClass])
 
   const last20Metrics = useMemo(() => {
-    if (!report?.metrics?.overall) return null
-    return report.metrics.overall.last20 || null
+    if (!report?.metrics) return null
+    if (selectedClass === 'all') {
+      return report.metrics.overall?.last20 || null
+    }
+    return report.metrics.byAssetClass?.[selectedClass]?.last20 || null
+  }, [report, selectedClass])
+
+  // Per-class summary cards
+  const classBreakdown = useMemo(() => {
+    if (!report?.metrics?.byAssetClass) return []
+    return ASSET_CLASSES.filter(c => c !== 'all').map(ac => {
+      const data = report.metrics.byAssetClass[ac]
+      const m = data?.allTime || data || null
+      return {
+        id: ac,
+        label: ASSET_CLASS_LABELS[ac],
+        color: ASSET_CLASS_COLORS[ac],
+        winRate: m?.winRate || 0,
+        tradeCount: m?.tradeCount || 0,
+        avgReturn: m?.avgReturn || 0,
+        sharpe: m?.sharpeRatio || 0,
+      }
+    })
   }, [report])
 
   const equityCurve = useMemo(() => {
@@ -450,7 +496,7 @@ export default function PerformanceAudit() {
       <div className="flex items-start justify-between">
         <SectionHeader
           title="Performance Audit"
-          subtitle={`Adaptive engine ${isLearning ? '(learning mode)' : '(active)'} \u00B7 ${summary.resolvedSignals} resolved signals`}
+          subtitle={`Adaptive engine ${isLearning ? '(learning mode)' : '(active)'} \u00B7 ${summary.resolvedSignals} resolved signals${selectedClass !== 'all' ? ` \u00B7 Viewing: ${ASSET_CLASS_LABELS[selectedClass]}` : ''}`}
         />
         <div className="flex items-center gap-2">
           <button
@@ -539,6 +585,76 @@ export default function PerformanceAudit() {
           </button>
         ))}
       </div>
+
+      {/* Asset Class Selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-2xs text-nx-text-hint font-semibold uppercase tracking-wider">Asset Class:</span>
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          {ASSET_CLASSES.map(ac => {
+            const isActive = selectedClass === ac
+            const color = ASSET_CLASS_COLORS[ac]
+            const classData = ac !== 'all' ? classBreakdown.find(c => c.id === ac) : null
+            return (
+              <button
+                key={ac}
+                onClick={() => setSelectedClass(ac)}
+                className={`px-3 py-1.5 rounded-lg text-2xs font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1.5`}
+                style={isActive ? {
+                  background: `${color}18`,
+                  border: `1px solid ${color}40`,
+                  color,
+                } : {
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'rgba(255,255,255,0.4)',
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: color, opacity: isActive ? 1 : 0.4 }} />
+                {ASSET_CLASS_LABELS[ac]}
+                {classData && classData.tradeCount > 0 && (
+                  <span className="text-2xs opacity-60">({classData.tradeCount})</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Per-Class Breakdown Cards (visible when 'all' selected on dashboard) */}
+      {selectedClass === 'all' && activeSubTab === 'dashboard' && classBreakdown.some(c => c.tradeCount > 0) && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {classBreakdown.map(cls => (
+            <button
+              key={cls.id}
+              onClick={() => setSelectedClass(cls.id)}
+              className="p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+              style={{
+                background: cls.tradeCount > 0 ? `${cls.color}08` : 'rgba(15,21,35,0.3)',
+                border: `1px solid ${cls.tradeCount > 0 ? `${cls.color}25` : 'rgba(255,255,255,0.04)'}`,
+              }}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-2 h-2 rounded-full" style={{ background: cls.color }} />
+                <span className="text-2xs font-semibold" style={{ color: cls.color }}>{cls.label}</span>
+              </div>
+              {cls.tradeCount > 0 ? (
+                <>
+                  <div className="text-lg font-bold font-mono" style={{
+                    color: cls.winRate >= 0.6 ? '#22c55e' : cls.winRate >= 0.5 ? '#f59e0b' : '#ef4444'
+                  }}>
+                    {(cls.winRate * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-2xs text-nx-text-hint">
+                    {cls.tradeCount} trades | Sharpe {cls.sharpe.toFixed(2)}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-nx-text-hint">No data yet</div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ======== DASHBOARD TAB ======== */}
       {activeSubTab === 'dashboard' && (

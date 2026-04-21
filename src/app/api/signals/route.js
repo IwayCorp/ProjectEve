@@ -5,7 +5,7 @@ import { computeEnsemble } from '@/lib/ensembleEngine'
 import { computePositionSize } from '@/lib/positionSizer'
 import { analyzeSentiment } from '@/lib/sentimentEngine'
 import { computeCorrelations } from '@/lib/correlationEngine'
-import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights } from '@/lib/adaptiveEngine'
+import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
 
 export const runtime = 'edge'
 
@@ -949,7 +949,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     let adaptivePerformanceData = null
     try {
       const currentRegimeKey = regimeAnalysis?.currentRegime || 'volatile-transition'
-      const adaptiveW = getAdaptiveWeights(currentRegimeKey)
+      const signalAssetClass = classifyAsset(symbol, assetType)
+      const adaptiveW = getAdaptiveWeights(currentRegimeKey, null, signalAssetClass)
       if (adaptiveW) {
         // Convert adaptive weights into performanceData format for ensemble
         // Higher weight implies higher historical win rate in this regime
@@ -1556,11 +1557,13 @@ async function generateMacroSignals(marketRegime) {
         regime: sig.regimeAnalysis?.currentRegime || 'volatile-transition',
         confidence: sig.confidence,
         ticker: sig.ticker,
+        asset: sig.asset,
       })
       sig.qualityGrade = quality.grade
       sig.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
       sig.expectedValue = quality.expectedValue
       sig.qualityRecommendation = quality.recommendation
+      sig.assetClass = quality.assetClass
     } catch (e) { /* non-critical */ }
   }
 
@@ -1660,11 +1663,13 @@ export async function GET(request) {
             regime: signal.regimeAnalysis?.currentRegime || 'volatile-transition',
             confidence: signal.confidence,
             ticker: signal.ticker,
+            asset: signal.asset,
           })
           signal.qualityGrade = quality.grade
           signal.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
           signal.expectedValue = quality.expectedValue
           signal.qualityRecommendation = quality.recommendation
+          signal.assetClass = quality.assetClass
         } catch (e) { /* quality scoring is non-critical */ }
 
         signal.sentiment = sentimentRes
@@ -1717,11 +1722,13 @@ export async function GET(request) {
                 regime: sig.regimeAnalysis?.currentRegime || 'volatile-transition',
                 confidence: sig.confidence,
                 ticker: sig.ticker,
+                asset: sig.asset,
               })
               sig.qualityGrade = quality.grade
               sig.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
               sig.expectedValue = quality.expectedValue
               sig.qualityRecommendation = quality.recommendation
+              sig.assetClass = quality.assetClass
             } catch (e) { /* quality scoring is non-critical */ }
 
             // Lightweight batch enrichment: technical sentiment proxy
