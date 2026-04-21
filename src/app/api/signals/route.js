@@ -603,10 +603,49 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   }
 
   // ================================================================
-  // STEP 4: Strategy classification
+  // STEP 4: Strategy classification (with macro detection)
   // ================================================================
+
+  // Detect regime shift: leading indicators disagree with HMM regime
+  let regimeShift = false
+  let correlationAnomaly = false
+
+  if (regimeAnalysis) {
+    const lead = regimeAnalysis.leadingIndicators
+    if (lead) {
+      // Regime shift: strong leading signal disagrees with current regime
+      if (lead.signalStrength > 0.5 && lead.suggestedRegime !== regimeAnalysis.currentRegime) {
+        regimeShift = true
+      }
+      // Also flag if transition risk is very high
+      if (regimeAnalysis.transitionRisk > 60) {
+        regimeShift = true
+      }
+    }
+  }
+
+  // Correlation anomaly: when the asset diverges sharply from its expected market regime behavior
+  // Example: asset rallying hard while SPY is in bear mode, or vice versa
+  if (!isForex && marketRegime) {
+    const assetBullish = ret5d > 0.03 && ret20d > 0.05
+    const assetBearish = ret5d < -0.03 && ret20d < -0.05
+    const marketBull = marketRegime.trend === 'bullish' && marketRegime.strength >= 3
+    const marketBear = marketRegime.trend === 'bearish' && marketRegime.strength >= 3
+
+    if ((assetBullish && marketBear) || (assetBearish && marketBull)) {
+      correlationAnomaly = true
+    }
+  }
+
   let strategy
-  if (isMeanReverting && (rsi < 25 || rsi > 75) && bb) {
+  // Macro classification: regime shifts, correlation anomalies, or extreme transition risk
+  if (regimeShift && correlationAnomaly) {
+    strategy = 'macro' // Both: strongest macro signal
+  } else if (regimeShift && regimeAnalysis && regimeAnalysis.transitionRisk > 70) {
+    strategy = 'macro' // High-confidence regime shift
+  } else if (correlationAnomaly && Math.abs(ret20d) > 0.08) {
+    strategy = 'relative-value' // Strong decorrelation play
+  } else if (isMeanReverting && (rsi < 25 || rsi > 75) && bb) {
     strategy = 'mean-reversion'
   } else if (isStrongTrend && adx.adx > 30) {
     strategy = 'momentum'
@@ -942,8 +981,10 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
 
   // ================================================================
   // MINIMUM CONFIDENCE GATE — don't take garbage trades
+  // Macro/relative-value signals are rarer but strategically important: lower gate
   // ================================================================
-  const minConfidence = isForex ? 58 : 60
+  const isMacroSignal = strategy === 'macro' || strategy === 'relative-value'
+  const minConfidence = isMacroSignal ? 50 : isForex ? 58 : 60
   if (confidence < minConfidence) return null
 
   // ================================================================
@@ -1082,7 +1123,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   const entryFreshnessDecayPerHour = 2 / 6 // 0.333% per hour
 
   let holdHours = daysEst * 24
-  if (strategy === 'mean-reversion') holdHours = Math.max(48, Math.min(168, holdHours))
+  if (strategy === 'macro' || strategy === 'relative-value') holdHours = Math.max(168, Math.min(504, holdHours)) // 1-3 weeks
+  else if (strategy === 'mean-reversion') holdHours = Math.max(48, Math.min(168, holdHours))
   else if (strategy === 'momentum') holdHours = Math.max(72, Math.min(240, holdHours))
   else holdHours = Math.max(48, Math.min(192, holdHours))
 
@@ -1094,11 +1136,17 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     ? `Enter on dips toward $${fmt(entryLow)}-$${fmt(entryHigh)}${support.length > 0 ? '; support at $' + fmt(support[0]) : ''}`
     : `Enter on rallies toward $${fmt(entryLow)}-$${fmt(entryHigh)}${resistance.length > 0 ? '; resistance at $' + fmt(resistance[0]) : ''}`
 
-  // Thesis — now regime-aware
+  // Thesis — now regime-aware with macro/relative-value intelligence
   const devFromMA = (Math.abs(price - ma50) / (atr || 1)).toFixed(1)
   const regimeStr = marketRegime ? ` Market regime: ${marketRegime.regime} (SPY ${marketRegime.ret5d > 0 ? '+' : ''}${marketRegime.ret5d}% 5d).` : ''
+  const leadStr = regimeAnalysis?.leadingIndicators ? ` Leading indicators: VIX momentum ${r(regimeAnalysis.leadingIndicators.vixMomentum, 2)}, sector rotation ${r(regimeAnalysis.leadingIndicators.sectorRotation, 2)}, credit proxy ${r(regimeAnalysis.leadingIndicators.creditProxy, 2)}.` : ''
   let thesis
-  if (strategy === 'mean-reversion') {
+  if (strategy === 'macro') {
+    const shiftDir = regimeAnalysis?.leadingIndicators?.suggestedRegime || 'unknown'
+    thesis = `MACRO REGIME SIGNAL: ${name} (${symbol}) — ${regimeShift ? 'Regime shift detected' : 'High transition risk'}. HMM regime: ${regimeAnalysis?.currentRegime || 'unknown'}, leading indicators suggest ${shiftDir}. Transition risk: ${regimeAnalysis?.transitionRisk || 'N/A'}%.${correlationAnomaly ? ` CORRELATION ANOMALY: ${symbol} is diverging from broad market (asset ${r(ret5d * 100, 1)}% vs market ${marketRegime?.ret5d || 0}% 5d).` : ''}${regimeStr}${leadStr}`
+  } else if (strategy === 'relative-value') {
+    thesis = `RELATIVE VALUE: ${name} (${symbol}) showing ${direction === 'long' ? 'bullish' : 'bearish'} decorrelation from market. Asset 20d return ${r(ret20d * 100, 1)}% vs market trend ${marketRegime?.trend || 'unknown'}. This divergence suggests ${direction === 'long' ? 'relative strength' : 'relative weakness'} that may persist.${regimeStr} Price at $${fmt(price)}, ${devFromMA}x ATR from MA50.`
+  } else if (strategy === 'mean-reversion') {
     thesis = `${name} (${symbol}) shows RSI at ${r(rsi, 1)} in ${rsi < 30 ? 'deeply oversold' : 'overbought'} territory. Hurst ${hurst} confirms mean-reverting regime. Price is ${devFromMA}x ATR from MA50 ($${fmt(ma50)}).${regimeStr} Volume ${vol.trend}${vol.ratio > 1.3 ? ' ('+vol.ratio+'x avg)' : ''}.`
   } else if (strategy === 'momentum') {
     thesis = `${name} (${symbol}) in confirmed ${direction === 'long' ? 'uptrend' : 'downtrend'}. ADX ${adx.adx} confirms trend strength, Hurst ${hurst} shows persistence. MAs stacked ${ma20 > ma50 ? 'bullish' : 'bearish'}: MA20 $${fmt(ma20)} ${ma20 > ma50 ? '>' : '<'} MA50 $${fmt(ma50)} ${ma50 > ma200 ? '>' : '<'} MA200 $${fmt(ma200)}.${regimeStr}`
@@ -1115,6 +1163,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // Catalyst
   const confLevel = confidence >= 75 ? 'high' : confidence >= 60 ? 'moderate' : 'low'
   const agreeParts = []
+  if (regimeShift) agreeParts.push('regime shift detected')
+  if (correlationAnomaly) agreeParts.push('correlation anomaly')
   if (factors.marketRegime && factors.marketRegime * dirSign > 0) agreeParts.push('market regime aligned')
   if (factors.maStack * dirSign > 0) agreeParts.push(`price ${direction === 'long' ? 'above' : 'below'} key MAs`)
   if (factors.adxDir * dirSign > 0) agreeParts.push(`ADX ${adx.adx} confirming`)
@@ -1135,7 +1185,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   catalyst += `R:R ${finalRR.toFixed(1)}:1. Hurst ${hurst}, ADX ${adx.adx}.`
 
   // Hold reason
-  const holdReason = strategy === 'mean-reversion' ? 'Hold through initial volatility \u2014 mean reversion thesis needs time. Trail stop to break-even at +0.8 ATR.'
+  const holdReason = strategy === 'macro' ? `MACRO HOLD: Regime transition in progress \u2014 position for the new regime. Transition risk ${regimeAnalysis?.transitionRisk || 'N/A'}%. Wider stops required. Re-evaluate at next scheduled brief.`
+    : strategy === 'relative-value' ? `RELATIVE VALUE: Hold as decorrelation thesis plays out. Monitor correlation reversion \u2014 exit if correlation normalizes. Wider stops due to cross-asset dynamics.`
+    : strategy === 'mean-reversion' ? 'Hold through initial volatility \u2014 mean reversion thesis needs time. Trail stop to break-even at +0.8 ATR.'
     : strategy === 'momentum' ? `Hold with trend \u2014 ADX ${adx.adx} confirms strength. Use trailing stops: break-even at +0.8 ATR, trail to +0.5 ATR at +1.5 ATR profit.`
     : 'Hold for breakout confirmation. Move stop to break-even once +0.8 ATR is reached.'
 
@@ -1194,6 +1246,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     adx: adx.adx,
     hurst,
     regimeOverride,
+    regimeShift,
+    correlationAnomaly,
     smartMoneySignal,
     trailingStop,
     bollingerBands: bb ? { upper: r(bb.upper), lower: r(bb.lower), bandwidth: r(bb.bandwidth, 4) } : null,
@@ -1235,6 +1289,282 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       riskFactors,
     },
   }
+}
+
+// ============================================================
+// MACRO SIGNAL GENERATOR — cross-asset regime & dislocation signals
+// These fire when the regime detector sees transitions, bond-currency
+// dislocations, or inter-market divergences that don't map to any
+// single asset's technical setup.
+// ============================================================
+async function generateMacroSignals(marketRegime) {
+  const macroSignals = []
+  if (!marketRegime) return macroSignals
+
+  const now = new Date()
+
+  // Macro watchlist: key instruments for regime signals
+  const macroInstruments = [
+    { symbol: 'TLT', name: '20+ Year Treasury Bond ETF', asset: 'equity', role: 'bonds' },
+    { symbol: 'GLD', name: 'Gold ETF', asset: 'commodity', role: 'safe-haven' },
+    { symbol: 'UUP', name: 'US Dollar Index ETF', asset: 'equity', role: 'dollar' },
+    { symbol: 'FXI', name: 'China Large-Cap ETF', asset: 'equity', role: 'em-risk' },
+    { symbol: 'EEM', name: 'Emerging Markets ETF', asset: 'equity', role: 'em-risk' },
+    { symbol: 'XLU', name: 'Utilities Select SPDR', asset: 'equity', role: 'defensive' },
+    { symbol: 'XLF', name: 'Financial Select SPDR', asset: 'equity', role: 'cyclical' },
+    { symbol: 'HYG', name: 'High Yield Corp Bond ETF', asset: 'equity', role: 'credit' },
+    { symbol: 'JPY=X', name: 'USD/JPY', asset: 'forex', role: 'carry-trade' },
+  ]
+
+  // Fetch all macro instruments in parallel
+  const results = await Promise.allSettled(
+    macroInstruments.map(async (inst) => {
+      const { candles } = await fetchCandles(inst.symbol, '6mo', '1d')
+      return { ...inst, candles }
+    })
+  )
+
+  const instruments = {}
+  for (const res of results) {
+    if (res.status === 'fulfilled' && res.value.candles.length >= 50) {
+      instruments[res.value.role] = res.value
+    }
+  }
+
+  // ── Analysis 1: Bond-Equity Divergence ──
+  // When bonds (TLT) and equities (SPY regime) move in the SAME direction,
+  // it signals a regime break — normally they're inversely correlated
+  if (instruments.bonds) {
+    const bondCloses = instruments.bonds.candles.map(c => c.close)
+    const bondPrice = bondCloses[bondCloses.length - 1]
+    const bondRet5d = bondCloses.length >= 6 ? (bondPrice - bondCloses[bondCloses.length - 6]) / bondCloses[bondCloses.length - 6] : 0
+    const bondRet20d = bondCloses.length >= 21 ? (bondPrice - bondCloses[bondCloses.length - 21]) / bondCloses[bondCloses.length - 21] : 0
+
+    const bothRising = bondRet5d > 0.01 && marketRegime.ret5d > 1
+    const bothFalling = bondRet5d < -0.01 && marketRegime.ret5d < -1
+
+    if (bothRising || bothFalling) {
+      const direction = bothRising ? 'long' : 'short'
+      const bondATR = calcATR(instruments.bonds.candles) || bondPrice * 0.01
+      const confidence = Math.min(80, 55 + Math.round(Math.abs(bondRet5d) * 500))
+
+      macroSignals.push({
+        id: `MACRO-BOND-EQ-${Date.now()}`,
+        ticker: 'TLT',
+        name: 'Bond-Equity Convergence Signal',
+        asset: 'macro',
+        strategy: 'macro',
+        direction,
+        entryLow: r(bondPrice - bondATR * 0.5),
+        entryHigh: r(bondPrice + bondATR * 0.25),
+        target: direction === 'long' ? r(bondPrice + bondATR * 3) : r(bondPrice - bondATR * 3),
+        stopLoss: direction === 'long' ? r(bondPrice - bondATR * 1.5) : r(bondPrice + bondATR * 1.5),
+        rsi: calcRSI(bondCloses) || 50,
+        risk: 'MEDIUM',
+        timeframe: '5-14 days',
+        confidence,
+        regimeShift: true,
+        correlationAnomaly: true,
+        entryBy: new Date(now.getTime() + 48 * 3600000).toISOString().slice(0, 16),
+        expiresAt: new Date(now.getTime() + 336 * 3600000).toISOString().slice(0, 16),
+        entryWindow: `Bond-equity correlation break. ${bothRising ? 'Both rising — flight to quality + risk-on unusual' : 'Both falling — liquidity crisis signal'}.`,
+        holdReason: 'MACRO: Bond-equity divergence regime signal. Hold until correlation normalizes or regime transition completes.',
+        thesis: `MACRO REGIME SIGNAL: Bonds (TLT ${r(bondRet5d * 100, 1)}% 5d) and equities (SPY ${marketRegime.ret5d}% 5d) are moving in lockstep — a correlation anomaly that typically precedes major regime shifts. ${bothRising ? 'Both rising suggests massive central bank liquidity or flight to quality with risk appetite.' : 'Both falling signals potential liquidity crisis or aggressive tightening.'} 20d bond return: ${r(bondRet20d * 100, 1)}%.`,
+        catalyst: `Bond-equity convergence (normally inversely correlated). TLT 5d: ${r(bondRet5d * 100, 1)}%, SPY 5d: ${marketRegime.ret5d}%. Regime transition risk elevated.`,
+        adx: 25,
+        hurst: 0.5,
+        regimeOverride: null,
+        smartMoneySignal: null,
+        trailingStop: { breakEvenAt: direction === 'long' ? r(bondPrice + bondATR * 0.8) : r(bondPrice - bondATR * 0.8), note: 'Macro signal — wider trailing stops' },
+        atrPercentile: 50,
+        marketRegime: { regime: marketRegime.regime, trend: marketRegime.trend },
+        regimeAnalysis: { currentRegime: 'volatile-transition', confidence: 60, transitionRisk: 75, recommendedStrategy: 'defensive' },
+        dataPacket: {
+          historicalContext: `TLT at $${r(bondPrice)} with 5d return ${r(bondRet5d * 100, 1)}%. Bond-equity correlation break detected.`,
+          bondCorrelation: `CRITICAL: Bonds and equities are converging — ${bothRising ? 'both rising' : 'both falling'}. Normal inverse correlation has broken down.`,
+          globalMacro: `Market regime: ${marketRegime.regime}. Bond-equity dislocation suggests regime transition imminent.`,
+          newsDrivers: ['Bond-equity correlation break', `TLT ${r(bondRet5d * 100, 1)}% 5d`, `SPY ${marketRegime.ret5d}% 5d`, 'Regime transition signal'],
+          technicalLevels: { support: [], resistance: [], pivotPoints: {} },
+          riskFactors: ['Macro regime signal — higher uncertainty than single-asset trades', 'Bond-equity correlation may normalize quickly', 'Central bank intervention risk'],
+        },
+      })
+    }
+  }
+
+  // ── Analysis 2: USD/JPY Carry Trade Unwind Signal ──
+  // Sharp JPY strengthening (USD/JPY falling) often triggers global risk-off cascades
+  if (instruments['carry-trade']) {
+    const jpyCandles = instruments['carry-trade'].candles
+    const jpyCloses = jpyCandles.map(c => c.close)
+    const jpyPrice = jpyCloses[jpyCloses.length - 1]
+    const jpyRet5d = jpyCloses.length >= 6 ? (jpyPrice - jpyCloses[jpyCloses.length - 6]) / jpyCloses[jpyCloses.length - 6] : 0
+    const jpyATR = calcATR(jpyCandles) || jpyPrice * 0.005
+
+    // USD/JPY falling fast = JPY strengthening = carry unwind
+    if (jpyRet5d < -0.015) {
+      const confidence = Math.min(78, 52 + Math.round(Math.abs(jpyRet5d) * 1500))
+
+      macroSignals.push({
+        id: `MACRO-JPY-CARRY-${Date.now()}`,
+        ticker: 'JPY=X',
+        name: 'JPY Carry Trade Unwind Signal',
+        asset: 'macro',
+        strategy: 'macro',
+        direction: 'short', // short risk assets
+        entryLow: r(jpyPrice - jpyATR * 0.5),
+        entryHigh: r(jpyPrice),
+        target: r(jpyPrice - jpyATR * 4),
+        stopLoss: r(jpyPrice + jpyATR * 2),
+        rsi: calcRSI(jpyCloses) || 50,
+        risk: 'HIGH',
+        timeframe: '5-14 days',
+        confidence,
+        regimeShift: true,
+        correlationAnomaly: false,
+        entryBy: new Date(now.getTime() + 24 * 3600000).toISOString().slice(0, 16),
+        expiresAt: new Date(now.getTime() + 240 * 3600000).toISOString().slice(0, 16),
+        entryWindow: `JPY carry trade unwinding. USD/JPY down ${r(jpyRet5d * 100, 2)}% in 5 days — risk-off cascade likely.`,
+        holdReason: 'MACRO: JPY carry trade unwind. Hold short risk assets until JPY stabilizes. Monitor BoJ policy statements.',
+        thesis: `MACRO REGIME SIGNAL: USD/JPY dropped ${r(jpyRet5d * 100, 2)}% in 5 days, signaling potential JPY carry trade unwind. When leveraged carry positions unwind, global risk assets typically sell off sharply as margin calls cascade. Japanese bond yields and BoJ policy are the key catalysts. Current price: $${r(jpyPrice, 2)}.`,
+        catalyst: `JPY carry unwind (USD/JPY ${r(jpyRet5d * 100, 2)}% 5d). Global risk-off cascade risk elevated. Market regime: ${marketRegime.regime}.`,
+        adx: 25, hurst: 0.5, regimeOverride: null, smartMoneySignal: null,
+        trailingStop: { breakEvenAt: r(jpyPrice - jpyATR * 0.5), note: 'Macro carry-unwind signal' },
+        atrPercentile: 70,
+        marketRegime: { regime: marketRegime.regime, trend: marketRegime.trend },
+        regimeAnalysis: { currentRegime: 'volatile-transition', confidence: 65, transitionRisk: 80, recommendedStrategy: 'defensive' },
+        dataPacket: {
+          historicalContext: `USD/JPY at ${r(jpyPrice, 2)}. 5d return: ${r(jpyRet5d * 100, 2)}%.`,
+          bondCorrelation: 'Japanese bond (JGB) yields and BoJ policy are key drivers of carry trade positioning.',
+          globalMacro: `JPY carry trade unwinding. Historical precedent: August 2024 carry unwind triggered global equity selloff.`,
+          newsDrivers: ['JPY carry trade unwind', `USD/JPY ${r(jpyRet5d * 100, 2)}% 5d`, 'Global risk-off risk', 'BoJ policy watch'],
+          technicalLevels: { support: [], resistance: [], pivotPoints: {} },
+          riskFactors: ['BoJ intervention could reverse JPY strength', 'Carry unwind may accelerate non-linearly', 'Leverage magnifies cascading liquidations'],
+        },
+      })
+    }
+  }
+
+  // ── Analysis 3: Credit Stress Signal (HYG) ──
+  if (instruments.credit) {
+    const hygCandles = instruments.credit.candles
+    const hygCloses = hygCandles.map(c => c.close)
+    const hygPrice = hygCloses[hygCloses.length - 1]
+    const hygRet5d = hygCloses.length >= 6 ? (hygPrice - hygCloses[hygCloses.length - 6]) / hygCloses[hygCloses.length - 6] : 0
+    const hygATR = calcATR(hygCandles) || hygPrice * 0.005
+
+    // HYG falling sharply = credit spreads widening = risk-off
+    if (hygRet5d < -0.02) {
+      const confidence = Math.min(75, 50 + Math.round(Math.abs(hygRet5d) * 1000))
+
+      macroSignals.push({
+        id: `MACRO-CREDIT-${Date.now()}`,
+        ticker: 'HYG',
+        name: 'Credit Spread Widening Signal',
+        asset: 'macro',
+        strategy: 'macro',
+        direction: 'short',
+        entryLow: r(hygPrice - hygATR * 0.3),
+        entryHigh: r(hygPrice),
+        target: r(hygPrice - hygATR * 3),
+        stopLoss: r(hygPrice + hygATR * 1.5),
+        rsi: calcRSI(hygCloses) || 50,
+        risk: 'HIGH',
+        timeframe: '5-14 days',
+        confidence,
+        regimeShift: true,
+        correlationAnomaly: false,
+        entryBy: new Date(now.getTime() + 36 * 3600000).toISOString().slice(0, 16),
+        expiresAt: new Date(now.getTime() + 240 * 3600000).toISOString().slice(0, 16),
+        entryWindow: `Credit spreads widening. HYG down ${r(hygRet5d * 100, 2)}% — risk-off positioning recommended.`,
+        holdReason: 'MACRO: Credit stress signal. Short risk assets until high-yield spreads stabilize.',
+        thesis: `MACRO CREDIT SIGNAL: HYG (High Yield Bonds) fell ${r(hygRet5d * 100, 2)}% in 5 days, indicating credit spread widening. This is a leading indicator of equity selloffs — credit markets typically lead equities by 1-3 days. Market regime: ${marketRegime.regime}.`,
+        catalyst: `Credit spread widening (HYG ${r(hygRet5d * 100, 2)}% 5d). Leading indicator for equity weakness.`,
+        adx: 25, hurst: 0.5, regimeOverride: null, smartMoneySignal: null,
+        trailingStop: { breakEvenAt: r(hygPrice - hygATR * 0.5), note: 'Credit stress macro signal' },
+        atrPercentile: 65,
+        marketRegime: { regime: marketRegime.regime, trend: marketRegime.trend },
+        regimeAnalysis: { currentRegime: 'volatile-transition', confidence: 60, transitionRisk: 70, recommendedStrategy: 'defensive' },
+        dataPacket: {
+          historicalContext: `HYG at $${r(hygPrice, 2)}. 5d: ${r(hygRet5d * 100, 2)}%.`,
+          bondCorrelation: 'Credit spreads widening — risk-off signal. Investment grade/high yield spread differential expanding.',
+          globalMacro: `Credit stress precedes equity weakness by 1-3 days historically.`,
+          newsDrivers: ['Credit spread widening', `HYG ${r(hygRet5d * 100, 2)}% 5d`, 'Risk-off leading indicator'],
+          technicalLevels: { support: [], resistance: [], pivotPoints: {} },
+          riskFactors: ['Fed intervention could compress spreads quickly', 'Credit stress may be sector-specific', 'HYG liquidity can be thin in stress'],
+        },
+      })
+    }
+  }
+
+  // ── Analysis 4: Gold Safe-Haven Divergence ──
+  if (instruments['safe-haven'] && marketRegime.trend === 'bullish' && marketRegime.strength >= 2) {
+    const goldCandles = instruments['safe-haven'].candles
+    const goldCloses = goldCandles.map(c => c.close)
+    const goldPrice = goldCloses[goldCloses.length - 1]
+    const goldRet5d = goldCloses.length >= 6 ? (goldPrice - goldCloses[goldCloses.length - 6]) / goldCloses[goldCloses.length - 6] : 0
+
+    // Gold rallying hard while equities are also bullish = unusual, suggests hidden risk
+    if (goldRet5d > 0.025) {
+      const confidence = Math.min(70, 48 + Math.round(goldRet5d * 800))
+      const goldATR = calcATR(goldCandles) || goldPrice * 0.01
+
+      macroSignals.push({
+        id: `MACRO-GOLD-DIV-${Date.now()}`,
+        ticker: 'GLD',
+        name: 'Gold Safe-Haven Divergence',
+        asset: 'macro',
+        strategy: 'macro',
+        direction: 'long', // long gold as a hedge
+        entryLow: r(goldPrice - goldATR * 0.5),
+        entryHigh: r(goldPrice + goldATR * 0.25),
+        target: r(goldPrice + goldATR * 3),
+        stopLoss: r(goldPrice - goldATR * 1.5),
+        rsi: calcRSI(goldCloses) || 50,
+        risk: 'MEDIUM',
+        timeframe: '5-14 days',
+        confidence,
+        regimeShift: false,
+        correlationAnomaly: true,
+        entryBy: new Date(now.getTime() + 48 * 3600000).toISOString().slice(0, 16),
+        expiresAt: new Date(now.getTime() + 336 * 3600000).toISOString().slice(0, 16),
+        entryWindow: `Gold rallying (${r(goldRet5d * 100, 1)}% 5d) alongside bullish equities — safe-haven demand despite risk-on. Hedge signal.`,
+        holdReason: 'MACRO: Gold divergence hedge. Hold as portfolio protection against hidden tail risk.',
+        thesis: `MACRO DIVERGENCE: Gold (GLD) up ${r(goldRet5d * 100, 1)}% in 5 days while equities remain bullish (${marketRegime.regime}). This unusual combination suggests institutional hedging against tail risk not visible in equity prices. Central bank gold buying or geopolitical hedging may be driving flows.`,
+        catalyst: `Gold safe-haven bid in risk-on market. GLD ${r(goldRet5d * 100, 1)}% 5d. Hidden risk accumulation.`,
+        adx: 25, hurst: 0.55, regimeOverride: null, smartMoneySignal: null,
+        trailingStop: { breakEvenAt: r(goldPrice + goldATR * 0.8), note: 'Gold divergence hedge' },
+        atrPercentile: 55,
+        marketRegime: { regime: marketRegime.regime, trend: marketRegime.trend },
+        regimeAnalysis: { currentRegime: marketRegime.regime.includes('bull') ? 'trending-bull' : 'mean-reverting', confidence: 55, transitionRisk: 40, recommendedStrategy: 'defensive' },
+        dataPacket: {
+          historicalContext: `GLD at $${r(goldPrice, 2)}. 5d: ${r(goldRet5d * 100, 1)}%.`,
+          bondCorrelation: 'Gold rallying alongside equities suggests institutional hedging against unseen tail risk.',
+          globalMacro: `Safe-haven demand in risk-on environment. Central bank gold accumulation or geopolitical hedging.`,
+          newsDrivers: ['Gold safe-haven divergence', `GLD ${r(goldRet5d * 100, 1)}% 5d`, 'Institutional hedging', 'Central bank demand'],
+          technicalLevels: { support: [], resistance: [], pivotPoints: {} },
+          riskFactors: ['Gold may correct if risk-off catalyst doesn\'t materialize', 'Dollar strength could cap gold gains', 'ETF flow dynamics'],
+        },
+      })
+    }
+  }
+
+  // Attach adaptive quality scoring to macro signals
+  for (const sig of macroSignals) {
+    try {
+      const quality = scoreSignalQuality({
+        strategy: sig.strategy,
+        regime: sig.regimeAnalysis?.currentRegime || 'volatile-transition',
+        confidence: sig.confidence,
+        ticker: sig.ticker,
+      })
+      sig.qualityGrade = quality.grade
+      sig.adaptiveConfidence = quality.adjustedConfidence || quality.expectedValue
+      sig.expectedValue = quality.expectedValue
+      sig.qualityRecommendation = quality.recommendation
+    } catch (e) { /* non-critical */ }
+  }
+
+  return macroSignals
 }
 
 // Default watchlist
@@ -1357,7 +1687,7 @@ export async function GET(request) {
       return NextResponse.json({ signals: signal ? [signal] : [], errors: [], marketRegime })
     }
 
-    const signals = { long: [], short: [], forex: [] }
+    const signals = { long: [], short: [], forex: [], macro: [] }
     const errors = []
 
     const lists = []
@@ -1394,6 +1724,19 @@ export async function GET(request) {
               sig.qualityRecommendation = quality.recommendation
             } catch (e) { /* quality scoring is non-critical */ }
 
+            // Lightweight batch enrichment: technical sentiment proxy
+            // (Full sentiment/correlation analysis only runs for single-symbol queries)
+            if (!sig.sentiment) {
+              const techScore = (
+                (sig.hurst > 0.55 ? 20 : sig.hurst < 0.45 ? -20 : 0) +
+                (sig.adx > 30 ? (sig.direction === 'long' ? 15 : -15) : 0) +
+                (sig.rsi > 70 ? -25 : sig.rsi < 30 ? 25 : sig.rsi > 60 ? -10 : sig.rsi < 40 ? 10 : 0) +
+                (sig.volumeProfile?.trend === 'rising' ? 10 : sig.volumeProfile?.trend === 'declining' ? -10 : 0) +
+                (sig.marketRegime?.trend === 'bullish' ? 15 : sig.marketRegime?.trend === 'bearish' ? -15 : 0)
+              )
+              sig.sentiment = { composite: Math.max(-100, Math.min(100, techScore)), source: 'technical-proxy', note: 'Estimated from technicals. Deep analysis available via single-symbol query.' }
+            }
+
             if (isForex) {
               signals.forex.push(sig)
             } else {
@@ -1408,13 +1751,36 @@ export async function GET(request) {
       }
     }
 
+    // ================================================================
+    // MACRO SIGNAL GENERATION — cross-asset regime & dislocation signals
+    // Run in parallel with regular signals for the Macro tab
+    // ================================================================
+    try {
+      const macroSignals = await generateMacroSignals(marketRegime)
+      if (macroSignals.length > 0) {
+        signals.macro.push(...macroSignals)
+      }
+    } catch (e) {
+      errors.push({ symbol: 'MACRO', error: `Macro signal generation failed: ${e.message}` })
+    }
+
+    // Also classify any individual signals that got strategy='macro' or 'relative-value'
+    // from the regular pipeline into the macro bucket
+    const regularMacros = [...signals.long, ...signals.short].filter(
+      s => s.strategy === 'macro' || s.strategy === 'relative-value'
+    )
+    if (regularMacros.length > 0) {
+      signals.macro.push(...regularMacros)
+    }
+
     // Sort by confidence descending — best signals first
     signals.long.sort((a, b) => b.confidence - a.confidence)
     signals.short.sort((a, b) => b.confidence - a.confidence)
     signals.forex.sort((a, b) => b.confidence - a.confidence)
+    signals.macro.sort((a, b) => b.confidence - a.confidence)
 
     return NextResponse.json({ signals, errors, marketRegime, generatedAt: new Date().toISOString() })
   } catch (error) {
-    return NextResponse.json({ error: error.message, signals: { long: [], short: [], forex: [] } }, { status: 500 })
+    return NextResponse.json({ error: error.message, signals: { long: [], short: [], forex: [], macro: [] } }, { status: 500 })
   }
 }

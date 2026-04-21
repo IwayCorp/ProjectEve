@@ -89,6 +89,7 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
     { id: 'prediction', label: 'Prediction' },
     { id: 'chart', label: 'Chart' },
     { id: 'ai-intel', label: 'AI Intelligence' },
+    { id: 'adaptive', label: 'Adaptive Engine' },
     { id: 'bonds', label: 'Bond Correlation' },
     { id: 'macro', label: 'Global Macro' },
     { id: 'news', label: 'News & Catalysts' },
@@ -276,6 +277,36 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 <span className="nx-section-title">Overview</span>
               </div>
               <div className="space-y-5">
+                {/* Adaptive quick-glance badges */}
+                {(idea.qualityGrade || idea.regimeShift || idea.correlationAnomaly) && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {idea.qualityGrade && (
+                      <span className="px-2.5 py-1 rounded-lg text-2xs font-bold" style={{
+                        color: idea.qualityGrade === 'A' ? '#10b981' : idea.qualityGrade === 'B' ? '#3b82f6' : idea.qualityGrade === 'C' ? '#f59e0b' : '#ef4444',
+                        background: idea.qualityGrade === 'A' ? 'rgba(16, 185, 129, 0.10)' : idea.qualityGrade === 'B' ? 'rgba(59, 130, 246, 0.10)' : idea.qualityGrade === 'C' ? 'rgba(245, 158, 11, 0.10)' : 'rgba(239, 68, 68, 0.10)',
+                        border: `1px solid ${idea.qualityGrade === 'A' ? 'rgba(16, 185, 129, 0.20)' : idea.qualityGrade === 'B' ? 'rgba(59, 130, 246, 0.20)' : idea.qualityGrade === 'C' ? 'rgba(245, 158, 11, 0.20)' : 'rgba(239, 68, 68, 0.20)'}`,
+                      }}>
+                        Grade {idea.qualityGrade} {idea.expectedValue != null ? `· EV ${idea.expectedValue > 0 ? '+' : ''}${typeof idea.expectedValue === 'number' ? idea.expectedValue.toFixed(2) : idea.expectedValue}` : ''}
+                      </span>
+                    )}
+                    {idea.adaptiveConfidence != null && idea.adaptiveConfidence !== idea.confidence && (
+                      <span className="px-2.5 py-1 rounded-lg text-2xs font-semibold" style={{ color: 'rgb(var(--nx-accent))', background: 'rgba(var(--nx-accent) / 0.08)', border: '1px solid rgba(var(--nx-accent) / 0.15)' }}>
+                        Adaptive: {typeof idea.adaptiveConfidence === 'number' ? idea.adaptiveConfidence.toFixed(1) : idea.adaptiveConfidence}%
+                      </span>
+                    )}
+                    {idea.regimeShift && (
+                      <span className="px-2.5 py-1 rounded-lg text-2xs font-semibold" style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
+                        ⚠ Regime Shift
+                      </span>
+                    )}
+                    {idea.correlationAnomaly && (
+                      <span className="px-2.5 py-1 rounded-lg text-2xs font-semibold" style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.15)' }}>
+                        🔀 Correlation Anomaly
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <h4 className="text-md font-semibold text-nx-text-strong mb-2">Thesis</h4>
                   <p className="text-sm text-nx-text leading-relaxed"><TermText>{idea.thesis}</TermText></p>
@@ -684,6 +715,117 @@ export default function TradePacket({ idea, direction, onClose, currentPrice }) 
                 {!idea.regimeAnalysis && !idea.ensemble && !idea.alphaFactors && !idea.sentiment && !idea.correlations && !idea.positionSizing && (
                   <div className="glass-solid p-5 text-center">
                     <p className="text-sm text-nx-text-muted">AI intelligence layers available on single-symbol deep analysis</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ADAPTIVE ENGINE */}
+            <div ref={setSectionRef('adaptive')}>
+              <div className="nx-section-divider">
+                <span className="nx-section-title">Adaptive Engine</span>
+              </div>
+              <div className="space-y-4">
+                {/* Quality Grade & Adaptive Confidence */}
+                {(idea.qualityGrade || idea.adaptiveConfidence != null || idea.expectedValue != null) ? (
+                  <div className="glass-solid p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider">Signal Quality Assessment</h4>
+                      {idea.qualityGrade && (
+                        <span className={`px-2.5 py-0.5 rounded-md text-2xs font-bold`} style={{
+                          color: idea.qualityGrade === 'A' ? '#10b981' : idea.qualityGrade === 'B' ? '#3b82f6' : idea.qualityGrade === 'C' ? '#f59e0b' : '#ef4444',
+                          background: idea.qualityGrade === 'A' ? 'rgba(16, 185, 129, 0.12)' : idea.qualityGrade === 'B' ? 'rgba(59, 130, 246, 0.12)' : idea.qualityGrade === 'C' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          border: `1px solid ${idea.qualityGrade === 'A' ? 'rgba(16, 185, 129, 0.25)' : idea.qualityGrade === 'B' ? 'rgba(59, 130, 246, 0.25)' : idea.qualityGrade === 'C' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                        }}>
+                          GRADE {idea.qualityGrade}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {idea.qualityGrade && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Quality Grade</div>
+                          <div className={`text-2xl font-bold font-mono ${idea.qualityGrade === 'A' ? 'text-nx-green' : idea.qualityGrade === 'B' ? 'text-nx-accent' : idea.qualityGrade === 'C' ? 'text-nx-orange' : 'text-nx-red'}`}>{idea.qualityGrade}</div>
+                        </div>
+                      )}
+                      {idea.adaptiveConfidence != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Adaptive Confidence</div>
+                          <div className="text-lg font-bold text-nx-text-strong font-mono">{typeof idea.adaptiveConfidence === 'number' ? idea.adaptiveConfidence.toFixed(1) : idea.adaptiveConfidence}%</div>
+                        </div>
+                      )}
+                      {idea.expectedValue != null && (
+                        <div>
+                          <div className="text-2xs text-nx-text-muted uppercase">Expected Value</div>
+                          <div className={`text-lg font-bold font-mono ${idea.expectedValue > 0 ? 'text-nx-green' : 'text-nx-red'}`}>{idea.expectedValue > 0 ? '+' : ''}{typeof idea.expectedValue === 'number' ? idea.expectedValue.toFixed(2) : idea.expectedValue}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Base Confidence</div>
+                        <div className="text-lg font-bold text-nx-text-strong font-mono">{idea.confidence}%</div>
+                      </div>
+                    </div>
+                    {idea.qualityRecommendation && (
+                      <div className="mt-3 p-3 rounded-lg" style={{ background: 'rgba(var(--nx-accent) / 0.06)', border: '1px solid rgba(var(--nx-accent) / 0.12)' }}>
+                        <div className="text-2xs text-nx-text-muted uppercase mb-1">Recommendation</div>
+                        <p className="text-sm text-nx-text leading-relaxed">{idea.qualityRecommendation}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="glass-solid p-5 text-center">
+                    <p className="text-sm text-nx-text-muted">Adaptive engine in learning mode — quality scoring available after 20 tracked signals</p>
+                  </div>
+                )}
+
+                {/* Regime Shift & Correlation Anomaly Flags */}
+                {(idea.regimeShift || idea.correlationAnomaly) && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Macro Flags</h4>
+                    <div className="flex gap-3 flex-wrap">
+                      {idea.regimeShift && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.20)' }}>
+                          <span className="text-sm">⚠️</span>
+                          <div>
+                            <div className="text-2xs font-semibold text-nx-orange uppercase">Regime Shift Detected</div>
+                            <div className="text-2xs text-nx-text-muted">Leading indicators disagree with current HMM regime</div>
+                          </div>
+                        </div>
+                      )}
+                      {idea.correlationAnomaly && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.20)' }}>
+                          <span className="text-sm">🔀</span>
+                          <div>
+                            <div className="text-2xs font-semibold uppercase" style={{ color: '#8b5cf6' }}>Correlation Anomaly</div>
+                            <div className="text-2xs text-nx-text-muted">Asset diverging from expected market correlation</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Entry Freshness */}
+                {idea.entryFreshness && (
+                  <div className="glass-solid p-5">
+                    <h4 className="text-sm font-semibold text-nx-text-strong uppercase tracking-wider mb-3">Entry Freshness</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Generated At</div>
+                        <div className="text-sm font-semibold text-nx-text-strong">{new Date(idea.entryFreshness.generatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Max Entry Window</div>
+                        <div className="text-sm font-semibold text-nx-accent">{idea.entryFreshness.maxEntryHours}h</div>
+                      </div>
+                      <div>
+                        <div className="text-2xs text-nx-text-muted uppercase">Decay Rate</div>
+                        <div className="text-sm font-semibold text-nx-text-muted">~2% per 6h</div>
+                      </div>
+                    </div>
+                    {idea.entryFreshness.note && (
+                      <p className="text-2xs text-nx-text-hint mt-2">{idea.entryFreshness.note}</p>
+                    )}
                   </div>
                 )}
               </div>

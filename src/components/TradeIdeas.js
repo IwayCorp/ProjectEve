@@ -527,8 +527,8 @@ export default function TradeIdeas({ quotes }) {
   // Enrich signals with adaptive scoring whenever signals or adaptive state changes
   useEffect(() => {
     if (!adaptiveReady) return
-    const enriched = { long: [], short: [], forex: [] }
-    for (const category of ['long', 'short', 'forex']) {
+    const enriched = { long: [], short: [], forex: [], macro: [] }
+    for (const category of ['long', 'short', 'forex', 'macro']) {
       enriched[category] = (signals[category] || []).map(s => enrichSignalWithAdaptive(s))
     }
     setEnrichedSignals(enriched)
@@ -554,18 +554,21 @@ export default function TradeIdeas({ quotes }) {
       if (data.error) throw new Error(data.error)
 
       // Load cached signals from localStorage
-      let cachedSignals = { long: [], short: [], forex: [] }
+      let cachedSignals = { long: [], short: [], forex: [], macro: [] }
       try {
         if (typeof window !== 'undefined') {
           const cached = localStorage.getItem('noctis-signal-cache')
-          if (cached) cachedSignals = JSON.parse(cached)
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            cachedSignals = { long: parsed.long || [], short: parsed.short || [], forex: parsed.forex || [], macro: parsed.macro || [] }
+          }
         }
       } catch (e) {
         console.warn('Error reading signal cache:', e)
       }
 
       // Merge new signals with cached ones
-      const mergedSignals = { long: [], short: [], forex: [] }
+      const mergedSignals = { long: [], short: [], forex: [], macro: [] }
       const now = new Date().getTime()
 
       const isExpired = (signal) => {
@@ -579,7 +582,7 @@ export default function TradeIdeas({ quotes }) {
         )
       }
 
-      for (const category of ['long', 'short', 'forex']) {
+      for (const category of ['long', 'short', 'forex', 'macro']) {
         const newSignals = (data.signals?.[category] || []).filter(s => s != null)
 
         for (const newSignal of newSignals) {
@@ -634,7 +637,7 @@ export default function TradeIdeas({ quotes }) {
   useEffect(() => {
     if (!quotes || Object.keys(quotes).length === 0) return
 
-    const allSignals = [...(signals.long || []), ...(signals.short || []), ...(signals.forex || [])]
+    const allSignals = [...(signals.long || []), ...(signals.short || []), ...(signals.forex || []), ...(signals.macro || [])]
     let anyCataloged = false
 
     for (const signal of allSignals) {
@@ -684,6 +687,10 @@ export default function TradeIdeas({ quotes }) {
         if (counts[tl] != null) counts[tl]++
       }
     }
+    // Count dedicated macro signals
+    for (const s of enrichedSignals.macro || []) {
+      counts.macro++
+    }
     return counts
   }, [enrichedSignals])
 
@@ -697,12 +704,35 @@ export default function TradeIdeas({ quotes }) {
         }
       }
     }
+    // For macro timeline, count macro-bucket signals across all directions
+    if (activeTimeline === 'macro') {
+      for (const s of enrichedSignals.macro || []) {
+        const dir = s.direction === 'short' ? 'short' : s.asset === 'forex' ? 'forex' : 'long'
+        counts[dir]++
+      }
+    }
     return counts
   }, [enrichedSignals, activeTimeline])
 
   // Get ideas filtered by timeline + direction + strategy
   const ideas = useMemo(() => {
-    const dirSignals = enrichedSignals[directionTab] || []
+    let dirSignals = [...(enrichedSignals[directionTab] || [])]
+
+    // For macro timeline, also include signals from the macro bucket
+    if (activeTimeline === 'macro') {
+      const macroSignals = (enrichedSignals.macro || []).filter(s => {
+        const dir = s.direction === 'short' ? 'short' : s.asset === 'forex' ? 'forex' : 'long'
+        return dir === directionTab
+      })
+      // Merge without duplicates (by id)
+      const existingIds = new Set(dirSignals.map(s => s.id))
+      for (const ms of macroSignals) {
+        if (!existingIds.has(ms.id)) {
+          dirSignals.push(ms)
+        }
+      }
+    }
+
     // Filter by timeline
     const timelineFiltered = dirSignals.filter(s => (s._timeline || 'swing') === activeTimeline)
     // Filter by strategy
