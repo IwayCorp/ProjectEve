@@ -1,5 +1,7 @@
 export const runtime = 'edge'
 
+import { initEvolutionEngine, evolve, getEvolutionReport } from '@/lib/evolutionEngine'
+
 // ============ IN-MEMORY BRIEF STORE ============
 // Persists per edge instance between requests. Not globally durable,
 // but good enough for the "latest brief" pattern where the cron
@@ -442,12 +444,31 @@ export async function GET(request) {
     const snapshot = await fetchMarketSnapshot()
     const brief = generateBrief(type, snapshot)
 
+    // On post-close brief: trigger evolution cycle to learn from today's outcomes
+    let evolutionResult = null
+    if (type === 'post-close') {
+      try {
+        initEvolutionEngine()
+        evolutionResult = evolve([]) // Evolve using accumulated trade outcomes
+        brief.evolution = {
+          generation: evolutionResult.generation,
+          mutationsApplied: evolutionResult.mutationsApplied,
+          fitnessScore: evolutionResult.fitnessScore,
+          topFailures: evolutionResult.topFailures?.slice(0, 3),
+          log: evolutionResult.log?.slice(0, 5),
+        }
+      } catch (e) {
+        brief.evolution = { error: e.message }
+      }
+    }
+
     // Store for client retrieval
     briefStore.set(type, brief)
 
     return new Response(JSON.stringify({
       success: true,
       brief,
+      evolutionResult: type === 'post-close' ? evolutionResult : undefined,
       generatedAt: brief.generatedAt,
     }), {
       status: 200,

@@ -6,6 +6,7 @@ import { computePositionSize } from '@/lib/positionSizer'
 import { analyzeSentiment } from '@/lib/sentimentEngine'
 import { computeCorrelations } from '@/lib/correlationEngine'
 import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
+import { initEvolutionEngine, getParam, recordTradeOutcome } from '@/lib/evolutionEngine'
 
 export const runtime = 'edge'
 
@@ -457,9 +458,16 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // In mean-reverting markets (Hurst < 0.45): fade extremes
   // ================================================================
 
-  const isTrending = hurst > 0.52 && adx.adx > 22
-  const isStrongTrend = hurst > 0.58 && adx.adx > 30
-  const isMeanReverting = hurst < 0.45 && adx.adx < 20
+  // Evolution engine: use tunable params instead of hardcoded thresholds
+  const _evoHurstTrending = getParam('signal_hurst_trending') ?? 0.52
+  const _evoHurstStrong = getParam('signal_hurst_strong') ?? 0.58
+  const _evoAdxTrending = getParam('signal_adx_trending') ?? 22
+  const _evoHurstMR = getParam('signal_hurst_meanReverting') ?? 0.45
+  const _evoAdxMR = getParam('signal_adx_meanReverting') ?? 20
+
+  const isTrending = hurst > _evoHurstTrending && adx.adx > _evoAdxTrending
+  const isStrongTrend = hurst > _evoHurstStrong && adx.adx > 30
+  const isMeanReverting = hurst < _evoHurstMR && adx.adx < _evoAdxMR
 
   let dirScore = 0
   const factors = {}
@@ -708,7 +716,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   const totalFactors = factorValues.filter(f => f !== 0).length
   const agreementRatio = totalFactors > 0 ? agreeingFactors / totalFactors : 0.5
 
-  let confidence = 35 + Math.round(agreementRatio * 35)
+  const _evoConfBase = getParam('confidence_base') ?? 35
+  const _evoConfAgreement = getParam('confidence_agreement_weight') ?? 35
+  let confidence = _evoConfBase + Math.round(agreementRatio * _evoConfAgreement)
 
   // Diminishing returns on confidence boosts
   // First 3 boosts apply at 100%, next 2 at 60%, anything beyond at 30%
@@ -730,9 +740,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   if (!isForex && marketRegime) {
     if ((marketRegime.trend === 'bullish' && direction === 'long') ||
         (marketRegime.trend === 'bearish' && direction === 'short')) {
-      confidence += applyBoost(10) // aligned with broad market
+      confidence += applyBoost(getParam('confidence_regime_bonus') ?? 10) // aligned with broad market
     } else if (marketRegime.trend !== 'flat') {
-      confidence -= 12 // fighting the market — penalties always apply in full
+      confidence -= (getParam('confidence_regime_penalty') ?? 12) // fighting the market — penalties always apply in full
     }
   }
 
@@ -771,11 +781,11 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // Bearish divergence (new highs on declining volume) penalizes longs, confirms shorts
   // Bullish divergence (new lows on rising volume) penalizes shorts, confirms longs
   if (vol.divergence === 'bearish') {
-    if (direction === 'long') confidence -= 18  // Strong penalty: smart money exiting at highs
-    else confidence += applyBoost(6)             // Confirms short thesis
+    if (direction === 'long') confidence -= (getParam('confidence_vol_divergence_penalty') ?? 18)
+    else confidence += applyBoost(6)
   } else if (vol.divergence === 'bullish') {
-    if (direction === 'short') confidence -= 15  // Accumulation at lows — don't short into it
-    else confidence += applyBoost(6)             // Confirms long thesis
+    if (direction === 'short') confidence -= (getParam('confidence_vol_divergence_penalty') ?? 15)
+    else confidence += applyBoost(6)
   }
 
   if (bb && bb.bandwidth < 0.03) confidence -= 6
@@ -1025,7 +1035,10 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // Macro/relative-value signals are rarer but strategically important: lower gate
   // ================================================================
   const isMacroSignal = strategy === 'macro' || strategy === 'relative-value'
-  const minConfidence = isMacroSignal ? 50 : isForex ? 58 : 60
+  const minConfidence = isMacroSignal
+    ? (getParam('min_confidence_macro') ?? 50)
+    : isForex ? (getParam('min_confidence_forex') ?? 58)
+    : (getParam('min_confidence_equity') ?? 60)
   if (confidence < minConfidence) return null
 
   // ================================================================
@@ -1044,7 +1057,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
 
   // Target — more conservative, based on ATR and regime
   let target
-  const targetMultiplier = isStrongTrend ? 3.5 : isTrending ? 2.5 : 2.0
+  const targetMultiplier = isStrongTrend ? (getParam('target_atr_trending') ?? 3.5) : isTrending ? 2.5 : (getParam('target_atr_normal') ?? 2.0)
   if (direction === 'long') {
     target = resistance.length >= 1 ? r(Math.min(resistance[0] + atr * 1.0, price + atr * targetMultiplier)) : r(price + atr * targetMultiplier)
   } else {
@@ -1667,6 +1680,12 @@ export async function GET(request) {
     try {
       adaptiveEngineStatus = initAdaptiveEngine()
     } catch (e) { /* adaptive engine init is non-critical */ }
+
+    // Initialize evolution engine for self-tuning parameters
+    let evolutionStatus = null
+    try {
+      evolutionStatus = initEvolutionEngine()
+    } catch (e) { /* evolution engine init is non-critical */ }
 
     // ================================================================
     // FIRST: Fetch SPY to determine broad market regime

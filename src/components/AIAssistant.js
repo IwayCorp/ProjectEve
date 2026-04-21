@@ -44,6 +44,8 @@ function GlassCard({ children, className = '', style = {} }) {
 export default function AIAssistant({ quotes = {} }) {
   const [signals, setSignals] = useState(null)
   const [auditData, setAuditData] = useState(null)
+  const [evolutionData, setEvolutionData] = useState(null)
+  const [evolving, setEvolving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState(null)
 
@@ -51,12 +53,14 @@ export default function AIAssistant({ quotes = {} }) {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sigRes, auditRes] = await Promise.allSettled([
+      const [sigRes, auditRes, evoRes] = await Promise.allSettled([
         fetch('/api/signals').then(r => r.ok ? r.json() : null),
         fetch('/api/audit').then(r => r.ok ? r.json() : null),
+        fetch('/api/evolve').then(r => r.ok ? r.json() : null),
       ])
       if (sigRes.status === 'fulfilled' && sigRes.value) setSignals(sigRes.value)
       if (auditRes.status === 'fulfilled' && auditRes.value) setAuditData(auditRes.value)
+      if (evoRes.status === 'fulfilled' && evoRes.value) setEvolutionData(evoRes.value)
       setLastRefresh(new Date())
     } catch {}
     setLoading(false)
@@ -420,6 +424,175 @@ export default function AIAssistant({ quotes = {} }) {
             </GlassCard>
           )}
         </div>
+      </div>
+
+      {/* ============ EVOLUTION ENGINE PANEL ============ */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="nx-section-header">
+            <div className="nx-accent-bar" style={{ background: '#a855f7' }} />
+            <h3>Evolution Engine</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setEvolving(true)
+                try {
+                  const res = await fetch('/api/evolve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'evolve', trades: [] }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setEvolutionData(prev => ({ ...prev, report: { ...prev?.report, ...data.result } }))
+                  }
+                } catch {}
+                setEvolving(false)
+              }}
+              disabled={evolving}
+              className="px-3 py-1.5 rounded-lg text-2xs font-bold transition-all"
+              style={{
+                background: evolving ? 'rgba(168,85,247,0.15)' : 'rgba(168,85,247,0.1)',
+                border: '1px solid rgba(168,85,247,0.25)',
+                color: '#a855f7',
+              }}
+            >
+              {evolving ? 'Evolving...' : 'Trigger Evolution'}
+            </button>
+          </div>
+        </div>
+
+        {evolutionData?.report ? (() => {
+          const evo = evolutionData.report
+          const fitnessColor = (evo.fitnessScore || 0) >= 70 ? '#22c55e' : (evo.fitnessScore || 0) >= 40 ? '#f59e0b' : '#ef4444'
+          const dirIcon = evo.fitnessDirection === 'improving' ? '\u2191' : evo.fitnessDirection === 'declining' ? '\u2193' : '\u2194'
+          return (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {/* Fitness & Generation */}
+              <GlassCard style={{ borderLeft: `3px solid ${fitnessColor}` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-nx-text-strong">System Fitness</div>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{
+                    background: `${fitnessColor}15`,
+                    color: fitnessColor,
+                    border: `1px solid ${fitnessColor}30`,
+                  }}>
+                    Gen {evo.generation || 0}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-3xl font-bold" style={{ color: fitnessColor }}>
+                    {fmt(evo.fitnessScore || 0, 0)}%
+                  </div>
+                  <div>
+                    <div className="text-xs text-nx-text-muted">{dirIcon} {evo.fitnessDirection || 'unknown'}</div>
+                    <div className="text-2xs text-nx-text-hint mt-0.5">
+                      {evo.totalMutationsApplied || 0} mutations applied
+                    </div>
+                  </div>
+                </div>
+                {/* Fitness sparkline */}
+                {(evo.fitnessTrend || []).length > 2 && (
+                  <div className="flex items-end gap-0.5 mt-3 h-8">
+                    {evo.fitnessTrend.map((pt, i) => (
+                      <div key={i} className="flex-1 rounded-t" style={{
+                        height: `${Math.max(10, (pt.fitness / 100) * 100)}%`,
+                        background: pt.fitness >= 70 ? '#22c55e30' : pt.fitness >= 40 ? '#f59e0b30' : '#ef444430',
+                        minHeight: 3,
+                      }} />
+                    ))}
+                  </div>
+                )}
+              </GlassCard>
+
+              {/* Failure Attribution */}
+              <GlassCard style={{ borderLeft: '3px solid #f59e0b' }}>
+                <div className="text-sm font-semibold text-nx-text-strong mb-3">Failure Attribution</div>
+                {Object.keys(evo.failureSummary || {}).length === 0 ? (
+                  <div className="text-center py-4">
+                    <div className="text-2xl mb-1">&#x1F9EC;</div>
+                    <div className="text-xs text-nx-text-muted">No failures attributed yet — system is learning</div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {Object.entries(evo.failureSummary || {})
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 5)
+                      .map(([category, count], i) => (
+                        <div key={i} className="flex items-center justify-between text-2xs">
+                          <span className="text-nx-text-muted capitalize">{category.replace(/_/g, ' ')}</span>
+                          <span className="font-bold text-nx-text-strong">{count}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </GlassCard>
+
+              {/* Recent Mutations */}
+              {(evo.recentMutations || []).length > 0 && (
+                <GlassCard className="xl:col-span-2" style={{ borderLeft: '3px solid #a855f7' }}>
+                  <div className="text-sm font-semibold text-nx-text-strong mb-3">Recent Parameter Mutations</div>
+                  <div className="space-y-1.5">
+                    {(evo.recentMutations || []).slice(-6).reverse().map((m, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg text-2xs" style={{
+                        background: 'rgba(168,85,247,0.04)',
+                        border: '1px solid rgba(168,85,247,0.10)',
+                      }}>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-purple-400">{m.param}</span>
+                          <span className="text-nx-text-hint ml-2">
+                            {typeof m.from === 'number' ? m.from.toFixed(3) : m.from} → {typeof m.to === 'number' ? m.to.toFixed(3) : m.to}
+                          </span>
+                        </div>
+                        <span className="text-2xs text-nx-text-hint ml-2 truncate max-w-[200px]" title={m.reason}>
+                          Gen {m.generation}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
+
+              {/* Drifted Parameters */}
+              {(evo.driftedParams || []).length > 0 && (
+                <GlassCard className="xl:col-span-2">
+                  <div className="text-sm font-semibold text-nx-text-strong mb-3">
+                    Evolved Parameters ({(evo.driftedParams || []).length} drifted from defaults)
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(evo.driftedParams || []).slice(0, 12).map(([param, data], i) => {
+                      const drift = parseFloat(data?.driftFromDefault) || 0
+                      const driftColor = drift > 0 ? '#22c55e' : '#ef4444'
+                      return (
+                        <div key={i} className="px-2 py-1.5 rounded-lg text-2xs" style={{
+                          background: `${driftColor}06`,
+                          border: `1px solid ${driftColor}15`,
+                        }}>
+                          <div className="font-bold text-nx-text-strong truncate">{param}</div>
+                          <div className="flex items-center justify-between mt-0.5">
+                            <span className="text-nx-text-hint">{data?.value}</span>
+                            <span style={{ color: driftColor }}>{data?.driftFromDefault}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </GlassCard>
+              )}
+            </div>
+          )
+        })() : (
+          <GlassCard>
+            <div className="text-center py-6">
+              <div className="text-2xl mb-2">&#x1F9EC;</div>
+              <div className="text-sm text-nx-text-muted">Evolution engine initializing...</div>
+              <div className="text-2xs text-nx-text-hint mt-1">
+                The system learns from every resolved trade. Parameters will evolve automatically.
+              </div>
+            </div>
+          </GlassCard>
+        )}
       </div>
     </div>
   )

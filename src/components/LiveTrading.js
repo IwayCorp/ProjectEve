@@ -235,30 +235,53 @@ export default function LiveTrading({ quotes = {} }) {
 
         // Record outcome to adaptive engine via audit API
         try {
+          const tradeOutcome = {
+            action: 'record',
+            signal: {
+              id: closed.signalId || closed.id,
+              ticker: closed.ticker,
+              direction: closed.direction.toLowerCase(),
+              strategy: closed.strategy,
+              confidence: closed.confidence,
+              regime: closed.regime,
+              assetType: closed.asset,
+              entryPrice: closed.entryPrice,
+              targetPrice: closed.targetPrice,
+              stopPrice: closed.stopLoss,
+              factors: closed.factors,
+            },
+            outcome: {
+              result: closed.autoResolve === 'TARGET_HIT' ? 'WIN'
+                : closed.autoResolve === 'STOP_HIT' ? 'LOSS'
+                : closed.actualReturn >= 0 ? 'WIN' : 'LOSS',
+              actualReturn: closed.actualReturn,
+              holdDuration: closed.holdDuration,
+              resolvedAt: closed.closedAt,
+            },
+          }
+          // Record to adaptive engine (audit API)
           fetch('/api/audit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tradeOutcome),
+          }).catch(() => {})
+          // Record to evolution engine (self-learning)
+          fetch('/api/evolve', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'record',
-              signal: {
+              trade: {
                 id: closed.signalId || closed.id,
                 ticker: closed.ticker,
                 direction: closed.direction.toLowerCase(),
                 strategy: closed.strategy,
                 confidence: closed.confidence,
                 regime: closed.regime,
-                assetType: closed.asset,
-                entryPrice: closed.entryPrice,
-                targetPrice: closed.targetPrice,
-                stopPrice: closed.stopLoss,
-                factors: closed.factors,
-              },
-              outcome: {
-                result: closed.autoResolve === 'TARGET_HIT' ? 'WIN'
-                  : closed.autoResolve === 'STOP_HIT' ? 'LOSS'
-                  : closed.actualReturn >= 0 ? 'WIN' : 'LOSS',
+                assetClass: closed.assetClass || closed.asset,
                 actualReturn: closed.actualReturn,
                 holdDuration: closed.holdDuration,
+                outcome: closed.autoResolve,
                 resolvedAt: closed.closedAt,
               },
             }),
