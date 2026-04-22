@@ -1,20 +1,38 @@
 import { NextResponse } from 'next/server'
-import { computeAlphaFactors } from '@/lib/alphaFactors'
-import { detectRegime } from '@/lib/regimeDetector'
-import { computeEnsemble } from '@/lib/ensembleEngine'
-import { computePositionSize } from '@/lib/positionSizer'
-import { analyzeSentiment } from '@/lib/sentimentEngine'
-import { computeCorrelations } from '@/lib/correlationEngine'
-import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
-import { initEvolutionEngine, getParam, recordTradeOutcome } from '@/lib/evolutionEngine'
-// Strategy library loaded dynamically to avoid Edge Runtime TDZ bundling issues
-let _strategyLib = null
-async function getStrategyLib() {
-  if (!_strategyLib) {
-    _strategyLib = await import('@/lib/strategyLibrary')
-  }
-  return _strategyLib
+
+// All lib modules loaded dynamically to avoid Edge Runtime TDZ bundling issues.
+// The Edge bundler converts function declarations to const assignments which
+// breaks hoisting when multiple stateful modules are combined.
+let _mods = null
+async function loadModules() {
+  if (_mods) return _mods
+  const [af, rd, ee, ps, se, ce, ae, ev, sl] = await Promise.all([
+    import('@/lib/alphaFactors'),
+    import('@/lib/regimeDetector'),
+    import('@/lib/ensembleEngine'),
+    import('@/lib/positionSizer'),
+    import('@/lib/sentimentEngine'),
+    import('@/lib/correlationEngine'),
+    import('@/lib/adaptiveEngine'),
+    import('@/lib/evolutionEngine'),
+    import('@/lib/strategyLibrary'),
+  ])
+  _mods = { af, rd, ee, ps, se, ce, ae, ev, sl }
+  return _mods
 }
+
+// Shims — initialized in GET handler via loadModules() before signal generation
+let _getParam = (_name) => undefined
+let computeAlphaFactors = () => null
+let detectRegime = () => null
+let computeEnsemble = () => null
+let computePositionSize = () => null
+let analyzeSentiment = async () => null
+let computeCorrelations = async () => null
+let initAdaptiveEngine = () => null
+let scoreSignalQuality = () => ({ grade: 'C', expectedValue: 50 })
+let getAdaptiveWeights = () => null
+let classifyAsset = () => 'equity'
 
 export const runtime = 'edge'
 
@@ -467,11 +485,11 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // ================================================================
 
   // Evolution engine: use tunable params instead of hardcoded thresholds
-  const _evoHurstTrending = getParam('signal_hurst_trending') ?? 0.52
-  const _evoHurstStrong = getParam('signal_hurst_strong') ?? 0.58
-  const _evoAdxTrending = getParam('signal_adx_trending') ?? 22
-  const _evoHurstMR = getParam('signal_hurst_meanReverting') ?? 0.45
-  const _evoAdxMR = getParam('signal_adx_meanReverting') ?? 20
+  const _evoHurstTrending = _getParam('signal_hurst_trending') ?? 0.52
+  const _evoHurstStrong = _getParam('signal_hurst_strong') ?? 0.58
+  const _evoAdxTrending = _getParam('signal_adx_trending') ?? 22
+  const _evoHurstMR = _getParam('signal_hurst_meanReverting') ?? 0.45
+  const _evoAdxMR = _getParam('signal_adx_meanReverting') ?? 20
 
   const isTrending = hurst > _evoHurstTrending && adx.adx > _evoAdxTrending
   const isStrongTrend = hurst > _evoHurstStrong && adx.adx > 30
@@ -724,8 +742,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   const totalFactors = factorValues.filter(f => f !== 0).length
   const agreementRatio = totalFactors > 0 ? agreeingFactors / totalFactors : 0.5
 
-  const _evoConfBase = getParam('confidence_base') ?? 35
-  const _evoConfAgreement = getParam('confidence_agreement_weight') ?? 35
+  const _evoConfBase = _getParam('confidence_base') ?? 35
+  const _evoConfAgreement = _getParam('confidence_agreement_weight') ?? 35
   let confidence = _evoConfBase + Math.round(agreementRatio * _evoConfAgreement)
 
   // Diminishing returns on confidence boosts
@@ -748,9 +766,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   if (!isForex && marketRegime) {
     if ((marketRegime.trend === 'bullish' && direction === 'long') ||
         (marketRegime.trend === 'bearish' && direction === 'short')) {
-      confidence += applyBoost(getParam('confidence_regime_bonus') ?? 10) // aligned with broad market
+      confidence += applyBoost(_getParam('confidence_regime_bonus') ?? 10) // aligned with broad market
     } else if (marketRegime.trend !== 'flat') {
-      confidence -= (getParam('confidence_regime_penalty') ?? 12) // fighting the market — penalties always apply in full
+      confidence -= (_getParam('confidence_regime_penalty') ?? 12) // fighting the market — penalties always apply in full
     }
   }
 
@@ -789,10 +807,10 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // Bearish divergence (new highs on declining volume) penalizes longs, confirms shorts
   // Bullish divergence (new lows on rising volume) penalizes shorts, confirms longs
   if (vol.divergence === 'bearish') {
-    if (direction === 'long') confidence -= (getParam('confidence_vol_divergence_penalty') ?? 18)
+    if (direction === 'long') confidence -= (_getParam('confidence_vol_divergence_penalty') ?? 18)
     else confidence += applyBoost(6)
   } else if (vol.divergence === 'bullish') {
-    if (direction === 'short') confidence -= (getParam('confidence_vol_divergence_penalty') ?? 15)
+    if (direction === 'short') confidence -= (_getParam('confidence_vol_divergence_penalty') ?? 15)
     else confidence += applyBoost(6)
   }
 
@@ -1058,10 +1076,10 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
         const tfAligned = (tf.signal === 'long' && direction === 'long') || (tf.signal === 'short' && direction === 'short')
         const tfConflict = (tf.signal === 'long' && direction === 'short') || (tf.signal === 'short' && direction === 'long')
         if (tfAligned && tf.score > 40) {
-          confidence += applyBoost(getParam('strat_trend_boost') ?? 7)
+          confidence += applyBoost(_getParam('strat_trend_boost') ?? 7)
           factors.trendFollowing = direction === 'long' ? 1.5 : -1.5
         } else if (tfConflict && tf.score > 50) {
-          confidence -= (getParam('strat_trend_penalty') ?? 8)
+          confidence -= (_getParam('strat_trend_penalty') ?? 8)
           factors.trendFollowing = direction === 'long' ? -1.5 : 1.5
         }
       }
@@ -1081,7 +1099,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       if (libStrats.seasonal && libStrats.seasonal.score > 0) {
         const sea = libStrats.seasonal
         if (sea.compositeDirection === 'bullish' && direction === 'long') {
-          confidence += applyBoost(getParam('strat_seasonal_boost') ?? 4)
+          confidence += applyBoost(_getParam('strat_seasonal_boost') ?? 4)
         } else if (sea.compositeDirection === 'cautious' && direction === 'long') {
           confidence -= 2
         }
@@ -1092,7 +1110,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
         const pead = libStrats.pead
         const peadAligned = (pead.signal === 'long' && direction === 'long') || (pead.signal === 'short' && direction === 'short')
         if (peadAligned) {
-          confidence += applyBoost(getParam('strat_pead_boost') ?? 10)
+          confidence += applyBoost(_getParam('strat_pead_boost') ?? 10)
           factors.pead = direction === 'long' ? 2.0 : -2.0
         }
       }
@@ -1108,9 +1126,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   // ================================================================
   const isMacroSignal = strategy === 'macro' || strategy === 'relative-value'
   const minConfidence = isMacroSignal
-    ? (getParam('min_confidence_macro') ?? 50)
-    : isForex ? (getParam('min_confidence_forex') ?? 58)
-    : (getParam('min_confidence_equity') ?? 60)
+    ? (_getParam('min_confidence_macro') ?? 50)
+    : isForex ? (_getParam('min_confidence_forex') ?? 58)
+    : (_getParam('min_confidence_equity') ?? 60)
   if (confidence < minConfidence) return null
 
   // ================================================================
@@ -1129,7 +1147,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
 
   // Target — more conservative, based on ATR and regime
   let target
-  const targetMultiplier = isStrongTrend ? (getParam('target_atr_trending') ?? 3.5) : isTrending ? 2.5 : (getParam('target_atr_normal') ?? 2.0)
+  const targetMultiplier = isStrongTrend ? (_getParam('target_atr_trending') ?? 3.5) : isTrending ? 2.5 : (_getParam('target_atr_normal') ?? 2.0)
   if (direction === 'long') {
     target = resistance.length >= 1 ? r(Math.min(resistance[0] + atr * 1.0, price + atr * targetMultiplier)) : r(price + atr * targetMultiplier)
   } else {
@@ -1771,24 +1789,37 @@ export async function GET(request) {
 
   try {
     // ================================================================
-    // Initialize adaptive engine for quality scoring and adaptive weights
+    // Dynamic module loading — avoids Edge Runtime TDZ errors
     // ================================================================
+    let strategyLibModule = null
+    try {
+      const mods = await loadModules()
+      computeAlphaFactors = mods.af.computeAlphaFactors
+      detectRegime = mods.rd.detectRegime
+      computeEnsemble = mods.ee.computeEnsemble
+      computePositionSize = mods.ps.computePositionSize
+      analyzeSentiment = mods.se.analyzeSentiment
+      computeCorrelations = mods.ce.computeCorrelations
+      initAdaptiveEngine = mods.ae.initAdaptiveEngine
+      scoreSignalQuality = mods.ae.scoreSignalQuality
+      getAdaptiveWeights = mods.ae.getAdaptiveWeights
+      classifyAsset = mods.ae.classifyAsset
+      _getParam = mods.ev.getParam
+      strategyLibModule = mods.sl
+    } catch (e) {
+      console.error('Module loading error:', e.message)
+    }
+
     let adaptiveEngineStatus = null
     try {
       adaptiveEngineStatus = initAdaptiveEngine()
     } catch (e) { /* adaptive engine init is non-critical */ }
 
-    // Initialize evolution engine for self-tuning parameters
     let evolutionStatus = null
     try {
-      evolutionStatus = initEvolutionEngine()
+      const mods2 = await loadModules()
+      evolutionStatus = mods2?.ev?.initEvolutionEngine?.() || null
     } catch (e) { /* evolution engine init is non-critical */ }
-
-    // Load strategy library module (dynamic import for Edge Runtime compatibility)
-    let strategyLibModule = null
-    try {
-      strategyLibModule = await getStrategyLib()
-    } catch (e) { /* strategy library is non-critical */ }
 
     // ================================================================
     // FIRST: Fetch SPY to determine broad market regime
