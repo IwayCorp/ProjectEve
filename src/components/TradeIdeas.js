@@ -681,44 +681,59 @@ export default function TradeIdeas({ quotes }) {
   // Helper: check if a signal should be visible (respects showExpired toggle)
   const isVisible = useCallback((s) => showExpired || getTradeUrgency(s) !== 'expired', [showExpired])
 
-  // Count signals per direction tab per timeline
-  const timelineCounts = useMemo(() => {
-    const counts = { scalp: 0, swing: 0, position: 0, macro: 0 }
+  // Cross-tab: timeline × direction counts (used for tab numbers + auto-select)
+  const timelineDirectionCounts = useMemo(() => {
+    const matrix = {}
+    for (const tl of ['scalp', 'swing', 'position', 'macro']) {
+      matrix[tl] = { long: 0, short: 0, forex: 0, total: 0 }
+    }
     for (const category of ['long', 'short', 'forex']) {
       for (const s of enrichedSignals[category] || []) {
         if (!isVisible(s)) continue
         const tl = s._timeline || 'swing'
-        if (counts[tl] != null) counts[tl]++
-      }
-    }
-    // Count dedicated macro signals
-    for (const s of enrichedSignals.macro || []) {
-      if (isVisible(s)) counts.macro++
-    }
-    return counts
-  }, [enrichedSignals, isVisible])
-
-  // Direction counts per timeline
-  const directionCounts = useMemo(() => {
-    const counts = { long: 0, short: 0, forex: 0 }
-    for (const category of DIRECTION_TABS) {
-      for (const s of enrichedSignals[category] || []) {
-        if (!isVisible(s)) continue
-        if ((s._timeline || 'swing') === activeTimeline) {
-          counts[category]++
+        if (matrix[tl]) {
+          matrix[tl][category]++
+          matrix[tl].total++
         }
       }
     }
-    // For macro timeline, count macro-bucket signals across all directions
-    if (activeTimeline === 'macro') {
-      for (const s of enrichedSignals.macro || []) {
-        if (!isVisible(s)) continue
-        const dir = s.direction === 'short' ? 'short' : s.asset === 'forex' ? 'forex' : 'long'
-        counts[dir]++
-      }
+    // Dedicated macro signals bucketed by direction
+    for (const s of enrichedSignals.macro || []) {
+      if (!isVisible(s)) continue
+      const dir = s.direction === 'short' ? 'short' : s.asset === 'forex' ? 'forex' : 'long'
+      matrix.macro[dir]++
+      matrix.macro.total++
+    }
+    return matrix
+  }, [enrichedSignals, isVisible])
+
+  // Timeline tab counts = count for the active direction within each timeline
+  const timelineCounts = useMemo(() => {
+    const counts = {}
+    for (const tl of ['scalp', 'swing', 'position', 'macro']) {
+      counts[tl] = timelineDirectionCounts[tl]?.[directionTab] || 0
     }
     return counts
-  }, [enrichedSignals, activeTimeline, isVisible])
+  }, [timelineDirectionCounts, directionTab])
+
+  // Direction counts for the active timeline
+  const directionCounts = useMemo(() => {
+    const tld = timelineDirectionCounts[activeTimeline] || { long: 0, short: 0, forex: 0 }
+    return { long: tld.long, short: tld.short, forex: tld.forex }
+  }, [timelineDirectionCounts, activeTimeline])
+
+  // Auto-select best direction when switching timelines
+  const handleTimelineSwitch = useCallback((newTimeline) => {
+    setActiveTimeline(newTimeline)
+    setSelectedStrategy('all')
+    // Pick the direction with the most signals in the new timeline
+    const tld = timelineDirectionCounts[newTimeline] || { long: 0, short: 0, forex: 0 }
+    const best = ['long', 'short', 'forex'].reduce((a, b) => (tld[b] > tld[a] ? b : a), 'long')
+    // Only auto-switch if current direction has 0 signals and another has some
+    if (tld[directionTab] === 0 && tld[best] > 0) {
+      setDirectionTab(best)
+    }
+  }, [timelineDirectionCounts, directionTab])
 
   // Get ideas filtered by timeline + direction + strategy
   const ideas = useMemo(() => {
@@ -819,7 +834,7 @@ export default function TradeIdeas({ quotes }) {
             return (
               <button
                 key={t.id}
-                onClick={() => { setActiveTimeline(t.id); setSelectedStrategy('all') }}
+                onClick={() => handleTimelineSwitch(t.id)}
                 aria-label={`Show ${t.label} trade ideas`}
                 aria-pressed={isActive}
                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
