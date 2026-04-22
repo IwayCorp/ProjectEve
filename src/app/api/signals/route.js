@@ -7,7 +7,14 @@ import { analyzeSentiment } from '@/lib/sentimentEngine'
 import { computeCorrelations } from '@/lib/correlationEngine'
 import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
 import { initEvolutionEngine, getParam, recordTradeOutcome } from '@/lib/evolutionEngine'
-import { runStrategyLibrary, timeSeriesMomentum, seasonalSignal, peadSignal, shortTermReversal, volRiskPremium, bondEquityRegime } from '@/lib/strategyLibrary'
+// Strategy library loaded dynamically to avoid Edge Runtime TDZ bundling issues
+let _strategyLib = null
+async function getStrategyLib() {
+  if (!_strategyLib) {
+    _strategyLib = await import('@/lib/strategyLibrary')
+  }
+  return _strategyLib
+}
 
 export const runtime = 'edge'
 
@@ -408,7 +415,7 @@ function fmt(v) { if (v == null) return '\u2014'; return Math.abs(v) < 10 ? v.to
 // CORE: Generate signal for a single symbol
 // Now regime-aware, trend-following dominant, with institutional filters
 // ============================================================
-function generateSignal(candles, symbol, assetType, name, marketRegime, smartMoney) {
+function generateSignal(candles, symbol, assetType, name, marketRegime, smartMoney, strategyLibModule) {
   if (candles.length < 50) return null
   const closes = candles.map(c => c.close)
   const price = closes[closes.length - 1]
@@ -1039,7 +1046,8 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
     // Provide implied vol estimate from Bollinger bandwidth as IV proxy
     if (bb) slData.impliedVol = bb.bandwidth * 2.5 // rough IV proxy from BB width
 
-    strategyLibData = runStrategyLibrary(slData)
+    const _runStrategyLibrary = strategyLibModule?.runStrategyLibrary
+    if (_runStrategyLibrary) strategyLibData = _runStrategyLibrary(slData)
 
     if (strategyLibData && strategyLibData.activeCount > 0) {
       const libStrats = strategyLibData.strategies
@@ -1776,6 +1784,12 @@ export async function GET(request) {
       evolutionStatus = initEvolutionEngine()
     } catch (e) { /* evolution engine init is non-critical */ }
 
+    // Load strategy library module (dynamic import for Edge Runtime compatibility)
+    let strategyLibModule = null
+    try {
+      strategyLibModule = await getStrategyLib()
+    } catch (e) { /* strategy library is non-critical */ }
+
     // ================================================================
     // FIRST: Fetch SPY to determine broad market regime
     // This is the single most impactful change — knowing which way the market is going
@@ -1805,7 +1819,7 @@ export async function GET(request) {
         computeCorrelations(singleSymbol, asset)
           .catch(() => null),
       ])
-      const signal = generateSignal(candles, singleSymbol, asset, name, marketRegime, smartMoneyRes)
+      const signal = generateSignal(candles, singleSymbol, asset, name, marketRegime, smartMoneyRes, strategyLibModule)
       // Attach sentiment, correlations, and adaptive quality scoring
       if (signal) {
         // Adaptive engine quality scoring
@@ -1861,7 +1875,7 @@ export async function GET(request) {
         const results = await Promise.allSettled(
           batchItems.map(async (item) => {
             const { candles } = await fetchCandles(item.symbol, '6mo', '1d')
-            return generateSignal(candles, item.symbol, item.asset, item.name, marketRegime)
+            return generateSignal(candles, item.symbol, item.asset, item.name, marketRegime, null, strategyLibModule)
           })
         )
         for (let j = 0; j < results.length; j++) {
@@ -1944,7 +1958,8 @@ export async function GET(request) {
       if (marketRegime) {
         const { candles: spyCandles } = await fetchCandles('SPY', '1y', '1d')
         const spyCloses = spyCandles.map(c => c.close)
-        marketStrategyLib = runStrategyLibrary({ closes: spyCloses })
+        const _rsl = strategyLibModule?.runStrategyLibrary
+        if (_rsl) marketStrategyLib = _rsl({ closes: spyCloses })
       }
     } catch (e) { /* market strategy lib is non-critical */ }
 
