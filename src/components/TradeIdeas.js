@@ -77,11 +77,11 @@ function classifyTimeframe(signal) {
     if (entryByMs > 0 && entryByMs < 24 * 60 * 60 * 1000) return 'scalp'
   }
 
-  // Position: 1-2 week timeframes
-  if (timeframe.includes('week') || timeframe.includes('1-2 week') || timeframe.includes('2 week')) return 'position'
-  if (timeframe.includes('2-4 week') || timeframe.includes('1 month')) return 'position'
+  // Position: 1-2+ week timeframes
+  // Matches: '10-21 days', 'week', '1-2 week', '2-4 week', '1 month'
+  if (timeframe.includes('10-21') || timeframe.includes('14-') || timeframe.includes('week') || timeframe.includes('month')) return 'position'
 
-  // Swing: default bucket - 1-5 day trades (Matt's primary focus)
+  // Swing: default bucket - 1-7 day trades (Matt's primary focus)
   return 'swing'
 }
 
@@ -678,27 +678,32 @@ export default function TradeIdeas({ quotes }) {
 
   const allStrategies = ['all', ...Object.keys(STRATEGIES)]
 
+  // Helper: check if a signal should be visible (respects showExpired toggle)
+  const isVisible = useCallback((s) => showExpired || getTradeUrgency(s) !== 'expired', [showExpired])
+
   // Count signals per direction tab per timeline
   const timelineCounts = useMemo(() => {
     const counts = { scalp: 0, swing: 0, position: 0, macro: 0 }
     for (const category of ['long', 'short', 'forex']) {
       for (const s of enrichedSignals[category] || []) {
+        if (!isVisible(s)) continue
         const tl = s._timeline || 'swing'
         if (counts[tl] != null) counts[tl]++
       }
     }
     // Count dedicated macro signals
     for (const s of enrichedSignals.macro || []) {
-      counts.macro++
+      if (isVisible(s)) counts.macro++
     }
     return counts
-  }, [enrichedSignals])
+  }, [enrichedSignals, isVisible])
 
   // Direction counts per timeline
   const directionCounts = useMemo(() => {
     const counts = { long: 0, short: 0, forex: 0 }
     for (const category of DIRECTION_TABS) {
       for (const s of enrichedSignals[category] || []) {
+        if (!isVisible(s)) continue
         if ((s._timeline || 'swing') === activeTimeline) {
           counts[category]++
         }
@@ -707,12 +712,13 @@ export default function TradeIdeas({ quotes }) {
     // For macro timeline, count macro-bucket signals across all directions
     if (activeTimeline === 'macro') {
       for (const s of enrichedSignals.macro || []) {
+        if (!isVisible(s)) continue
         const dir = s.direction === 'short' ? 'short' : s.asset === 'forex' ? 'forex' : 'long'
         counts[dir]++
       }
     }
     return counts
-  }, [enrichedSignals, activeTimeline])
+  }, [enrichedSignals, activeTimeline, isVisible])
 
   // Get ideas filtered by timeline + direction + strategy
   const ideas = useMemo(() => {
@@ -920,9 +926,22 @@ export default function TradeIdeas({ quotes }) {
       {!loading && filtered.length === 0 && !error && (
         <div className="text-center py-16 text-nx-text-muted">
           <div className="text-lg mb-2">{TIMELINE_TABS.find(t => t.id === activeTimeline)?.icon}</div>
-          No {activeTimeline} trade ideas match the selected filters.
-          {activeTimeline === 'scalp' && <div className="text-2xs mt-2 text-nx-text-hint">Scalp signals require tight entry windows and high ATR percentile.</div>}
-          {activeTimeline === 'macro' && <div className="text-2xs mt-2 text-nx-text-hint">Macro signals are generated from regime shifts and correlation anomalies.</div>}
+          {expiredCount > 0 ? (
+            <>
+              All {activeTimeline} trade ideas have expired.
+              <div className="text-2xs mt-2 text-nx-text-hint">
+                <button onClick={() => setShowExpired(true)} className="text-nx-accent hover:underline mr-3">Show {expiredCount} expired</button>
+                or
+                <button onClick={fetchSignals} className="text-nx-accent hover:underline ml-3">Refresh signals</button>
+              </div>
+            </>
+          ) : (
+            <>
+              No {activeTimeline} trade ideas match the selected filters.
+              {activeTimeline === 'scalp' && <div className="text-2xs mt-2 text-nx-text-hint">Scalp signals require tight entry windows and high ATR percentile.</div>}
+              {activeTimeline === 'macro' && <div className="text-2xs mt-2 text-nx-text-hint">Macro signals are generated from regime shifts and correlation anomalies.</div>}
+            </>
+          )}
         </div>
       )}
 
