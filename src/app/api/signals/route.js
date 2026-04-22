@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { computeAlphaFactors } from '@/lib/alphaFactors'
 import { detectRegime } from '@/lib/regimeDetector'
 import { computeEnsemble } from '@/lib/ensembleEngine'
@@ -8,9 +9,6 @@ import { computeCorrelations } from '@/lib/correlationEngine'
 import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
 import { getParam as _getParam } from '@/lib/evolutionEngine'
 import * as strategyLibModule from '@/lib/strategyLibrary'
-
-// Using Node.js runtime (default) — Edge Runtime's bundler causes TDZ crashes
-// with stateful modules like evolutionEngine and adaptiveEngine.
 
 // Fetch candles from Yahoo Finance
 async function fetchCandles(symbol, range = '6mo', interval = '1d') {
@@ -642,6 +640,15 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   }
 
   // ================================================================
+  // HMM REGIME DETECTION — must run before strategy classification
+  // so regimeAnalysis is available for macro/regime-shift detection
+  // ================================================================
+  let regimeAnalysis = null
+  try {
+    regimeAnalysis = detectRegime(candles, closes, marketRegime || {})
+  } catch (e) { /* regime detection is non-critical */ }
+
+  // ================================================================
   // STEP 4: Strategy classification (with macro detection)
   // ================================================================
 
@@ -970,11 +977,9 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
   } catch (e) { /* alpha factors are non-critical */ }
 
   // ================================================================
-  // HMM REGIME DETECTION — probabilistic state identification
+  // HMM REGIME — confidence adjustments (detection moved earlier)
   // ================================================================
-  let regimeAnalysis = null
   try {
-    regimeAnalysis = detectRegime(candles, closes, marketRegime || {})
     if (regimeAnalysis) {
       // Strategy-regime alignment bonus
       const regimeStrategy = regimeAnalysis.recommendedStrategy
@@ -984,7 +989,7 @@ function generateSignal(candles, symbol, assetType, name, marketRegime, smartMon
       // High transition risk penalty
       if (regimeAnalysis.transitionRisk > 0.6) confidence -= 5
     }
-  } catch (e) { /* regime detection is non-critical */ }
+  } catch (e) { /* regime adjustments are non-critical */ }
 
   // ================================================================
   // ENSEMBLE STRATEGY ENGINE — multi-strategy consensus scoring
