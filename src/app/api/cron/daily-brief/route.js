@@ -1,5 +1,4 @@
-export const runtime = 'edge'
-
+// Node.js runtime (default) — Edge Runtime TDZ crashes with stateful modules
 import { initEvolutionEngine, evolve, getEvolutionReport } from '@/lib/evolutionEngine'
 
 // ============ IN-MEMORY BRIEF STORE ============

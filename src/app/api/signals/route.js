@@ -1,40 +1,16 @@
 import { NextResponse } from 'next/server'
+import { computeAlphaFactors } from '@/lib/alphaFactors'
+import { detectRegime } from '@/lib/regimeDetector'
+import { computeEnsemble } from '@/lib/ensembleEngine'
+import { computePositionSize } from '@/lib/positionSizer'
+import { analyzeSentiment } from '@/lib/sentimentEngine'
+import { computeCorrelations } from '@/lib/correlationEngine'
+import { initAdaptiveEngine, scoreSignalQuality, getAdaptiveWeights, classifyAsset } from '@/lib/adaptiveEngine'
+import { getParam as _getParam } from '@/lib/evolutionEngine'
+import * as strategyLibModule from '@/lib/strategyLibrary'
 
-// All lib modules loaded dynamically to avoid Edge Runtime TDZ bundling issues.
-// The Edge bundler converts function declarations to const assignments which
-// breaks hoisting when multiple stateful modules are combined.
-let _mods = null
-async function loadModules() {
-  if (_mods) return _mods
-  const [af, rd, ee, ps, se, ce, ae, ev, sl] = await Promise.all([
-    import('@/lib/alphaFactors'),
-    import('@/lib/regimeDetector'),
-    import('@/lib/ensembleEngine'),
-    import('@/lib/positionSizer'),
-    import('@/lib/sentimentEngine'),
-    import('@/lib/correlationEngine'),
-    import('@/lib/adaptiveEngine'),
-    import('@/lib/evolutionEngine'),
-    import('@/lib/strategyLibrary'),
-  ])
-  _mods = { af, rd, ee, ps, se, ce, ae, ev, sl }
-  return _mods
-}
-
-// Shims — initialized in GET handler via loadModules() before signal generation
-let _getParam = (_name) => undefined
-let computeAlphaFactors = () => null
-let detectRegime = () => null
-let computeEnsemble = () => null
-let computePositionSize = () => null
-let analyzeSentiment = async () => null
-let computeCorrelations = async () => null
-let initAdaptiveEngine = () => null
-let scoreSignalQuality = () => ({ grade: 'C', expectedValue: 50 })
-let getAdaptiveWeights = () => null
-let classifyAsset = () => 'equity'
-
-export const runtime = 'edge'
+// Using Node.js runtime (default) — Edge Runtime's bundler causes TDZ crashes
+// with stateful modules like evolutionEngine and adaptiveEngine.
 
 // Fetch candles from Yahoo Finance
 async function fetchCandles(symbol, range = '6mo', interval = '1d') {
@@ -1788,28 +1764,6 @@ export async function GET(request) {
   const singleSymbol = searchParams.get('symbol')
 
   try {
-    // ================================================================
-    // Dynamic module loading — avoids Edge Runtime TDZ errors
-    // ================================================================
-    let strategyLibModule = null
-    try {
-      const mods = await loadModules()
-      computeAlphaFactors = mods.af.computeAlphaFactors
-      detectRegime = mods.rd.detectRegime
-      computeEnsemble = mods.ee.computeEnsemble
-      computePositionSize = mods.ps.computePositionSize
-      analyzeSentiment = mods.se.analyzeSentiment
-      computeCorrelations = mods.ce.computeCorrelations
-      initAdaptiveEngine = mods.ae.initAdaptiveEngine
-      scoreSignalQuality = mods.ae.scoreSignalQuality
-      getAdaptiveWeights = mods.ae.getAdaptiveWeights
-      classifyAsset = mods.ae.classifyAsset
-      _getParam = mods.ev.getParam
-      strategyLibModule = mods.sl
-    } catch (e) {
-      console.error('Module loading error:', e.message)
-    }
-
     let adaptiveEngineStatus = null
     try {
       adaptiveEngineStatus = initAdaptiveEngine()
